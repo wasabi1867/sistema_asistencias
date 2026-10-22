@@ -21,7 +21,7 @@ final class Entorno
     private const TABLAS = [
         'alumnos', 'docentes', 'laboratoristas', 'administradores', 'materias', 'practicas',
         'equipos', 'asistencias', 'asistencias_historico', 'solicitudes_ingreso',
-        'notificaciones_admin', 'logs',
+        'notificaciones_admin', 'logs', 'clases', 'eventos_laboratorio',
     ];
 
     private static ?PDO $pdo = null;
@@ -49,7 +49,13 @@ final class Entorno
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
+        // La base se arma igual que en producción: schema.sql y luego las migraciones.
         self::$pdo->exec(file_get_contents($raiz . '/schema.sql'));
+        $migraciones = glob($raiz . '/db/migraciones/*.sql');
+        sort($migraciones);
+        foreach ($migraciones as $migracion) {
+            self::$pdo->exec(file_get_contents($migracion));
+        }
 
         self::$carpetaTemporal = sys_get_temp_dir() . DIRECTORY_SEPARATOR . self::$base;
         mkdir(self::$carpetaTemporal . DIRECTORY_SEPARATOR . 'sesiones', 0777, true);

@@ -6,6 +6,11 @@ require_once __DIR__ . '/db.php';
 // matrículas están registrados.
 const HASH_SIN_USUARIO = '$2y$10$1YLOyolUXqdygSxyqSavF.zUqKcQ9K23cYsO7f5Bnlq3wRX7zFxJS';
 
+// Intentos fallidos permitidos desde una misma dirección antes de hacerla esperar.
+// Alcanza para equivocarse varias veces, pero no para probar contraseñas en masa.
+const MAXIMO_INTENTOS_FALLIDOS = 10;
+const MINUTOS_DE_ESPERA = 15;
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
@@ -19,6 +24,9 @@ switch ($method) {
         break;
 
     case 'DELETE':
+        if ($usuario = usuarioEnSesion()) {
+            registrarEnBitacora(getDBConnection(), "Cerrar Sesión", "{$usuario['nombre']} ({$usuario['rol']})");
+        }
         cerrarSesion();
         sendResponse(["success" => true, "message" => "Sesión cerrada"]);
         break;
@@ -40,10 +48,18 @@ if (!$email || !$password) {
 }
 
 $pdo = getDBConnection();
+$ip = $_SERVER['REMOTE_ADDR'] ?? '';
+
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM logs WHERE accion = 'Inicio de sesión fallido' AND ip = ? AND fecha > NOW() - INTERVAL " . MINUTOS_DE_ESPERA . " MINUTE");
+$stmt->execute([$ip]);
+if ($stmt->fetchColumn() >= MAXIMO_INTENTOS_FALLIDOS) {
+    sendResponse(["success" => false, "error" => "Demasiados intentos fallidos. Espera " . MINUTOS_DE_ESPERA . " minutos e inténtalo de nuevo"], 429);
+}
 
 if ($role === 'admin') {
-    $stmt = $pdo->prepare("SELECT id, email, nombre, password, rol FROM administradores WHERE email = ? LIMIT 1");
-    $stmt->execute([$email]);
+    // Con correo o con matrícula, como en la versión con Firebase.
+    $stmt = $pdo->prepare("SELECT id, matricula, email, nombre, apellido, password, rol FROM administradores WHERE email = ? OR matricula = ? LIMIT 1");
+    $stmt->execute([$email, $email]);
 } elseif ($role === 'laboratorista') {
     $stmt = $pdo->prepare("SELECT matricula, nombre, apellido, email, password FROM laboratoristas WHERE email = ? OR matricula = ? LIMIT 1");
     $stmt->execute([$email, $email]);
@@ -59,6 +75,7 @@ $user = $stmt->fetch() ?: null;
 // Se verifica aunque el usuario no exista (ver HASH_SIN_USUARIO).
 $valida = contrasenaCorrecta($pdo, $role, $user, $password);
 if (!$user || !$valida) {
+    registrarEnBitacora($pdo, "Inicio de sesión fallido", "Rol $role", null, mb_substr($email, 0, 100));
     sendResponse(["success" => false, "error" => "Credenciales incorrectas"], 401);
 }
 
@@ -66,6 +83,7 @@ unset($user['password']);
 $id = $role === 'admin' ? (string)$user['id'] : $user['matricula'];
 $nombre = trim(($user['nombre'] ?? '') . ' ' . ($user['apellido'] ?? ''));
 iniciarSesion($role, $id, $nombre, $user['email'] ?? '');
+registrarEnBitacora($pdo, "Inicio de Sesión", "Rol $role", null, "$nombre ($role)");
 
 sendResponse([
     "success" => true,

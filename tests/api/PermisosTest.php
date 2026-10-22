@@ -20,12 +20,13 @@ final class PermisosTest extends PruebaDeApi
     {
         parent::setUp();
         $this->crearCuentas();
-        $this->crearAlumno('A1');
+        $this->crearAlumno('A1', 'Ana', 'Alumna', ['M1']);
         $this->crearAlumno('A2');
         $this->crearEquipos();
-        $this->insertar('materias', ['id' => 'M1', 'nombre_materia' => 'Programación Web', 'docente_id' => self::MATRICULA_DOCENTE]);
-        $this->insertar('practicas', ['id' => 1, 'materia_id' => 'M1', 'titulo' => 'Práctica 1']);
-        $this->insertar('asistencias', ['id' => 1, 'alumno_id' => 'A2', 'nombre' => 'Ana', 'apellido' => 'Alumna', 'equipo_id' => 'PC-1']);
+        $this->crearMateria('M1');
+        $this->abrirClase();
+        $this->insertar('asistencias', ['id' => 1, 'alumno_id' => 'A2', 'nombre' => 'Ana', 'apellido' => 'Alumna', 'equipo_id' => 'PC-1', 'clase_id' => 1]);
+        $this->insertar('eventos_laboratorio', ['id' => 1, 'nombre' => 'Hackatón']);
         $this->insertar('solicitudes_ingreso', ['id' => 1, 'alumno_id' => 'A1', 'nombre' => 'Ana', 'motivo' => 'Terminar práctica']);
         $this->insertar('notificaciones_admin', ['id' => 1, 'tipo' => 'general', 'titulo' => 'Aviso', 'mensaje' => 'Mensaje']);
     }
@@ -73,6 +74,27 @@ final class PermisosTest extends PruebaDeApi
             'marcar notificaciones leídas' => ['PUT', 'notificaciones.php', ['id' => 1], self::ADMIN],
 
             'consultar estadísticas' => ['GET', 'stats.php', null, self::TODOS],
+
+            'ver las clases abiertas' => ['GET', 'clases.php?abiertas=1&laboratorio=programacion', null, self::PUBLICA],
+            'consultar clases' => ['GET', 'clases.php', null, self::TODOS],
+            'consultar una clase' => ['GET', 'clases.php?id=1', null, self::TODOS],
+            'abrir una clase regular' => ['POST', 'clases.php?action=abrir', ['laboratorio' => 'redes', 'materia_id' => 'M1', 'practica_id' => 1], self::ADMIN_Y_SU_DOCENTE],
+            'abrir una clase de invitado' => ['POST', 'clases.php?action=abrir', ['laboratorio' => 'redes', 'tipo' => 'invitado', 'docente' => 'Iris Invitada', 'materia' => 'Física', 'practica' => 'Óptica'], self::PERSONAL],
+            'cerrar una clase' => ['POST', 'clases.php?action=cerrar', ['id' => 1], self::TODOS],
+
+            'cambio masivo de alumnos' => ['POST', 'alumnos.php?action=cambio_masivo', ['carrera' => 'Sistemas', 'semestre' => '5', 'nuevo_semestre' => '6'], self::PERSONAL],
+            'agregar un equipo' => ['POST', 'equipos.php?action=crear', ['id' => 'PC-9', 'laboratorio' => 'programacion'], self::ADMIN],
+            'quitar un equipo' => ['DELETE', 'equipos.php?id=PC-3&laboratorio=programacion', null, self::ADMIN],
+
+            'consultar eventos' => ['GET', 'eventos.php', null, self::TODOS],
+            'guardar un evento' => ['POST', 'eventos.php', ['nombre' => 'Taller de Linux', 'fecha' => '2026-11-05'], self::PERSONAL],
+            'borrar un evento' => ['DELETE', 'eventos.php?id=1', null, self::PERSONAL],
+
+            'consultar administradores' => ['GET', 'administradores.php', null, self::ADMIN],
+            'guardar un administrador' => ['POST', 'administradores.php', ['nombre' => 'Otra', 'email' => 'otra@pruebas.test', 'password' => 'contrasena-segura'], self::ADMIN],
+            'borrar un administrador' => ['DELETE', 'administradores.php?id=99', null, self::ADMIN],
+
+            'consultar la bitácora' => ['GET', 'bitacora.php', null, self::ADMIN],
         ];
     }
 

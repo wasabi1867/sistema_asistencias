@@ -77,6 +77,9 @@ switch ($method) {
         }
         $stmt = $pdo->prepare("DELETE FROM docentes WHERE matricula = ?");
         $stmt->execute([$matricula]);
+        if ($stmt->rowCount()) {
+            registrarEnBitacora($pdo, "Eliminar Docente", (string)$matricula);
+        }
         sendResponse(["success" => true, "message" => "Docente eliminado"]);
         break;
 

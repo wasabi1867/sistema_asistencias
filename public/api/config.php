@@ -30,4 +30,9 @@ define('DB_PASS', leerConfiguracion($configLocal, 'db_pass', 'ASISTENCIAS_DB_PAS
 $origenes = leerConfiguracion($configLocal, 'origenes_permitidos', 'ASISTENCIAS_ORIGENES_PERMITIDOS', '');
 define('ORIGENES_PERMITIDOS', array_values(array_filter(array_map('trim', explode(',', $origenes)))));
 
+// Puerto Peñasco está en la zona de Sonora: UTC-7 todo el año, sin horario de verano.
+// El servidor de Hostinger puede estar en otra zona; las horas de entrada y salida
+// se guardan en esta.
+define('ZONA_HORARIA', leerConfiguracion($configLocal, 'zona_horaria', 'ASISTENCIAS_ZONA_HORARIA', 'America/Hermosillo'));
+
 unset($configLocal, $origenes);

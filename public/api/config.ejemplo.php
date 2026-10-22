@@ -13,4 +13,7 @@ return [
     // Solo si el frontend se sirve desde otro dominio, por ejemplo durante el
     // desarrollo con `npm run dev`: 'http://localhost:3000'
     'origenes_permitidos' => '',
+
+    // Zona horaria en que se guardan las horas de entrada y salida.
+    'zona_horaria' => 'America/Hermosillo',
 ];

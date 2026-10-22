@@ -117,6 +117,52 @@ final class AutenticacionTest extends PruebaDeApi
         $this->assertSame(401, $otro->get('alumnos.php')->estado);
     }
 
+    public function test_demasiados_intentos_fallidos_hacen_esperar(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            (new Cliente())->post('auth.php', ['email' => self::CORREO_ADMIN, 'password' => "intento-$i", 'role' => 'admin']);
+        }
+
+        // Aun con la contraseña correcta: desde esa dirección hay que esperar.
+        $respuesta = (new Cliente())->post('auth.php', ['email' => self::CORREO_ADMIN, 'password' => self::CONTRASENA, 'role' => 'admin']);
+
+        $this->assertSame(429, $respuesta->estado);
+        $this->assertSame(10, (int)$this->valor("SELECT COUNT(*) FROM logs WHERE accion = 'Inicio de sesión fallido'"));
+    }
+
+    public function test_los_intentos_viejos_no_cuentan(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            (new Cliente())->post('auth.php', ['email' => self::CORREO_ADMIN, 'password' => "intento-$i", 'role' => 'admin']);
+        }
+        $this->pdo()->exec("UPDATE logs SET fecha = NOW() - INTERVAL 16 MINUTE");
+
+        $respuesta = (new Cliente())->post('auth.php', ['email' => self::CORREO_ADMIN, 'password' => self::CONTRASENA, 'role' => 'admin']);
+
+        $this->assertSame(200, $respuesta->estado);
+    }
+
+    public function test_el_administrador_tambien_entra_con_su_matricula(): void
+    {
+        $this->pdo()->exec("UPDATE administradores SET matricula = 'ADM01'");
+
+        $respuesta = (new Cliente())->post('auth.php', ['email' => 'ADM01', 'password' => self::CONTRASENA, 'role' => 'admin']);
+
+        $this->assertSame(200, $respuesta->estado, (string)$respuesta);
+    }
+
+    public function test_entrar_y_salir_queda_en_la_bitacora(): void
+    {
+        $cliente = $this->con('docente');
+        $cliente->delete('auth.php');
+
+        $acciones = $this->pdo()->query("SELECT accion, usuario FROM logs ORDER BY id")->fetchAll();
+        $this->assertSame([
+            ['accion' => 'Inicio de Sesión', 'usuario' => 'Diego Docente (docente)'],
+            ['accion' => 'Cerrar Sesión', 'usuario' => 'Diego Docente (docente)'],
+        ], $acciones);
+    }
+
     public function test_no_acepta_un_identificador_de_sesion_inventado(): void
     {
         $cliente = new Cliente();

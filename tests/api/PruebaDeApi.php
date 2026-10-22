@@ -57,12 +57,30 @@ abstract class PruebaDeApi extends TestCase
         $this->insertar('docentes', ['matricula' => self::MATRICULA_DOCENTE, 'nombre' => 'Diego', 'apellido' => 'Docente', 'email' => 'diego@pruebas.test', 'password' => $hash]);
     }
 
-    protected function crearAlumno(string $matricula = '23303001', string $nombre = 'Ana', string $apellido = 'Alumna'): void
+    protected function crearAlumno(string $matricula = '23303001', string $nombre = 'Ana', string $apellido = 'Alumna', array $materias = []): void
     {
         $this->insertar('alumnos', [
             'matricula' => $matricula, 'nombre' => $nombre, 'apellido' => $apellido,
             'carrera' => 'Sistemas', 'semestre' => '5', 'turno' => 'Matutino', 'grupo' => 'A',
+            'materias' => json_encode($materias),
         ]);
+    }
+
+    /** Una materia del docente de pruebas, con una práctica (id = $practicaId). */
+    protected function crearMateria(string $id = 'M1', string $nombre = 'Programación Web', ?string $docente = self::MATRICULA_DOCENTE, int $practicaId = 1): void
+    {
+        $this->insertar('materias', ['id' => $id, 'nombre_materia' => $nombre, 'docente_id' => $docente]);
+        $this->insertar('practicas', ['id' => $practicaId, 'materia_id' => $id, 'numero_practica' => '1', 'titulo' => "Práctica de $nombre"]);
+    }
+
+    /** Abre una clase directo en la base y devuelve su id. */
+    protected function abrirClase(string $laboratorio = 'programacion', string $tipo = 'regular', ?string $materiaId = 'M1', ?string $docenteId = self::MATRICULA_DOCENTE): int
+    {
+        $this->insertar('clases', [
+            'laboratorio' => $laboratorio, 'tipo' => $tipo, 'materia_id' => $tipo === 'regular' ? $materiaId : null,
+            'materia' => 'Programación Web', 'practica' => 'Práctica 1', 'docente_id' => $docenteId, 'docente' => 'Diego Docente',
+        ]);
+        return (int)$this->pdo()->lastInsertId();
     }
 
     protected function crearEquipos(string $laboratorio = 'programacion', int $cuantos = 3): void

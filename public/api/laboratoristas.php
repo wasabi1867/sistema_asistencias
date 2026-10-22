@@ -63,6 +63,9 @@ switch ($method) {
         }
         $stmt = $pdo->prepare("DELETE FROM laboratoristas WHERE matricula = ?");
         $stmt->execute([$matricula]);
+        if ($stmt->rowCount()) {
+            registrarEnBitacora($pdo, "Eliminar Laboratorista", (string)$matricula);
+        }
         sendResponse(["success" => true, "message" => "Laboratorista eliminado"]);
         break;
 

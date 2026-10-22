@@ -12,14 +12,14 @@ switch ($method) {
         $conSesion = $usuario !== null;
         try {
             $lab = $_GET['laboratorio'] ?? 'programacion';
-            $stmt = $pdo->prepare("SELECT id, laboratorio, fuera_de_servicio, en_uso, usuario_actual, notas, estado_reparacion, comentario_estado, actualizado_en 
-                                   FROM equipos 
-                                   WHERE laboratorio = ? 
-                                   ORDER BY 
-                                   CASE 
-                                     WHEN id = 'personal' THEN 0 
-                                     ELSE 1 
-                                   END, 
+            $stmt = $pdo->prepare("SELECT id, laboratorio, fuera_de_servicio, en_uso, usuario_actual, notas, estado_reparacion, comentario_estado, actualizado_en
+                                   FROM equipos
+                                   WHERE laboratorio = ?
+                                   ORDER BY
+                                   CASE
+                                     WHEN id = 'personal' THEN 0
+                                     ELSE 1
+                                   END,
                                    id");
             $stmt->execute([$lab]);
             $equipos = $stmt->fetchAll();
@@ -63,6 +63,23 @@ switch ($method) {
     case 'PUT':
         requerirRol(ROLES_PERSONAL);
         $data = getJsonInput();
+
+        if (($_GET['action'] ?? '') === 'crear') {
+            // Agregar un equipo al laboratorio. Solo el administrador.
+            requerirRol(ROLES_ADMIN);
+            $id = trim($data['id'] ?? '');
+            $lab = trim($data['laboratorio'] ?? 'programacion');
+            if (!$id || mb_strlen($id) > 50) {
+                sendResponse(["success" => false, "error" => "Identificador de equipo requerido (hasta 50 caracteres)"], 400);
+            }
+            $stmt = $pdo->prepare("INSERT IGNORE INTO equipos (id, laboratorio) VALUES (?, ?)");
+            $stmt->execute([$id, $lab]);
+            if (!$stmt->rowCount()) {
+                sendResponse(["success" => false, "error" => "Ya existe el equipo $id en este laboratorio"], 409);
+            }
+            registrarEnBitacora($pdo, "Agregar Equipo", $id, $lab);
+            sendResponse(["success" => true, "message" => "Equipo agregado"]);
+        }
         $id = $data['id'] ?? '';
         $lab = $data['laboratorio'] ?? 'programacion';
 
@@ -110,6 +127,24 @@ switch ($method) {
         $stmt->execute($params);
 
         sendResponse(["success" => true, "message" => "Equipo actualizado correctamente"]);
+        break;
+
+    case 'DELETE':
+        requerirRol(ROLES_ADMIN);
+        $id = $_GET['id'] ?? '';
+        $lab = $_GET['laboratorio'] ?? 'programacion';
+        $stmt = $pdo->prepare("SELECT en_uso FROM equipos WHERE id = ? AND laboratorio = ?");
+        $stmt->execute([$id, $lab]);
+        $enUso = $stmt->fetchColumn();
+        if ($enUso === false) {
+            sendResponse(["success" => false, "error" => "Equipo no encontrado"], 404);
+        }
+        if ($enUso) {
+            sendResponse(["success" => false, "error" => "No se puede quitar un equipo que alguien está usando"], 409);
+        }
+        $pdo->prepare("DELETE FROM equipos WHERE id = ? AND laboratorio = ?")->execute([$id, $lab]);
+        registrarEnBitacora($pdo, "Quitar Equipo", (string)$id, $lab);
+        sendResponse(["success" => true, "message" => "Equipo quitado"]);
         break;
 
     default:
