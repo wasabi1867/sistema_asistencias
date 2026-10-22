@@ -6,6 +6,10 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
+        // Pública: el alumno elige su equipo sin iniciar sesión. Pero quién ocupa cada
+        // equipo y las notas de reparación solo se ven con sesión.
+        $usuario = usuarioEnSesion();
+        $conSesion = $usuario !== null;
         try {
             $lab = $_GET['laboratorio'] ?? 'programacion';
             $stmt = $pdo->prepare("SELECT id, laboratorio, fuera_de_servicio, en_uso, usuario_actual, notas, estado_reparacion, comentario_estado, actualizado_en 
@@ -20,8 +24,10 @@ switch ($method) {
             $stmt->execute([$lab]);
             $equipos = $stmt->fetchAll();
 
-            // Si no existen equipos para este laboratorio, inicializamos automáticamente PC-1 a PC-25
-            if (empty($equipos)) {
+            // Si no existen equipos para este laboratorio, inicializamos automáticamente PC-1 a PC-25.
+            // Solo con sesión del personal: si no, cualquiera podía crear 26 equipos en un
+            // laboratorio inventado con solo pedir ?laboratorio=lo-que-sea.
+            if (empty($equipos) && $usuario !== null && in_array($usuario['rol'], ROLES_PERSONAL, true)) {
                 $insert = $pdo->prepare("INSERT INTO equipos (id, laboratorio, fuera_de_servicio, en_uso) VALUES (?, ?, 0, 0) ON DUPLICATE KEY UPDATE laboratorio = laboratorio");
                 $insert->execute(['personal', $lab]);
                 for ($i = 1; $i <= 25; $i++) {
@@ -31,20 +37,21 @@ switch ($method) {
                 $equipos = $stmt->fetchAll();
             }
         } catch (Exception $e) {
-            sendResponse(["success" => false, "error" => $e->getMessage()], 500);
+            error_log('API asistencias: ' . $e);
+            sendResponse(["success" => false, "error" => "No se pudieron consultar los equipos"], 500);
         }
 
         // Formatear booleanos para compatibilidad con la app React
-        $formateados = array_map(function($e) {
+        $formateados = array_map(function($e) use ($conSesion) {
             return [
                 "id" => $e['id'],
                 "laboratorio" => $e['laboratorio'],
                 "fueraDeServicio" => (bool)$e['fuera_de_servicio'],
                 "enUso" => (bool)$e['en_uso'],
-                "usuarioActual" => $e['usuario_actual'],
-                "notas" => $e['notas'] ?? '',
+                "usuarioActual" => $conSesion ? $e['usuario_actual'] : null,
+                "notas" => $conSesion ? ($e['notas'] ?? '') : '',
                 "estadoReparacion" => $e['estado_reparacion'] ?? 'ninguno',
-                "comentarioEstado" => $e['comentario_estado'] ?? '',
+                "comentarioEstado" => $conSesion ? ($e['comentario_estado'] ?? '') : '',
                 "ultimaActualizacion" => $e['actualizado_en']
             ];
         }, $equipos);
@@ -54,6 +61,7 @@ switch ($method) {
 
     case 'POST':
     case 'PUT':
+        requerirRol(ROLES_PERSONAL);
         $data = getJsonInput();
         $id = $data['id'] ?? '';
         $lab = $data['laboratorio'] ?? 'programacion';

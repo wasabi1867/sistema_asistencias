@@ -1,0 +1,36 @@
+# Pruebas de la API en PHP (public/api) contra una base MariaDB real.
+name: API PHP
+
+on:
+  push:
+    branches: [main]
+    paths: ['public/api/**', 'tests/api/**', 'schema.sql', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
+  pull_request:
+    paths: ['public/api/**', 'tests/api/**', 'schema.sql', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: pruebas
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, curl, mbstring
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpunit
+        env:
+          ASISTENCIAS_PRUEBAS_DB_HOST: 127.0.0.1
+          ASISTENCIAS_PRUEBAS_DB_PORT: 3306
+          ASISTENCIAS_PRUEBAS_DB_USER: root
+          ASISTENCIAS_PRUEBAS_DB_PASS: pruebas

@@ -7,6 +7,7 @@ $action = $_GET['action'] ?? 'activas';
 
 switch ($method) {
     case 'GET':
+        requerirRol(ROLES_TODOS);
         if ($action === 'historico') {
             $fechaInicio = $_GET['fecha_inicio'] ?? null;
             $fechaFin = $_GET['fecha_fin'] ?? null;
@@ -77,7 +78,9 @@ switch ($method) {
         $data = getJsonInput();
 
         if ($action === 'salida') {
-            // Registrar salida de un usuario
+            // Registrar salida de un usuario. La registra el personal desde la lista de
+            // asistencia; sin sesión, cualquiera podía sacar a otro del laboratorio.
+            requerirRol(ROLES_TODOS);
             $asistenciaId = $data['id'] ?? null;
             $equipoId = $data['equipo'] ?? $data['equipo_id'] ?? null;
             $lab = $data['laboratorio'] ?? 'programacion';
@@ -132,7 +135,7 @@ switch ($method) {
 
             sendResponse(["success" => true, "message" => "Salida registrada con éxito"]);
         } else {
-            // Registrar entrada (check-in)
+            // Registrar entrada (check-in). Es pública: el alumno no inicia sesión.
             $alumnoId = trim($data['AlumnoId'] ?? $data['alumno_id'] ?? '');
             $nombre = trim($data['Nombre'] ?? $data['nombre'] ?? '');
             $apellido = trim($data['Apellido'] ?? $data['apellido'] ?? '');
@@ -148,13 +151,45 @@ switch ($method) {
             if (!$alumnoId || !$equipoId) {
                 sendResponse(["success" => false, "error" => "Matrícula/ID y Equipo son obligatorios"], 400);
             }
+            if (!in_array($tipoUsuario, ['estudiante', 'docente', 'invitado'], true)) {
+                sendResponse(["success" => false, "error" => "Tipo de usuario no válido"], 400);
+            }
 
-            // Verificar si el equipo está fuera de servicio
+            // Los datos del alumno o docente salen de la base, no de lo que mande el
+            // navegador: si no, cualquiera podía registrar asistencia con el nombre que
+            // quisiera. Solo el invitado, que no está en la base, da su nombre.
+            if ($tipoUsuario === 'estudiante') {
+                $stmt = $pdo->prepare("SELECT nombre, apellido, carrera, semestre, turno, grupo FROM alumnos WHERE matricula = ?");
+                $stmt->execute([$alumnoId]);
+                $registrado = $stmt->fetch();
+                if (!$registrado) {
+                    sendResponse(["success" => false, "error" => "Matrícula no encontrada"], 404);
+                }
+                ['nombre' => $nombre, 'apellido' => $apellido, 'carrera' => $carrera,
+                 'semestre' => $semestre, 'turno' => $turno, 'grupo' => $grupo] = $registrado;
+            } elseif ($tipoUsuario === 'docente') {
+                $stmt = $pdo->prepare("SELECT nombre, apellido FROM docentes WHERE matricula = ?");
+                $stmt->execute([$alumnoId]);
+                $registrado = $stmt->fetch();
+                if (!$registrado) {
+                    sendResponse(["success" => false, "error" => "Docente no encontrado"], 404);
+                }
+                ['nombre' => $nombre, 'apellido' => $apellido] = $registrado;
+                $carrera = $semestre = $turno = $grupo = '';
+            } elseif (!$nombre || !$apellido) {
+                sendResponse(["success" => false, "error" => "Nombre y apellido son obligatorios para un invitado"], 400);
+            }
+
+            // Verificar que el equipo exista y no esté fuera de servicio. Antes, un equipo
+            // que no existía se creaba al registrarse: cualquiera podía inventar equipos.
             $eqCheck = $pdo->prepare("SELECT fuera_de_servicio, en_uso FROM equipos WHERE id = ? AND laboratorio = ?");
             $eqCheck->execute([$equipoId, $lab]);
             $eq = $eqCheck->fetch();
 
-            if ($eq && $eq['fuera_de_servicio']) {
+            if (!$eq) {
+                sendResponse(["success" => false, "error" => "El equipo $equipoId no existe en este laboratorio"], 400);
+            }
+            if ($eq['fuera_de_servicio']) {
                 sendResponse(["success" => false, "error" => "El equipo $equipoId está fuera de servicio"], 400);
             }
 
@@ -164,12 +199,11 @@ switch ($method) {
             $insStmt->execute([$alumnoId, $nombre, $apellido, $carrera, $semestre, $turno, $grupo, $equipoId, $lab, $tipoUsuario, $materiaId ?: null]);
             $nuevoId = $pdo->lastInsertId();
 
-            // Marcar equipo como en uso
+            // Marcar equipo como en uso. 'personal' es el equipo propio de cada quien:
+            // lo comparten muchos a la vez, así que no se marca.
             $nombreUsuario = trim("$nombre $apellido ($alumnoId)");
-            $updEq = $pdo->prepare("INSERT INTO equipos (id, laboratorio, fuera_de_servicio, en_uso, usuario_actual) 
-                VALUES (?, ?, 0, 1, ?) 
-                ON DUPLICATE KEY UPDATE en_uso = 1, usuario_actual = VALUES(usuario_actual)");
-            $updEq->execute([$equipoId, $lab, $nombreUsuario]);
+            $updEq = $pdo->prepare("UPDATE equipos SET en_uso = 1, usuario_actual = ? WHERE id = ? AND laboratorio = ? AND id <> 'personal'");
+            $updEq->execute([$nombreUsuario, $equipoId, $lab]);
 
             sendResponse([
                 "success" => true,
@@ -180,6 +214,7 @@ switch ($method) {
         break;
 
     case 'DELETE':
+        requerirRol(ROLES_TODOS);
         $id = $_GET['id'] ?? null;
         if (!$id) {
             sendResponse(["success" => false, "error" => "ID requerido"], 400);

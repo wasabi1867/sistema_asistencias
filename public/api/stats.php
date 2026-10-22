@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/db.php';
 
+requerirRol(ROLES_TODOS);
+
 $pdo = getDBConnection();
 $lab = $_GET['laboratorio'] ?? 'programacion';
 
@@ -38,5 +40,6 @@ try {
         ]
     ]);
 } catch (Exception $e) {
-    sendResponse(["success" => false, "error" => $e->getMessage()], 500);
+    error_log('API asistencias: ' . $e);
+    sendResponse(["success" => false, "error" => "No se pudieron calcular las estadísticas"], 500);
 }

@@ -1,10 +1,33 @@
 <?php
 require_once __DIR__ . '/db.php';
 
+// Hash de una contraseña al azar que nadie conoce. Se compara contra él cuando el
+// usuario no existe, para que la respuesta tarde lo mismo y no delate qué correos o
+// matrículas están registrados.
+const HASH_SIN_USUARIO = '$2y$10$1YLOyolUXqdygSxyqSavF.zUqKcQ9K23cYsO7f5Bnlq3wRX7zFxJS';
+
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method !== 'POST') {
-    sendResponse(["success" => false, "error" => "Método no permitido"], 405);
+switch ($method) {
+    case 'GET':
+        // Quién tiene la sesión abierta; el frontend lo usa al cargar la página.
+        $usuario = usuarioEnSesion();
+        if ($usuario === null) {
+            sendResponse(["success" => false, "error" => "No hay sesión iniciada"], 401);
+        }
+        sendResponse(["success" => true, "user" => $usuario, "role" => $usuario['rol']]);
+        break;
+
+    case 'DELETE':
+        cerrarSesion();
+        sendResponse(["success" => true, "message" => "Sesión cerrada"]);
+        break;
+
+    case 'POST':
+        break;
+
+    default:
+        sendResponse(["success" => false, "error" => "Método no permitido"], 405);
 }
 
 $data = getJsonInput();
@@ -18,49 +41,72 @@ if (!$email || !$password) {
 
 $pdo = getDBConnection();
 
-try {
-    if ($role === 'admin') {
-        $stmt = $pdo->prepare("SELECT id, email, nombre, password, rol FROM administradores WHERE email = ? LIMIT 1");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch();
+if ($role === 'admin') {
+    $stmt = $pdo->prepare("SELECT id, email, nombre, password, rol FROM administradores WHERE email = ? LIMIT 1");
+    $stmt->execute([$email]);
+} elseif ($role === 'laboratorista') {
+    $stmt = $pdo->prepare("SELECT matricula, nombre, apellido, email, password FROM laboratoristas WHERE email = ? OR matricula = ? LIMIT 1");
+    $stmt->execute([$email, $email]);
+} elseif ($role === 'docente') {
+    $stmt = $pdo->prepare("SELECT matricula, nombre, apellido, email, password, departamento FROM docentes WHERE email = ? OR matricula = ? LIMIT 1");
+    $stmt->execute([$email, $email]);
+} else {
+    sendResponse(["success" => false, "error" => "Rol no válido"], 400);
+}
 
-        if ($user && (password_verify($password, $user['password']) || $user['password'] === $password)) {
-            unset($user['password']);
-            sendResponse([
-                "success" => true,
-                "user" => $user,
-                "role" => "admin"
-            ]);
-        }
-    } elseif ($role === 'laboratorista') {
-        $stmt = $pdo->prepare("SELECT matricula, nombre, apellido, email, password FROM laboratoristas WHERE email = ? OR matricula = ? LIMIT 1");
-        $stmt->execute([$email, $email]);
-        $user = $stmt->fetch();
+$user = $stmt->fetch() ?: null;
 
-        if ($user && (password_verify($password, $user['password']) || $user['password'] === $password)) {
-            unset($user['password']);
-            sendResponse([
-                "success" => true,
-                "user" => $user,
-                "role" => "laboratorista"
-            ]);
-        }
-    } elseif ($role === 'docente') {
-        $stmt = $pdo->prepare("SELECT matricula, nombre, apellido, email, password, departamento FROM docentes WHERE email = ? OR matricula = ? LIMIT 1");
-        $stmt->execute([$email, $email]);
-        $user = $stmt->fetch();
+// Se verifica aunque el usuario no exista (ver HASH_SIN_USUARIO).
+$valida = contrasenaCorrecta($pdo, $role, $user, $password);
+if (!$user || !$valida) {
+    sendResponse(["success" => false, "error" => "Credenciales incorrectas"], 401);
+}
 
-        if ($user && (password_verify($password, $user['password']) || $user['password'] === $password)) {
-            unset($user['password']);
-            sendResponse([
-                "success" => true,
-                "user" => $user,
-                "role" => "docente"
-            ]);
+unset($user['password']);
+$id = $role === 'admin' ? (string)$user['id'] : $user['matricula'];
+$nombre = trim(($user['nombre'] ?? '') . ' ' . ($user['apellido'] ?? ''));
+iniciarSesion($role, $id, $nombre, $user['email'] ?? '');
+
+sendResponse([
+    "success" => true,
+    "user" => $user,
+    "role" => $role
+]);
+
+/**
+ * Verifica la contraseña. Si estaba guardada en texto plano (cuentas que vienen de
+ * antes de cifrar), la acepta esta única vez y la guarda cifrada, para no dejar fuera
+ * a nadie y que después ya no quede ninguna en claro.
+ */
+function contrasenaCorrecta(PDO $pdo, string $role, ?array $user, string $password): bool {
+    $guardada = (string)($user['password'] ?? '');
+
+    if (password_get_info($guardada)['algo'] !== null) {
+        if (!password_verify($password, $guardada)) {
+            return false;
         }
+        if (password_needs_rehash($guardada, PASSWORD_DEFAULT)) {
+            guardarContrasena($pdo, $role, $user, $password);
+        }
+        return true;
     }
 
-    sendResponse(["success" => false, "error" => "Credenciales incorrectas"], 401);
-} catch (Exception $e) {
-    sendResponse(["success" => false, "error" => $e->getMessage()], 500);
+    // Texto plano (o cuenta sin contraseña): gastar el mismo tiempo que un hash.
+    password_verify($password, HASH_SIN_USUARIO);
+    if ($guardada === '' || !hash_equals($guardada, $password)) {
+        return false;
+    }
+    guardarContrasena($pdo, $role, $user, $password);
+    return true;
+}
+
+function guardarContrasena(PDO $pdo, string $role, array $user, string $password): void {
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    if ($role === 'admin') {
+        $pdo->prepare("UPDATE administradores SET password = ? WHERE id = ?")->execute([$hash, $user['id']]);
+    } elseif ($role === 'laboratorista') {
+        $pdo->prepare("UPDATE laboratoristas SET password = ? WHERE matricula = ?")->execute([$hash, $user['matricula']]);
+    } else {
+        $pdo->prepare("UPDATE docentes SET password = ? WHERE matricula = ?")->execute([$hash, $user['matricula']]);
+    }
 }

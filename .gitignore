@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# API en PHP
+# Datos reales de conexión: solo existen en el servidor y en cada máquina (ver public/api/config.ejemplo.php)
+public/api/config.local.php
+# Dependencias y caché de las pruebas (composer install, vendor/bin/phpunit)
+/vendor
+/.phpunit.cache

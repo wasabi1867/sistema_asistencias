@@ -6,6 +6,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
+        requerirRol(ROLES_TODOS);
         $matricula = $_GET['matricula'] ?? null;
         if ($matricula) {
             $stmt = $pdo->prepare("SELECT matricula, nombre, apellido, email, departamento FROM docentes WHERE matricula = ?");
@@ -23,30 +24,49 @@ switch ($method) {
         break;
 
     case 'POST':
+        requerirRol(ROLES_ADMIN);
         $data = getJsonInput();
         $matricula = trim($data['Matricula'] ?? $data['matricula'] ?? '');
         $nombre = trim($data['Nombre'] ?? $data['nombre'] ?? '');
         $apellido = trim($data['Apellido'] ?? $data['apellido'] ?? '');
         $email = trim($data['Email'] ?? $data['email'] ?? '');
-        $password = trim($data['Contraseña'] ?? $data['password'] ?? '123456');
+        $password = trim($data['Contraseña'] ?? $data['password'] ?? '');
         $departamento = trim($data['Departamento'] ?? $data['departamento'] ?? '');
 
         if (!$matricula || !$nombre || !$apellido) {
             sendResponse(["success" => false, "error" => "Matrícula, nombre y apellido son requeridos"], 400);
         }
 
-        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+        $existe = $pdo->prepare("SELECT COUNT(*) FROM docentes WHERE matricula = ?");
+        $existe->execute([$matricula]);
+        $esNuevo = !$existe->fetchColumn();
 
-        $stmt = $pdo->prepare("INSERT INTO docentes (matricula, nombre, apellido, email, password, departamento) 
-            VALUES (?, ?, ?, ?, ?, ?) 
-            ON DUPLICATE KEY UPDATE 
-            nombre = VALUES(nombre), apellido = VALUES(apellido), email = VALUES(email), 
-            password = VALUES(password), departamento = VALUES(departamento)");
-        $stmt->execute([$matricula, $nombre, $apellido, $email, $passwordHash, $departamento]);
+        // Antes, si no llegaba contraseña se ponía '123456', también al editar: cambiar
+        // el departamento de un docente le reemplazaba su contraseña por una conocida.
+        // Ahora el docente nuevo la necesita, y al editar sin contraseña se conserva.
+        if ($esNuevo || $password !== '') {
+            $problema = problemaConContrasena($password);
+            if ($problema) {
+                sendResponse(["success" => false, "error" => $problema], 400);
+            }
+        }
+
+        if ($esNuevo) {
+            $stmt = $pdo->prepare("INSERT INTO docentes (matricula, nombre, apellido, email, password, departamento) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$matricula, $nombre, $apellido, $email, password_hash($password, PASSWORD_DEFAULT), $departamento]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE docentes SET nombre = ?, apellido = ?, email = ?, departamento = ? WHERE matricula = ?");
+            $stmt->execute([$nombre, $apellido, $email, $departamento, $matricula]);
+            if ($password !== '') {
+                $stmt = $pdo->prepare("UPDATE docentes SET password = ? WHERE matricula = ?");
+                $stmt->execute([password_hash($password, PASSWORD_DEFAULT), $matricula]);
+            }
+        }
         sendResponse(["success" => true, "message" => "Docente guardado"]);
         break;
 
     case 'DELETE':
+        requerirRol(ROLES_ADMIN);
         $matricula = $_GET['matricula'] ?? null;
         if (!$matricula) {
             $data = getJsonInput();

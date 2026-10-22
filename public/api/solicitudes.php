@@ -6,6 +6,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
+        requerirRol(ROLES_TODOS);
         $lab = $_GET['laboratorio'] ?? 'programacion';
         $estado = $_GET['estado'] ?? null;
 
@@ -47,12 +48,16 @@ switch ($method) {
         break;
 
     case 'PUT':
+        requerirRol(ROLES_ADMIN);
         $data = getJsonInput();
         $id = $data['id'] ?? null;
         $estado = $data['estado'] ?? null; // 'aprobada' | 'rechazada'
 
         if (!$id || !$estado) {
             sendResponse(["success" => false, "error" => "ID y estado son requeridos"], 400);
+        }
+        if (!in_array($estado, ['pendiente', 'aprobada', 'rechazada'], true)) {
+            sendResponse(["success" => false, "error" => "Estado no válido"], 400);
         }
 
         $stmt = $pdo->prepare("UPDATE solicitudes_ingreso SET estado = ? WHERE id = ?");

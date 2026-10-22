@@ -6,6 +6,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
+        requerirRol(ROLES_ADMIN);
         $lab = $_GET['laboratorio'] ?? null;
         $tipo = $_GET['tipo'] ?? null;
 
@@ -35,6 +36,7 @@ switch ($method) {
         break;
 
     case 'POST':
+        requerirRol(ROLES_TODOS);
         $data = getJsonInput();
         $tipo = $data['tipo'] ?? 'general';
         $titulo = $data['titulo'] ?? '';
@@ -54,6 +56,7 @@ switch ($method) {
         break;
 
     case 'PUT':
+        requerirRol(ROLES_ADMIN);
         $data = getJsonInput();
         $id = $data['id'] ?? null;
 

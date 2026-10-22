@@ -6,33 +6,53 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
+        requerirRol(ROLES_TODOS);
         $stmt = $pdo->query("SELECT matricula, nombre, apellido, email FROM laboratoristas ORDER BY apellido, nombre");
         sendResponse(["success" => true, "data" => $stmt->fetchAll()]);
         break;
 
     case 'POST':
+        requerirRol(ROLES_ADMIN);
         $data = getJsonInput();
         $matricula = trim($data['Matricula'] ?? $data['matricula'] ?? '');
         $nombre = trim($data['Nombre'] ?? $data['nombre'] ?? '');
         $apellido = trim($data['Apellido'] ?? $data['apellido'] ?? '');
         $email = trim($data['Email'] ?? $data['email'] ?? '');
-        $password = trim($data['Contraseña'] ?? $data['password'] ?? '123456');
+        $password = trim($data['Contraseña'] ?? $data['password'] ?? '');
 
         if (!$matricula || !$nombre || !$apellido) {
             sendResponse(["success" => false, "error" => "Matrícula, nombre y apellido son requeridos"], 400);
         }
 
-        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+        $existe = $pdo->prepare("SELECT COUNT(*) FROM laboratoristas WHERE matricula = ?");
+        $existe->execute([$matricula]);
+        $esNuevo = !$existe->fetchColumn();
 
-        $stmt = $pdo->prepare("INSERT INTO laboratoristas (matricula, nombre, apellido, email, password) 
-            VALUES (?, ?, ?, ?, ?) 
-            ON DUPLICATE KEY UPDATE 
-            nombre = VALUES(nombre), apellido = VALUES(apellido), email = VALUES(email), password = VALUES(password)");
-        $stmt->execute([$matricula, $nombre, $apellido, $email, $passwordHash]);
+        // Igual que en docentes.php: sin contraseña, el nuevo no se crea y el que se
+        // edita conserva la suya (antes se le ponía '123456').
+        if ($esNuevo || $password !== '') {
+            $problema = problemaConContrasena($password);
+            if ($problema) {
+                sendResponse(["success" => false, "error" => $problema], 400);
+            }
+        }
+
+        if ($esNuevo) {
+            $stmt = $pdo->prepare("INSERT INTO laboratoristas (matricula, nombre, apellido, email, password) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$matricula, $nombre, $apellido, $email, password_hash($password, PASSWORD_DEFAULT)]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE laboratoristas SET nombre = ?, apellido = ?, email = ? WHERE matricula = ?");
+            $stmt->execute([$nombre, $apellido, $email, $matricula]);
+            if ($password !== '') {
+                $stmt = $pdo->prepare("UPDATE laboratoristas SET password = ? WHERE matricula = ?");
+                $stmt->execute([password_hash($password, PASSWORD_DEFAULT), $matricula]);
+            }
+        }
         sendResponse(["success" => true, "message" => "Laboratorista guardado"]);
         break;
 
     case 'DELETE':
+        requerirRol(ROLES_ADMIN);
         $matricula = $_GET['matricula'] ?? null;
         if (!$matricula) {
             $data = getJsonInput();

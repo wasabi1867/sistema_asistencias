@@ -6,6 +6,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
+        requerirRol(ROLES_TODOS);
         $matricula = $_GET['matricula'] ?? null;
         $search = $_GET['q'] ?? null;
 
@@ -39,6 +40,7 @@ switch ($method) {
         break;
 
     case 'POST':
+        requerirRol(ROLES_PERSONAL);
         $data = getJsonInput();
         $matricula = trim($data['Matricula'] ?? $data['matricula'] ?? '');
         $nombre = trim($data['Nombre'] ?? $data['nombre'] ?? '');
@@ -63,6 +65,7 @@ switch ($method) {
         break;
 
     case 'PUT':
+        requerirRol(ROLES_PERSONAL);
         $data = getJsonInput();
         $matricula = trim($data['Matricula'] ?? $data['matricula'] ?? '');
         if (!$matricula) {
@@ -83,6 +86,7 @@ switch ($method) {
         break;
 
     case 'DELETE':
+        requerirRol(ROLES_ADMIN);
         $matricula = $_GET['matricula'] ?? null;
         if (!$matricula) {
             $data = getJsonInput();
