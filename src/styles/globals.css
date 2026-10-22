@@ -95,3 +95,12 @@
 .swal2-container {
   z-index: 10000 !important;
 }
+
+/* Los avisos de SweetAlert se agregan al final de <body>. Con un panel lateral o un
+   diálogo de Radix abierto, Radix pone pointer-events: none en <body> y el aviso no
+   recibía clics: no se podía apretar "OK" (por ejemplo, al aprobar una solicitud
+   desde el panel de solicitudes del administrador). */
+.swal2-container,
+.swal-overlay--show-modal {
+  pointer-events: auto !important;
+}

@@ -1,0 +1,52 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/Numero de equipos/programacion",
+    "fields": {
+      "Equipos": {
+        "arrayValue": {
+          "values": [
+            {
+              "mapValue": {
+                "fields": {
+                  "id": {
+                    "stringValue": "1"
+                  },
+                  "fueraDeServicio": {
+                    "booleanValue": false
+                  },
+                  "enUso": {
+                    "booleanValue": true
+                  }
+                }
+              }
+            },
+            {
+              "mapValue": {
+                "fields": {
+                  "id": {
+                    "stringValue": "2"
+                  },
+                  "fueraDeServicio": {
+                    "booleanValue": true
+                  },
+                  "enUso": {
+                    "booleanValue": false
+                  },
+                  "notas": {
+                    "stringValue": "No enciende"
+                  },
+                  "estadoReparacion": {
+                    "stringValue": "en_proceso"
+                  },
+                  "comentarioEstado": {
+                    "stringValue": "Se pidió fuente"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+]

@@ -32,8 +32,7 @@ import {
 } from "lucide-react"
 import { format, parse, isValid, startOfMonth, endOfMonth, isWithinInterval, subMonths } from "date-fns"
 import { es } from "date-fns/locale"
-import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore"
-import { db } from "../pages/panel-laboratorista"
+import { API } from "../lib/api"
 import { utils, writeFile } from "xlsx"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -202,34 +201,13 @@ export default function VistaReporteMensual({
   const fetchRecords = async () => {
     setLoading(true)
     try {
-      const refInfoClase = collection(db, "ClassInformation")
-      const consultaInfoClase = query(refInfoClase, orderBy("fecha", "desc"))
-      const snapshotInfoClase = await getDocs(consultaInfoClase)
-
+      // Las clases ya cerradas del laboratorio, con quiénes asistieron
       const labActual = localStorage.getItem("laboratorio") || "programacion"
-      const datosInfoClase = snapshotInfoClase.docs
-        .filter((doc) => {
-          const data = doc.data()
-          return !data.laboratorio || data.laboratorio === labActual
-        })
-        .map((doc) => {
-        const data = doc.data()
-        let fecha: Date
-        if (data.fecha instanceof Timestamp) {
-          fecha = data.fecha.toDate()
-        } else if (typeof data.fecha === "string") {
-          const parsedDate = parse(data.fecha, "dd/MM/yyyy", new Date())
-          fecha = isValid(parsedDate) ? parsedDate : new Date(data.fecha)
-        } else {
-          fecha = new Date(data.fecha)
-        }
-        return {
-          id: doc.id,
-          ...data,
-          fecha,
-          alumnos: data.alumnos || [],
-        } as InfoClase
-      })
+      const datosInfoClase: InfoClase[] = (await API.getInformacionDeClases({ laboratorio: labActual, estado: "cerradas" })).map((info) => ({
+        ...info,
+        fecha: info.fechaInicio ?? new Date(),
+        alumnosIds: info.alumnos.map((a) => a.id),
+      }))
 
       setAllPractices(datosInfoClase)
 

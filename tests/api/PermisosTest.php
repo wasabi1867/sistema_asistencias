@@ -94,7 +94,11 @@ final class PermisosTest extends PruebaDeApi
             'guardar un administrador' => ['POST', 'administradores.php', ['nombre' => 'Otra', 'email' => 'otra@pruebas.test', 'password' => 'contrasena-segura'], self::ADMIN],
             'borrar un administrador' => ['DELETE', 'administradores.php?id=99', null, self::ADMIN],
 
-            'consultar la bitácora' => ['GET', 'bitacora.php', null, self::ADMIN],
+            'consultar la bitácora' => ['GET', 'bitacora.php', null, self::PERSONAL],
+
+            'editar una práctica' => ['POST', 'materias.php?action=editar_practica', ['id' => 1, 'titulo' => 'Práctica 1 corregida'], self::ADMIN_Y_SU_DOCENTE],
+            'configurar los equipos' => ['POST', 'equipos.php?action=configurar', ['laboratorio' => 'redes', 'cantidad' => 5], self::PERSONAL],
+            'consultar avisos de equipos' => ['GET', 'notificaciones.php?tipo=equipo', null, self::PERSONAL],
         ];
     }
 

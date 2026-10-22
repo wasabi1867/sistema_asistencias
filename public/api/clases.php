@@ -230,9 +230,11 @@ switch ($method) {
             if ($usuario['rol'] === 'docente' && !$esSuDocente) {
                 sendResponse(["success" => false, "error" => "Solo puedes cerrar tus clases"], 403);
             }
-            if ($esSuDocente) {
-                // El navegador la cierra solo cuando el docente cierra la pestaña.
-                $cierre = !empty($data['automatico']) ? 'automatico' : 'normal';
+            if (!empty($data['automatico'])) {
+                // El navegador de quien la lleva la cerró al cerrar la pestaña.
+                $cierre = 'automatico';
+            } elseif ($esSuDocente) {
+                $cierre = 'normal';
             } else {
                 $cierre = $clase['tipo'] === 'regular' ? 'externo' : 'normal';
             }

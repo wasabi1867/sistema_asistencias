@@ -1,16 +1,6 @@
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"
-import { db } from "./firebase"
-
-export async function logAction(action: string, details: string) {
-  try {
-    const lab = typeof window !== "undefined" ? localStorage.getItem("laboratorio") || "programacion" : "programacion"
-    await addDoc(collection(db, "logs"), {
-      timestamp: serverTimestamp(),
-      action,
-      details,
-      laboratorio: lab,
-    })
-  } catch (error) {
-    console.error("Error al registrar log:", error)
-  }
-}
+/**
+ * La bitácora la llena el servidor en cada acción importante (ver public/api), con
+ * quién la hizo y desde dónde: el navegador ya no escribe en ella. Esta función se
+ * queda para no tocar las pantallas que todavía la llaman, pero no hace nada.
+ */
+export async function logAction(_action: string, _details: string) {}

@@ -49,11 +49,12 @@ Provisional, mientras el instituto no defina los permisos. Se usa el reparto má
 | Consultar alumnos, docentes, laboratoristas, materias, clases, asistencias, histórico, solicitudes, eventos, estadísticas | | ✓ | ✓ | ✓ |
 | Registrar salida, quitar una asistencia, crear una notificación | | ✓ | ✓ | ✓ |
 | Cerrar una clase | | ✓³ | ✓ | ✓ |
-| Abrir una clase regular; crear o borrar prácticas | | ✓³ | | ✓ |
+| Abrir una clase regular; crear, editar o borrar prácticas | | ✓³ | | ✓ |
 | Abrir una clase de maestro invitado; guardar o borrar eventos | | | ✓ | ✓ |
 | Dar de alta o editar alumnos, cambio masivo de semestre o grupo, cambiar el estado de un equipo | | | ✓ | ✓ |
 | Borrar alumnos; guardar o borrar docentes, laboratoristas, administradores y materias; agregar o quitar equipos | | | | ✓ |
-| Resolver solicitudes; consultar y marcar notificaciones; consultar la bitácora | | | | ✓ |
+| Consultar la bitácora y los avisos de equipos; configurar los equipos del laboratorio | | | ✓ | ✓ |
+| Resolver solicitudes; consultar y marcar los demás avisos | | | | ✓ |
 
 1. Sin sesión se ve si un equipo está libre, pero no quién lo ocupa ni sus notas. Solo el personal inicializa los equipos de un laboratorio nuevo.
 2. Los datos del alumno o docente salen de la base, no de lo que mande el navegador. Ver las reglas abajo.
@@ -108,10 +109,11 @@ Sin terminal en el servidor, se pega cada archivo pendiente en phpMyAdmin. Una b
 | Migración | Qué agrega |
 |---|---|
 | `001-clases-solicitudes-y-bitacora` | Tablas `clases` y `eventos_laboratorio`. Columnas: `clase_id` en asistencias, histórico y solicitudes; nombre y apellido en el histórico; materia y equipo en solicitudes; laboratorio e IP en la bitácora; matrícula y apellido en administradores; turno en materias. Una persona solo puede estar en una asistencia activa |
+| `002-practicas-con-fecha` | Fecha de cada práctica, que el docente captura al crearla |
 
-## Lo que falta
+## El frontend y Firebase
 
-**El frontend todavía no usa esta API.** Todas las pantallas leen y escriben directo en Firebase (Firestore). Así cubre la API cada colección:
+Todas las pantallas usan esta API a través de `src/lib/api.ts`, que devuelve los datos con los mismos nombres de campo que tenían los documentos de Firestore. Firebase ya no se usa. Los pasos para publicar el cambio y copiar los datos de Firebase están en [cambio-de-firebase.md](cambio-de-firebase.md) (`scripts/importar-de-firebase.php`).
 
 | Colección de Firestore | En la API PHP |
 |---|---|
@@ -122,5 +124,3 @@ Sin terminal en el servidor, se pega cada archivo pendiente en phpMyAdmin. Una b
 | `SolicitudesIngreso`, `NotificacionesAdmin` | `solicitudes.php`, `notificaciones.php` |
 | `EventosLaboratorio` | `eventos.php` |
 | `logs` | `bitacora.php` (se llena sola) |
-
-Falta cambiar cada pantalla para que use la API en lugar de Firebase, y pasar los datos que hoy están en Firebase a la base de Hostinger.

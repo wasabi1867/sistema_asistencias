@@ -1,0 +1,138 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/ClassInformation/claseA",
+    "fields": {
+      "materia": {
+        "stringValue": "Programación Web"
+      },
+      "practica": {
+        "stringValue": "Formularios"
+      },
+      "fecha": {
+        "stringValue": "20/10/2026"
+      },
+      "horaInicio": {
+        "stringValue": "9:46:22 p. m."
+      },
+      "horaFin": {
+        "stringValue": "11:05:00 p. m."
+      },
+      "totalAsistencias": {
+        "integerValue": "2"
+      },
+      "maestroId": {
+        "stringValue": "D100"
+      },
+      "maestroNombre": {
+        "stringValue": "Diego"
+      },
+      "maestroApellido": {
+        "stringValue": "O'Neil"
+      },
+      "laboratorio": {
+        "stringValue": "programacion"
+      },
+      "alumnos": {
+        "arrayValue": {
+          "values": [
+            {
+              "mapValue": {
+                "fields": {
+                  "id": {
+                    "stringValue": "23303001"
+                  },
+                  "nombre": {
+                    "stringValue": "Ana"
+                  },
+                  "apellido": {
+                    "stringValue": "Álvarez"
+                  },
+                  "equipo": {
+                    "stringValue": "1"
+                  },
+                  "carrera": {
+                    "stringValue": "Sistemas"
+                  },
+                  "grupo": {
+                    "stringValue": "A"
+                  },
+                  "semestre": {
+                    "stringValue": "5"
+                  },
+                  "turno": {
+                    "stringValue": "Matutino"
+                  }
+                }
+              }
+            },
+            {
+              "mapValue": {
+                "fields": {
+                  "id": {
+                    "stringValue": "23303002"
+                  },
+                  "nombre": {
+                    "stringValue": "Beto"
+                  },
+                  "apellido": {
+                    "stringValue": "D'Angelo"
+                  },
+                  "equipo": {
+                    "stringValue": "personal"
+                  },
+                  "carrera": {
+                    "stringValue": "Sistemas"
+                  },
+                  "grupo": {
+                    "stringValue": "A"
+                  },
+                  "semestre": {
+                    "stringValue": "5"
+                  },
+                  "turno": {
+                    "stringValue": "Matutino"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/ClassInformation/claseB",
+    "fields": {
+      "materia": {
+        "stringValue": "Cálculo"
+      },
+      "practica": {
+        "stringValue": "Derivadas"
+      },
+      "departamento": {
+        "stringValue": "Ciencias Básicas"
+      },
+      "fecha": {
+        "stringValue": "21/10/2026"
+      },
+      "horaInicio": {
+        "stringValue": "08:00:00"
+      },
+      "totalAsistencias": {
+        "integerValue": "0"
+      },
+      "maestroNombre": {
+        "stringValue": "Iris Invitada"
+      },
+      "laboratorio": {
+        "stringValue": "programacion"
+      },
+      "tipoClase": {
+        "stringValue": "invitado"
+      },
+      "alumnos": {
+        "arrayValue": {}
+      }
+    }
+  }
+]

@@ -27,18 +27,8 @@ import {
   Building2,
   Server,
 } from "lucide-react"
-import {
-  collection,
-  setDoc,
-  doc,
-  getDocs,
-  query,
-  deleteDoc,
-  updateDoc,
-  type Firestore,
-  where,
-} from "firebase/firestore"
 import Swal from "sweetalert2"
+import { API, ErrorDeApi } from "../lib/api"
 import type React from "react"
 
   interface Materia {
@@ -65,10 +55,9 @@ interface CicloEscolar {
 type Vista = "menu" | "agregar" | "lista"
 
 export function MateriasTab({
-  db,
   isDarkMode,
   currentColors,
-}: { db: Firestore; isDarkMode: boolean; currentColors: any }) {
+}: { isDarkMode: boolean; currentColors: any }) {
   const [vistaActual, setVistaActual] = useState<Vista>("menu")
   const [materias, setMaterias] = useState<Materia[]>([])
   const [seleccionados, setSeleccionados] = useState<string[]>([])
@@ -180,17 +169,7 @@ export function MateriasTab({
   const cargarMaterias = async () => {
     setIsLoading(true)
     try {
-      const materiasRef = collection(db, "Materias")
-      const materiasSnapshot = await getDocs(query(materiasRef))
-      const materiasData = materiasSnapshot.docs.map((doc) => ({
-        ID: doc.id,
-        NombreMateria: doc.data().NombreMateria || "",
-        MaestroID: doc.data().MaestroID || "",
-        Semestre: doc.data().Semestre || "",
-        CicloEscolar: doc.data().CicloEscolar || "",
-        Laboratorio: doc.data().Laboratorio || "",
-        ...doc.data(),
-      })) as Materia[]
+      const materiasData: Materia[] = (await API.getMaterias()).map((m) => ({ ...m, ID: m.id }))
       // Ordenar alfabéticamente por NombreMateria
       materiasData.sort((a, b) => a.NombreMateria.localeCompare(b.NombreMateria, 'es', { sensitivity: 'base' }))
       setMaterias(materiasData)
@@ -208,11 +187,9 @@ export function MateriasTab({
 
   const cargarDocentes = async () => {
     try {
-      const docentesRef = collection(db, "Docentes")
-      const docentesSnapshot = await getDocs(query(docentesRef))
-      const docentesData = docentesSnapshot.docs.map((doc) => ({
-        ID: doc.id,
-        NombreCompleto: `${doc.data().Nombre} ${doc.data().Apellido}`,
+      const docentesData = (await API.getDocentes()).map((d) => ({
+        ID: d.Matricula,
+        NombreCompleto: `${d.Nombre} ${d.Apellido}`,
       }))
       // Ordenar alfabéticamente por NombreCompleto
       docentesData.sort((a, b) => a.NombreCompleto.localeCompare(b.NombreCompleto, 'es', { sensitivity: 'base' }))
@@ -230,19 +207,11 @@ export function MateriasTab({
   const manejarEnvio = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     try {
-      const { ID, NombreMateria, CicloEscolar, ...restoDatosMateria } = datosMateria
+      const { ID, NombreMateria, CicloEscolar } = datosMateria
 
       if (!editando) {
         // Check if the subject name already exists in the same school cycle when adding a new subject
-        const materiasRef = collection(db, "Materias")
-        const nombreMateriaQuery = query(
-          materiasRef,
-          where("NombreMateria", "==", NombreMateria),
-          where("CicloEscolar", "==", CicloEscolar),
-        )
-        const nombreMateriaQuerySnapshot = await getDocs(nombreMateriaQuery)
-
-        if (!nombreMateriaQuerySnapshot.empty) {
+        if (materias.some((m) => m.NombreMateria === NombreMateria && m.CicloEscolar === CicloEscolar)) {
           await Swal.fire({
             title: "Error",
             text: "Ya existe una materia con este nombre en el mismo ciclo escolar. Por favor, use un nombre diferente.",
@@ -251,15 +220,15 @@ export function MateriasTab({
           return
         }
 
-        const nuevoID = doc(collection(db, "Materias")).id
-        await setDoc(doc(db, "Materias", nuevoID), { NombreMateria, CicloEscolar, ...restoDatosMateria })
+        // El servidor le asigna su identificador.
+        await API.guardarMateria({ ...datosMateria, id: undefined })
         await Swal.fire({
           title: "¡Éxito!",
           text: "Materia agregada correctamente",
           icon: "success",
         })
       } else {
-        await updateDoc(doc(db, "Materias", ID), { NombreMateria, CicloEscolar, ...restoDatosMateria })
+        await API.guardarMateria({ ...datosMateria, id: ID })
         await Swal.fire({
           title: "¡Éxito!",
           text: "Materia actualizada correctamente",
@@ -275,7 +244,7 @@ export function MateriasTab({
       console.error("Error al agregar/actualizar materia:", error)
       await Swal.fire({
         title: "Error",
-        text: "Ha ocurrido un error al agregar/actualizar la materia. Por favor, intenta de nuevo.",
+        text: error instanceof ErrorDeApi ? error.message : "Ha ocurrido un error al agregar/actualizar la materia. Por favor, intenta de nuevo.",
         icon: "error",
       })
     }
@@ -295,7 +264,7 @@ export function MateriasTab({
 
     if (result.isConfirmed) {
       try {
-        await deleteDoc(doc(db, "Materias", id))
+        await API.eliminarMateria(id)
         Swal.fire("Eliminada!", "La materia ha sido eliminada.", "success")
         cargarMaterias()
       } catch (error) {
@@ -383,7 +352,7 @@ export function MateriasTab({
 
     if (result.isConfirmed) {
       try {
-        await Promise.all(seleccionados.map((id) => deleteDoc(doc(db, "Materias", id))))
+        await Promise.all(seleccionados.map((id) => API.eliminarMateria(id)))
         Swal.fire("Eliminadas!", `${seleccionados.length} materia(s) eliminada(s).`, "success")
         setSeleccionados([])
         cargarMaterias()

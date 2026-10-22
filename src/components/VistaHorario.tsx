@@ -10,8 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { collection, getDocs, query, where } from "firebase/firestore"
-import { db } from "../pages/panel-laboratorista" // Importamos la instancia de Firestore
+import { API } from "../lib/api"
 
 // Definición de tipos
 interface FranjaHoraria {
@@ -136,13 +135,7 @@ const VistaHorario: React.FC<VistaHorarioProps> = ({ esModoOscuro, logAction }) 
   useEffect(() => {
     const cargarDocentes = async () => {
       try {
-        // Obtener docentes desde Firestore
-        const docentesRef = collection(db, "Docentes")
-        const docentesSnapshot = await getDocs(docentesRef)
-        const docentesData = docentesSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Docente[]
+        const docentesData: Docente[] = (await API.getDocentes()).map((d) => ({ id: d.Matricula, Nombre: d.Nombre, Apellido: d.Apellido }))
 
         setDocentes(docentesData)
       } catch (error) {
@@ -162,21 +155,9 @@ const VistaHorario: React.FC<VistaHorarioProps> = ({ esModoOscuro, logAction }) 
     setDocenteSeleccionado(docenteId)
 
     try {
-      // Obtener materias del docente seleccionado desde Firestore
-      const materiasRef = collection(db, "Materias")
-      const materiasQuery = query(materiasRef, where("MaestroID", "==", docenteId))
-      const materiasSnapshot = await getDocs(materiasQuery)
-
+      // Las materias del docente que se imparten en este laboratorio (o en todos)
       const labActual = localStorage.getItem("laboratorio") || "programacion"
-      const materiasData = materiasSnapshot.docs
-        .filter((doc) => {
-          const labMateria = doc.data().Laboratorio || ""
-          return !labMateria || labMateria === labActual || labMateria === "todos"
-        })
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Materia[]
+      const materiasData: Materia[] = await API.getMaterias({ docenteId, laboratorio: labActual })
 
       setMateriasPorDocente(materiasData)
     } catch (error) {

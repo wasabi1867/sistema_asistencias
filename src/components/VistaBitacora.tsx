@@ -9,8 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Search, Filter, X, Clock, User, FileText, Calendar, Activity, Info } from "lucide-react"
-import { collection, query, orderBy, limit, getDocs, where, type Timestamp } from "firebase/firestore"
-import { db } from "../pages/panel-laboratorista"
+import { API } from "../lib/api"
 
 // Definición de colores del sistema
 const colors = {
@@ -82,7 +81,7 @@ interface VistaBitacoraProps {
 
 interface LogEntry {
   id: string
-  timestamp: Timestamp
+  timestamp: Date | null
   action: string
   user: string
   userOcupacion?: string
@@ -106,23 +105,30 @@ const VistaBitacora: React.FC<VistaBitacoraProps> = ({ esModoOscuro, logAction, 
 
   useEffect(() => {
     // Al cargar, mostrar solo los registros del día actual
-    const today = new Date()
-    setDateFilter(today.toISOString().split("T")[0])
+    // La fecha local: toISOString() da la de UTC, que en Sonora ya es mañana desde las 5 p. m.
+    setDateFilter(hoyEnTexto())
     fetchLogsForToday()
   }, [])
+
+  // La bitácora la llena el servidor. Se muestran las entradas de este laboratorio y
+  // las que no son de ninguno en particular (inicios de sesión, cuentas...).
+  const consultarBitacora = async (filtros: { desde?: string; hasta?: string; accion?: string; limite?: number }) => {
+    const labFiltro = localStorage.getItem("laboratorio") || "programacion"
+    const entradas = await API.getBitacora(filtros)
+    return entradas
+      .filter((l) => !l.laboratorio || l.laboratorio === labFiltro)
+      .map((l): LogEntry => ({ id: l.id, timestamp: l.timestamp, action: l.action, user: l.usuario, details: l.details }))
+  }
+
+  const hoyEnTexto = () => {
+    const hoy = new Date()
+    return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`
+  }
 
   const fetchLogs = async () => {
     setIsLoading(true)
     try {
-      const logsRef = collection(db, "logs")
-      const q = query(logsRef, orderBy("timestamp", "desc"), limit(100))
-      const querySnapshot = await getDocs(q)
-      const labFiltro = localStorage.getItem("laboratorio") || "programacion"
-      const logs = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as LogEntry[]
-      const logsFiltrados = logs.filter((l: any) => !l.laboratorio || l.laboratorio === labFiltro)
+      const logsFiltrados = await consultarBitacora({ limite: 100 })
       setLogEntries(logsFiltrados)
 
       // Extraer acciones y usuarios unicos para los filtros
@@ -148,34 +154,14 @@ const VistaBitacora: React.FC<VistaBitacoraProps> = ({ esModoOscuro, logAction, 
   const fetchLogsForToday = async () => {
     setIsLoading(true)
     try {
-      const logsRef = collection(db, "logs")
-
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-
-      const q = query(
-        logsRef,
-        where("timestamp", ">=", today),
-        where("timestamp", "<", tomorrow),
-        orderBy("timestamp", "desc"),
-      )
-
-      const labFiltro2 = localStorage.getItem("laboratorio") || "programacion"
-      const querySnapshot = await getDocs(q)
-      const logs = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as LogEntry[]
-      const logsFiltrados = logs.filter((l: any) => !l.laboratorio || l.laboratorio === labFiltro2)
+      const hoy = hoyEnTexto()
+      const logsFiltrados = await consultarBitacora({ desde: hoy, hasta: hoy, limite: 1000 })
 
       setLogEntries(logsFiltrados)
 
       // Extraer acciones y usuarios únicos para los filtros
-      const actions = [...new Set(logs.map((log) => log.action))]
-      const users = [...new Set(logs.map((log) => log.user))]
+      const actions = [...new Set(logsFiltrados.map((log) => log.action))]
+      const users = [...new Set(logsFiltrados.map((log) => log.user))]
       setUniqueActions(actions)
       setUniqueUsers(users)
 
@@ -196,31 +182,13 @@ const VistaBitacora: React.FC<VistaBitacoraProps> = ({ esModoOscuro, logAction, 
   const applyFilters = async () => {
     setIsLoading(true)
     try {
-      const logsRef = collection(db, "logs")
-      let q = query(logsRef, orderBy("timestamp", "desc"))
-
-      if (dateFilter) {
-        const filterDate = new Date(dateFilter)
-        const nextDay = new Date(filterDate)
-        nextDay.setDate(nextDay.getDate() + 1)
-        q = query(q, where("timestamp", ">=", filterDate), where("timestamp", "<", nextDay))
-      }
-
-      if (actionFilter && actionFilter !== "all") {
-        q = query(q, where("action", "==", actionFilter))
-      }
-
-      if (userFilter && userFilter !== "all") {
-        q = query(q, where("user", "==", userFilter))
-      }
-
-      const labFiltro3 = localStorage.getItem("laboratorio") || "programacion"
-      const querySnapshot = await getDocs(q)
-      const logs = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as LogEntry[]
-      const logsFiltrados = logs.filter((l: any) => !l.laboratorio || l.laboratorio === labFiltro3)
+      const logs = await consultarBitacora({
+        desde: dateFilter || undefined,
+        hasta: dateFilter || undefined,
+        accion: actionFilter && actionFilter !== "all" ? actionFilter : undefined,
+        limite: 1000,
+      })
+      const logsFiltrados = userFilter && userFilter !== "all" ? logs.filter((l) => l.user === userFilter) : logs
       setLogEntries(logsFiltrados)
 
       // Registrar la acción de filtrado
@@ -267,8 +235,7 @@ const VistaBitacora: React.FC<VistaBitacoraProps> = ({ esModoOscuro, logAction, 
     setActiveTab(value)
 
     if (value === "hoy") {
-      const today = new Date()
-      setDateFilter(today.toISOString().split("T")[0])
+      setDateFilter(hoyEnTexto())
       fetchLogsForToday()
     } else if (value === "semana") {
       const today = new Date()
@@ -536,14 +503,14 @@ const VistaBitacora: React.FC<VistaBitacoraProps> = ({ esModoOscuro, logAction, 
                           >
                             <td className="px-4 py-3">
                               <div className={`font-medium ${esModoOscuro ? theme.titleText : theme.titleText}`}>
-                                {entry.timestamp.toDate().toLocaleDateString("es-MX", {
+                                {entry.timestamp?.toLocaleDateString("es-MX", {
                                   day: "2-digit",
                                   month: "2-digit",
                                   year: "numeric",
                                 })}
                               </div>
                               <div className={`text-xs ${esModoOscuro ? theme.grayText : theme.grayText}`}>
-                                {entry.timestamp.toDate().toLocaleTimeString("es-MX")}
+                                {entry.timestamp?.toLocaleTimeString("es-MX")}
                               </div>
                             </td>
                             <td className="px-4 py-3">

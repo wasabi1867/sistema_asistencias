@@ -9,21 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Sun, Moon } from 'lucide-react'
 import { jsPDF } from "jspdf"
 import "jspdf-autotable"
-import { initializeApp, getApps, getApp } from 'firebase/app'
-import { getFirestore, collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore'
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCX5WX8tTkWRsIikpV3-pTXIsYUXfF5Eqk",
-  authDomain: "integrador-7b39d.firebaseapp.com",
-  projectId: "integrador-7b39d",
-  storageBucket: "integrador-7b39d.appspot.com",
-  messagingSenderId: "780966021686",
-  appId: "1:780966021686:web:485712fb7509339c6ae697",
-  measurementId: "G-FGB03PFM7Z"
-}
-
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
-const db = typeof window !== 'undefined' ? getFirestore(app) : ({} as any)
+import { API } from "../lib/api"
 
 interface FranjaHoraria {
   hora: string
@@ -76,16 +62,7 @@ export default function HorarioDashboard() {
 
   const cargarDocentes = async () => {
     try {
-      const docentesRef = collection(db, 'Docentes');
-      const docentesSnapshot = await getDocs(docentesRef);
-      const listaDocentes = docentesSnapshot.docs.map((docSnapshot) => {
-        const docenteData = docSnapshot.data();
-        return { 
-          id: docSnapshot.id, 
-          Nombre: docenteData.Nombre, 
-          Apellido: docenteData.Apellido
-        } as Docente;
-      });
+      const listaDocentes: Docente[] = (await API.getDocentes()).map((d) => ({ id: d.Matricula, Nombre: d.Nombre, Apellido: d.Apellido }));
       setDocentes(listaDocentes);
     } catch (error) {
       console.error('Error al cargar docentes:', error);
@@ -94,12 +71,7 @@ export default function HorarioDashboard() {
 
   const cargarMaterias = async () => {
     try {
-      const materiasRef = collection(db, 'Materias')
-      const materiasSnapshot = await getDocs(materiasRef)
-      const listaMaterias = materiasSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Materia[]
+      const listaMaterias: Materia[] = await API.getMaterias()
       setMaterias(listaMaterias)
     } catch (error) {
       console.error('Error al cargar materias:', error)
@@ -135,13 +107,7 @@ export default function HorarioDashboard() {
 
   const handleDocenteChange = async (docenteId: string) => {
     try {
-      const materiasRef = collection(db, 'Materias');
-      const materiasQuery = query(materiasRef, where('MaestroID', '==', docenteId));
-      const materiasSnapshot = await getDocs(materiasQuery);
-      const materiasList = materiasSnapshot.docs.map(doc => ({
-        id: doc.id,
-        NombreMateria: doc.data().NombreMateria
-      }));
+      const materiasList: Materia[] = await API.getMaterias({ docenteId });
       setMateriasPorDocente(materiasList);
     } catch (error) {
       console.error('Error al cargar materias del docente:', error);

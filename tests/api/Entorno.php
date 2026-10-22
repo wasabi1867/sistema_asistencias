@@ -30,6 +30,8 @@ final class Entorno
     /** @var resource|null */
     private static $servidor = null;
     private static string $carpetaTemporal = '';
+    /** Variables de entorno con la conexión a la base de pruebas, para la API y los scripts. */
+    private static array $entorno = [];
 
     public static function iniciar(): void
     {
@@ -63,7 +65,7 @@ final class Entorno
         $puerto = self::puertoLibre();
         self::$url = "http://127.0.0.1:$puerto";
 
-        $entorno = getenv() + [
+        $entorno = self::$entorno = getenv() + [
             'ASISTENCIAS_DB_HOST' => $host,
             'ASISTENCIAS_DB_PORT' => $puertoDb,
             'ASISTENCIAS_DB_NAME' => self::$base,
@@ -109,6 +111,25 @@ final class Entorno
             self::$pdo->exec('DROP DATABASE IF EXISTS `' . self::$base . '`');
             self::$pdo = null;
         }
+    }
+
+    /**
+     * Corre un script de scripts/ contra la base de pruebas. Devuelve [código de salida, lo que imprimió].
+     */
+    public static function correrScript(string $script, array $argumentos = []): array
+    {
+        $proceso = proc_open(
+            [PHP_BINARY, '-d', 'xdebug.mode=off', dirname(__DIR__, 2) . "/scripts/$script", ...$argumentos],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $tuberias,
+            dirname(__DIR__, 2),
+            self::$entorno
+        );
+        fclose($tuberias[0]);
+        $salida = stream_get_contents($tuberias[1]) . stream_get_contents($tuberias[2]);
+        fclose($tuberias[1]);
+        fclose($tuberias[2]);
+        return [proc_close($proceso), $salida];
     }
 
     public static function pdo(): PDO

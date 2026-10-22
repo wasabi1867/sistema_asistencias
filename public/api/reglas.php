@@ -150,6 +150,11 @@ function registrarEntrada(PDO $pdo, array $datos, bool $revisarInscripcion = tru
         $stmt = $pdo->prepare("SELECT fuera_de_servicio, en_uso FROM equipos WHERE id = ? AND laboratorio = ? FOR UPDATE");
         $stmt->execute([$equipoId, $laboratorio]);
         $equipo = $stmt->fetch();
+        // 'personal' (el equipo propio) vale en cualquier laboratorio, aunque nadie
+        // haya dado de alta sus equipos.
+        if (!$equipo && $equipoId === 'personal') {
+            $equipo = ['fuera_de_servicio' => 0, 'en_uso' => 0];
+        }
         if (!$equipo) {
             throw new ErrorDeRegla(400, "El equipo $equipoId no existe en este laboratorio");
         }

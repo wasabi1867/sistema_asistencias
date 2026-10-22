@@ -1,20 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { initializeApp, getApps, getApp } from "firebase/app"
-import {
-  getFirestore,
-  collection,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-  updateDoc,
-  doc,
-  type Timestamp,
-  getDoc, // Agregar imports necesarios
-  setDoc, // Agregar imports necesarios
-} from "firebase/firestore"
+import { useState, useEffect, useRef } from "react"
+import { API, ErrorDeApi, horaLegible, type Clase, type Solicitud } from "../lib/api"
+import { useSesion } from "../hooks/useSesion"
+import { useConsultaPeriodica } from "../hooks/useConsultaPeriodica"
 import { Sidebar } from "../components/sidebarAdmin"
 import { StatsCards } from "../components/StatsCards"
 import { AlumnosTab } from "../components/AlumnosTab"
@@ -22,7 +11,6 @@ import { DocentesTab } from "../components/DocentesTab"
 import { MateriasTab } from "../components/MateriasTab"
 import { LaboratoristasTab } from "../components/LaboratoristasTab"
 import { AdministradoresTab } from "../components/AdministradoresTab"
-import { firebaseConfig } from "../lib/constants"
 import { motion, AnimatePresence } from "framer-motion"
 import { getTheme, toggleTheme, applyTheme, type Theme } from "../lib/theme"
 import { useRouter } from "next/navigation"
@@ -116,8 +104,6 @@ const colors = {
   },
 }
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
-const db = typeof window !== 'undefined' ? getFirestore(app) : ({} as any)
 
 // Interfaces para notificaciones
 interface Notificacion {
@@ -125,13 +111,13 @@ interface Notificacion {
   tipo: "equipo" | "maestro_invitado" | "evento" | "asistencia" | "sistema" | "seguridad" | "solicitud_ingreso"
   titulo: string
   mensaje: string
-  fecha: Timestamp
+  fecha: Date | null
   leida: boolean
   prioridad: "alta" | "media" | "baja"
   datos?: any
   // Campos para el estado de equipos
-  estadoEquipo?: "reportado" | "en_proceso" | "resuelto"
-  fechaActualizacionEstado?: Timestamp
+  estadoEquipo?: "reportado" | "en_proceso" | "resuelto" | null
+  fechaActualizacionEstado?: Date | null
   comentarioEstado?: string
 }
 
@@ -150,8 +136,8 @@ interface SolicitudIngreso {
   materiaNombre: string
   maestroNombre: string
   laboratorio: string
-  estado: "pendiente" | "aprobado_temporal" | "aprobado_permanente" | "rechazado"
-  fechaSolicitud: Timestamp
+  estado: "pendiente" | "aprobado_temporal" | "aprobado_permanente" | "rechazado" | "rechazada" | "aprobada"
+  fechaSolicitud: Date | null
   leida: boolean
 }
 
@@ -293,45 +279,12 @@ export default function AdminPanel() {
   const router = useRouter()
 
   // ── GUARD DE AUTENTICACIÓN ──────────────────────────────────────────────────
-  // Verifica que exista una sesión válida de administrador.
-  // Si alguien intenta acceder directamente a /AdminPanel sin haber iniciado sesión,
-  // es redirigido de inmediato a la página de inicio.
-  const [autenticado, setAutenticado] = useState(false)
-
-  useEffect(() => {
-    const verificarSesion = async () => {
-      const adminId = localStorage.getItem("adminId")
-
-      // Si no hay sesión guardada → redirigir inmediatamente
-      if (!adminId) {
-        router.replace("/")
-        return
-      }
-
-      try {
-        // Verificar que el adminId almacenado exista realmente en Firebase
-        const adminRef = doc(db, "Administrador", adminId)
-        const adminSnap = await getDoc(adminRef)
-
-        if (!adminSnap.exists()) {
-          // El documento no existe → sesión inválida → borrar y redirigir
-          localStorage.removeItem("adminId")
-          localStorage.removeItem("laboratorio")
-          router.replace("/")
-          return
-        }
-
-        // Sesión válida ✓
-        setAutenticado(true)
-      } catch (error) {
-        console.error("Error verificando sesión de administrador:", error)
-        router.replace("/")
-      }
-    }
-
-    verificarSesion()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Solo administradores. La sesión la confirma la API: antes bastaba con tener un
+  // adminId en localStorage, que cualquiera podía escribir a mano.
+  const { usuario } = useSesion(["admin"])
+  const autenticado = usuario !== null
+  const laboratorioActual = () => localStorage.getItem("laboratorio") || "programacion"
+  // ────────────────────────────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
 
 
@@ -347,7 +300,8 @@ export default function AdminPanel() {
       confirmButtonText: "Sí, cerrar sesión",
     }).then((result) => {
       if (result.isConfirmed) {
-        // Limpiar sesión del administrador
+        // Cerrar la sesión en el servidor y limpiar lo que recuerda este navegador
+        API.cerrarSesion().catch(() => undefined)
         localStorage.removeItem("adminId")
         localStorage.removeItem("laboratorio")
         router.push("/")
@@ -361,11 +315,6 @@ export default function AdminPanel() {
     setThemeState(currentTheme) // Use setThemeState to update state
     applyTheme(currentTheme)
 
-    const unsubscribeRealTime = setupRealTimeListeners()
-    const unsubscribeNotificaciones = setupNotificacionesListeners()
-
-    const unsubscribeClases = setupClasesListeners()
-
     // Simulate loading time
     const timer = setTimeout(() => {
       setIsLoading(false)
@@ -373,9 +322,6 @@ export default function AdminPanel() {
 
     return () => {
       clearTimeout(timer)
-      if (unsubscribeRealTime) unsubscribeRealTime()
-      if (unsubscribeNotificaciones) unsubscribeNotificaciones()
-      unsubscribeClases()
     }
   }, [theme]) // Depend on theme state
 
@@ -409,63 +355,61 @@ export default function AdminPanel() {
     setThemeState(newTheme)
   }
 
-  const setupRealTimeListeners = () => {
-    const collections = ["Alumnos", "Docentes", "Materias", "Laboratoristas", "Administrador"]
-    const unsubscribers: (() => void)[] = []
+  // Lo que antes llegaba en vivo desde Firebase ahora se le pregunta a la API cada
+  // pocos segundos.
 
-    collections.forEach((collectionName) => {
-      const collectionRef = collection(db, collectionName)
-      const unsubscribe = onSnapshot(query(collectionRef), (snapshot) => {
-        setStats((prevStats) => ({
-          ...prevStats,
-          // Usar "totalAdministradores" cuando collectionName es "Administrador"
-          [collectionName === "Administrador" ? "totalAdministradores" : `total${collectionName}`]: snapshot.size,
-        }))
-      })
-      unsubscribers.push(unsubscribe)
+  // Totales de alumnos, docentes, materias y cuentas
+  const { datos: totales } = useConsultaPeriodica(() => (autenticado ? API.getStats(laboratorioActual()) : undefined), 30000, [autenticado])
+
+  useEffect(() => {
+    if (!totales) return
+    setStats({
+      totalAlumnos: totales.alumnos,
+      totalDocentes: totales.docentes,
+      totalMaterias: totales.materias,
+      totalLaboratoristas: totales.laboratoristas,
+      totalAdministradores: totales.administradores,
     })
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe())
-  }
+  }, [totales])
 
-  const setupClasesListeners = () => {
-    const labs = ["programacion", "redes", "laboratorio_a", "laboratorio_c"]
-    const unsubscribers: (() => void)[] = []
+  // Clases abiertas en todos los laboratorios
+  const { datos: clasesAbiertas, recargar: recargarClasesActivas } = useConsultaPeriodica<Clase[]>(
+    () => (autenticado ? API.getClases({ estado: "abiertas" }) : undefined),
+    5000,
+    [autenticado],
+  )
 
-    labs.forEach((lab) => {
-      // Listener para clase regular de cada laboratorio
-      const unsub1 = onSnapshot(doc(db, "EstadoClase", lab), (docSnap) => {
-        setClasesActivas((prev) => {
-          const sinEsta = prev.filter((c) => !(c.lab === lab && c.tipo === "regular"))
-          if (docSnap.exists() && docSnap.data().iniciada === true) {
-            return [...sinEsta, { lab, tipo: "regular", datos: docSnap.data() }]
-          }
-          return sinEsta
-        })
-      })
-      unsubscribers.push(unsub1)
+  useEffect(() => {
+    if (!clasesAbiertas) return
+    setClasesActivas(
+      clasesAbiertas.map((c) => ({
+        lab: c.laboratorio,
+        tipo: c.tipo,
+        datos: {
+          id: c.id,
+          maestroNombre: c.docente,
+          MaestroInvitado: c.docente,
+          materia: c.materia,
+          Materia: c.materia,
+          horaInicio: horaLegible(c.abiertaEn),
+          HoraInicio: horaLegible(c.abiertaEn),
+        },
+      })),
+    )
+  }, [clasesAbiertas])
 
-      // Listener para clase invitado de cada laboratorio
-      const unsub2 = onSnapshot(doc(db, "EstadoClaseInvitado", lab), (docSnap) => {
-        setClasesActivas((prev) => {
-          const sinEsta = prev.filter((c) => !(c.lab === lab && c.tipo === "invitado"))
-          if (docSnap.exists() && docSnap.data().iniciada === true) {
-            return [...sinEsta, { lab, tipo: "invitado", datos: docSnap.data() }]
-          }
-          return sinEsta
-        })
-      })
-      unsubscribers.push(unsub2)
-    })
+  // Avisos para el administrador
+  const avisosVistos = useRef<Set<string> | null>(null)
+  const { datos: avisos } = useConsultaPeriodica(
+    () => (autenticado ? API.getNotificaciones(laboratorioActual()) : undefined),
+    8000,
+    [autenticado],
+  )
 
-    return () => {
-      unsubscribers.forEach((u) => u())
-    }
-  }
-
-  // Configurar listeners para notificaciones
-  const setupNotificacionesListeners = () => {
-    const esDiaActual = (timestamp: Timestamp) => {
-      const fechaNotificacion = timestamp.toDate()
+  useEffect(() => {
+    if (!avisos) return
+    const esDiaActual = (fechaNotificacion: Date | null) => {
+      if (!fechaNotificacion) return false
       const hoy = new Date()
 
       return (
@@ -475,172 +419,111 @@ export default function AdminPanel() {
       )
     }
 
-    // Listener principal para notificaciones
-    const unsubscribeNotificaciones = onSnapshot(
-      query(collection(db, "NotificacionesAdmin"), orderBy("fecha", "desc"), limit(50)),
-      (snapshot) => {
-        const labAdmin = localStorage.getItem("laboratorio") || "programacion"
-        const notificacionesData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Notificacion[]
-
-        const notificacionesFiltradas = notificacionesData.filter((n: any) => {
-          // Filtrar por laboratorio
-          if (n.laboratorio && n.laboratorio !== labAdmin) return false
-          // Si es una notificacion de equipo, mostrar solo las que no estan resueltas
-          if (n.tipo === "equipo") {
-            return n.estadoEquipo !== "resuelto"
-          }
-          // Para otros tipos de notificaciones, mostrar las del dia actual o las no leidas
-          return esDiaActual(n.fecha) || !n.leida
-        })
-
-        setNotificaciones(notificacionesFiltradas)
-
-        if (notificacionSeleccionada) {
-          const notificacionActualizada = notificacionesFiltradas.find((n) => n.id === notificacionSeleccionada.id)
-          if (notificacionActualizada) {
-            setNotificacionSeleccionada(notificacionActualizada)
-          }
-        }
-
-        const noLeidas = notificacionesFiltradas.filter((n) => !n.leida).length
-        setNotificacionesNoLeidas(noLeidas)
-
-        // Calcular estadísticas
-        const porTipo = notificacionesFiltradas.reduce(
-          (acc, notif) => {
-            acc[notif.tipo] = (acc[notif.tipo] || 0) + 1
-            return acc
-          },
-          {} as Record<string, number>,
-        )
-
-        setEstadisticas({
-          total: notificacionesFiltradas.length,
-          noLeidas,
-          porTipo,
-          ultimaActualizacion: new Date().toLocaleString(),
-        })
-
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === "added") {
-            const nuevaNotificacion = {
-              id: change.doc.id,
-              ...change.doc.data(),
-            } as Notificacion
-
-            // Solo mostrar alerta si la notificación fue creada en los últimos 5 segundos
-            const tiempoTranscurrido = Date.now() - nuevaNotificacion.fecha.toMillis()
-            if (tiempoTranscurrido < 5000) {
-              // Mostrar toast para notificaciones de prioridad alta o media
-              if (nuevaNotificacion.prioridad === "alta") {
-                Swal.fire({
-                  title: "🚨 Notificación Urgente",
-                  text: nuevaNotificacion.titulo,
-                  icon: "warning",
-                  confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
-                  timer: 5000,
-                  timerProgressBar: true,
-                  position: "top-end",
-                  toast: true,
-                  showConfirmButton: false,
-                })
-              } else if (nuevaNotificacion.prioridad === "media") {
-                Swal.fire({
-                  title: nuevaNotificacion.titulo,
-                  text: nuevaNotificacion.mensaje.substring(0, 100),
-                  icon: "info",
-                  confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
-                  timer: 4000,
-                  timerProgressBar: true,
-                  position: "top-end",
-                  toast: true,
-                  showConfirmButton: false,
-                })
-              }
-            }
-          }
-        })
-      },
-    )
-
-    // Listeners para generar notificaciones automaticas (filtradas por laboratorio)
-    const labAdmin = localStorage.getItem("laboratorio") || "programacion"
-    const unsubscribeEquipos = onSnapshot(doc(db, "Numero de equipos", labAdmin), (docSnap) => {
-      if (docSnap.exists()) {
-        const equipos = docSnap.data().Equipos || []
-        const equiposFueraServicio = equipos.filter((e: any) => e.fueraDeServicio)
-
-        if (equiposFueraServicio.length > 0) {
-          console.log("Equipos fuera de servicio detectados:", equiposFueraServicio.length)
-        }
+    const notificacionesFiltradas = (avisos as Notificacion[]).filter((n) => {
+      // Si es una notificacion de equipo, mostrar solo las que no estan resueltas
+      if (n.tipo === "equipo") {
+        return n.estadoEquipo !== "resuelto"
       }
+      // Para otros tipos de notificaciones, mostrar las del dia actual o las no leidas
+      return esDiaActual(n.fecha) || !n.leida
     })
 
-    const unsubscribeMaestroInvitado = onSnapshot(doc(db, "EstadoClaseInvitado", labAdmin), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data()
-        if (data.iniciada) {
-          console.log("Clase de maestro invitado iniciada:", data)
-        }
+    setNotificaciones(notificacionesFiltradas)
+
+    if (notificacionSeleccionada) {
+      const notificacionActualizada = notificacionesFiltradas.find((n) => n.id === notificacionSeleccionada.id)
+      if (notificacionActualizada) {
+        setNotificacionSeleccionada(notificacionActualizada)
       }
-    })
-
-    // Listener para solicitudes de ingreso
-    const unsubscribeSolicitudes = onSnapshot(
-      query(collection(db, "SolicitudesIngreso"), orderBy("fechaSolicitud", "desc"), limit(50)),
-      (snapshot) => {
-        const solicitudesData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as SolicitudIngreso[]
-
-        // Filtrar solo solicitudes pendientes del laboratorio actual
-        const solicitudesFiltradas = solicitudesData.filter(
-          (s) => s.laboratorio === labAdmin && s.estado === "pendiente"
-        )
-
-        setSolicitudesIngreso(solicitudesFiltradas)
-        setSolicitudesPendientes(solicitudesFiltradas.filter((s) => !s.leida).length)
-
-        // Mostrar alerta para nuevas solicitudes
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === "added") {
-            const nuevaSolicitud = {
-              id: change.doc.id,
-              ...change.doc.data(),
-            } as SolicitudIngreso
-
-            if (nuevaSolicitud.laboratorio === labAdmin && nuevaSolicitud.estado === "pendiente") {
-              const tiempoTranscurrido = Date.now() - nuevaSolicitud.fechaSolicitud?.toMillis()
-              if (tiempoTranscurrido < 5000) {
-                Swal.fire({
-                  title: "Nueva Solicitud de Ingreso",
-                  text: `${nuevaSolicitud.alumnoNombre} ${nuevaSolicitud.alumnoApellido} solicita ingresar a ${nuevaSolicitud.materiaNombre}`,
-                  icon: "info",
-                  confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
-                  timer: 5000,
-                  timerProgressBar: true,
-                  position: "top-end",
-                  toast: true,
-                  showConfirmButton: false,
-                })
-              }
-            }
-          }
-        })
-      }
-    )
-
-    return () => {
-      unsubscribeNotificaciones()
-      unsubscribeEquipos()
-      unsubscribeMaestroInvitado()
-      unsubscribeSolicitudes()
     }
-  }
+
+    const noLeidas = notificacionesFiltradas.filter((n) => !n.leida).length
+    setNotificacionesNoLeidas(noLeidas)
+
+    // Calcular estadísticas
+    const porTipo = notificacionesFiltradas.reduce(
+      (acc, notif) => {
+        acc[notif.tipo] = (acc[notif.tipo] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+    setEstadisticas({
+      total: notificacionesFiltradas.length,
+      noLeidas,
+      porTipo,
+      ultimaActualizacion: new Date().toLocaleString(),
+    })
+
+    // Alertar solo los avisos que llegaron desde la consulta anterior (la primera vez
+    // no, para no sacar una alerta por cada aviso que ya existía).
+    const vistos = avisosVistos.current
+    avisosVistos.current = new Set(avisos.map((n) => n.id))
+    if (!vistos) return
+    for (const nuevaNotificacion of avisos.filter((n) => !vistos.has(n.id))) {
+      // Mostrar toast para notificaciones de prioridad alta o media
+      if (nuevaNotificacion.prioridad === "alta") {
+        Swal.fire({
+          title: "🚨 Notificación Urgente",
+          text: nuevaNotificacion.titulo,
+          icon: "warning",
+          confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
+          timer: 5000,
+          timerProgressBar: true,
+          position: "top-end",
+          toast: true,
+          showConfirmButton: false,
+        })
+      } else if (nuevaNotificacion.prioridad === "media") {
+        Swal.fire({
+          title: nuevaNotificacion.titulo,
+          text: nuevaNotificacion.mensaje.substring(0, 100),
+          icon: "info",
+          confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
+          timer: 4000,
+          timerProgressBar: true,
+          position: "top-end",
+          toast: true,
+          showConfirmButton: false,
+        })
+      }
+    }
+  }, [avisos])
+
+  // Solicitudes de ingreso pendientes del laboratorio
+  const solicitudesVistas = useRef<Set<string> | null>(null)
+  const { datos: solicitudesPendientesDeLaApi, recargar: recargarSolicitudes } = useConsultaPeriodica<Solicitud[]>(
+    () => (autenticado ? API.getSolicitudes(laboratorioActual(), "pendiente") : undefined),
+    8000,
+    [autenticado],
+  )
+
+  useEffect(() => {
+    if (!solicitudesPendientesDeLaApi) return
+    const solicitudesFiltradas = solicitudesPendientesDeLaApi as SolicitudIngreso[]
+
+    setSolicitudesIngreso(solicitudesFiltradas)
+    setSolicitudesPendientes(solicitudesFiltradas.filter((s) => !s.leida).length)
+
+    // Mostrar alerta para nuevas solicitudes
+    const vistas = solicitudesVistas.current
+    solicitudesVistas.current = new Set(solicitudesFiltradas.map((s) => s.id))
+    if (!vistas) return
+    for (const nuevaSolicitud of solicitudesFiltradas.filter((s) => !vistas.has(s.id))) {
+      Swal.fire({
+        title: "Nueva Solicitud de Ingreso",
+        text: `${nuevaSolicitud.alumnoNombre} ${nuevaSolicitud.alumnoApellido} solicita ingresar a ${nuevaSolicitud.materiaNombre}`,
+        icon: "info",
+        confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
+        timer: 5000,
+        timerProgressBar: true,
+        position: "top-end",
+        toast: true,
+        showConfirmButton: false,
+      })
+    }
+  }, [solicitudesPendientesDeLaApi])
 
   // Funcion helper para obtener nombre de laboratorio
   const obtenerNombreLab = (lab: string): string => {
@@ -657,10 +540,13 @@ export default function AdminPanel() {
     if (!claseSeleccionadaParaCerrar) return
     try {
       const { lab, tipo } = claseSeleccionadaParaCerrar
-      const coleccion = tipo === "regular" ? "EstadoClase" : "EstadoClaseInvitado"
-      const estadoRef = doc(db, coleccion, lab)
-      const horaFin = new Date().toLocaleTimeString()
-      await setDoc(estadoRef, { iniciada: false, horaFin, cerradaPorExterno: true })
+      // Se cierra como cualquier clase: el servidor registra la salida de todos y libera
+      // los equipos. Si era la de un docente, su pantalla se entera y cierra su sesión.
+      const clase = clasesActivas.find((c) => c.lab === lab && c.tipo === tipo)
+      if (clase) {
+        await API.cerrarClase(clase.datos.id)
+        await recargarClasesActivas()
+      }
 
       setDialogoFinalizarClase(false)
       setClaseSeleccionadaParaCerrar(null)
@@ -679,7 +565,7 @@ export default function AdminPanel() {
       console.error("Error al finalizar clase:", error)
       Swal.fire({
         title: "Error",
-        text: "No se pudo finalizar la clase",
+        text: error instanceof ErrorDeApi ? error.message : "No se pudo finalizar la clase",
         icon: "error",
         confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
       })
@@ -688,9 +574,7 @@ export default function AdminPanel() {
 
   const marcarComoLeida = async (notificacionId: string) => {
     try {
-      await updateDoc(doc(db, "NotificacionesAdmin", notificacionId), {
-        leida: true,
-      })
+      await API.marcarNotificacionLeida(notificacionId)
 
       setNotificaciones((prev) => prev.map((n) => (n.id === notificacionId ? { ...n, leida: true } : n)))
 
@@ -711,12 +595,8 @@ export default function AdminPanel() {
     try {
       const notificacionesNoLeidasIds = notificaciones.filter((n) => !n.leida).map((n) => n.id)
 
-      // Actualizar todas en Firestore
-      const updatePromises = notificacionesNoLeidasIds.map((id) =>
-        updateDoc(doc(db, "NotificacionesAdmin", id), { leida: true }),
-      )
-
-      await Promise.all(updatePromises)
+      // Solo las que se están mostrando (las de este laboratorio)
+      await Promise.all(notificacionesNoLeidasIds.map((id) => API.marcarNotificacionLeida(id)))
 
       // Actualizar estado local
       setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })))
@@ -732,8 +612,8 @@ export default function AdminPanel() {
     return notificaciones.filter((n) => n.tipo === filtroNotificaciones)
   }
 
-  const formatearFecha = (timestamp: Timestamp) => {
-    const fecha = timestamp.toDate()
+  const formatearFecha = (fecha: Date | null | undefined) => {
+    if (!fecha) return ""
     const ahora = new Date()
     const diferencia = ahora.getTime() - fecha.getTime()
 
@@ -770,9 +650,7 @@ export default function AdminPanel() {
     // Marcar como leída
     if (!solicitud.leida) {
       try {
-        await updateDoc(doc(db, "SolicitudesIngreso", solicitud.id), {
-          leida: true,
-        })
+        await API.marcarSolicitudLeida(solicitud.id)
       } catch (error) {
         console.error("Error al marcar solicitud como leída:", error)
       }
@@ -781,45 +659,10 @@ export default function AdminPanel() {
 
   const aprobarSolicitudTemporal = async (solicitud: SolicitudIngreso) => {
     try {
-      // Actualizar el estado de la solicitud
-      await updateDoc(doc(db, "SolicitudesIngreso", solicitud.id), {
-        estado: "aprobado_temporal",
-      })
-
-      // Obtener datos del alumno
-      const alumnoRef = doc(db, "Alumnos", solicitud.alumnoId)
-      const alumnoSnap = await getDoc(alumnoRef)
-
-      if (alumnoSnap.exists()) {
-        const alumnoData = alumnoSnap.data()
-        const materiasActuales = alumnoData.Materias || []
-
-        // Siempre obtener el turno del documento del alumno ya que es el dato más actualizado
-        const turnoFinal = alumnoData.Turno || "N/A"
-        
-        // Para el equipo: usar el de la solicitud si existe y es válido, sino "personal"
-        // El equipo viene de lo que el alumno seleccionó al momento de hacer la solicitud
-        const equipoFinal = (solicitud.equipo && solicitud.equipo.trim() !== "" && solicitud.equipo !== "acceso_temporal") 
-          ? solicitud.equipo 
-          : "personal"
-
-        // Crear registro de asistencia con los datos del alumno
-        const asistenciaRef = doc(collection(db, "Asistencias"))
-        await setDoc(asistenciaRef, {
-          AlumnoId: solicitud.alumnoId,
-          Nombre: solicitud.alumnoNombre || alumnoData.Nombre || "",
-          Apellido: solicitud.alumnoApellido || alumnoData.Apellido || "",
-          Carrera: solicitud.alumnoCarrera || alumnoData.Carrera || "",
-          Grupo: solicitud.alumnoGrupo || alumnoData.Grupo || "",
-          Semestre: solicitud.alumnoSemestre || alumnoData.Semestre || "",
-          Turno: turnoFinal,
-          Equipo: equipoFinal,
-          Fecha: new Date(),
-          Materia: solicitud.materiaNombre,
-          MaestroNombre: solicitud.maestroNombre,
-          laboratorio: solicitud.laboratorio,
-        })
-      }
+      // El servidor lo registra en la clase con el equipo que eligió (o con su equipo
+      // propio si ese ya se ocupó).
+      await API.resolverSolicitud(solicitud.id, "aprobado_temporal")
+      await recargarSolicitudes()
 
       Swal.fire({
         title: "Acceso Temporal Aprobado",
@@ -834,7 +677,7 @@ export default function AdminPanel() {
       console.error("Error al aprobar solicitud temporal:", error)
       Swal.fire({
         title: "Error",
-        text: "No se pudo procesar la solicitud. Intenta de nuevo.",
+        text: error instanceof ErrorDeApi ? error.message : "No se pudo procesar la solicitud. Intenta de nuevo.",
         icon: "error",
         confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
       })
@@ -843,26 +686,9 @@ export default function AdminPanel() {
 
   const aprobarSolicitudPermanente = async (solicitud: SolicitudIngreso) => {
     try {
-      // Actualizar el estado de la solicitud
-      await updateDoc(doc(db, "SolicitudesIngreso", solicitud.id), {
-        estado: "aprobado_permanente",
-      })
-
-      // Obtener datos del alumno y agregar la materia
-      const alumnoRef = doc(db, "Alumnos", solicitud.alumnoId)
-      const alumnoSnap = await getDoc(alumnoRef)
-
-      if (alumnoSnap.exists()) {
-        const alumnoData = alumnoSnap.data()
-        const materiasActuales = alumnoData.Materias || []
-
-        // Agregar la materia si no la tiene
-        if (!materiasActuales.includes(solicitud.materiaId)) {
-          await updateDoc(alumnoRef, {
-            Materias: [...materiasActuales, solicitud.materiaId],
-          })
-        }
-      }
+      // El servidor lo inscribe en la materia: la próxima vez entra sin pedir permiso.
+      await API.resolverSolicitud(solicitud.id, "aprobado_permanente")
+      await recargarSolicitudes()
 
       Swal.fire({
         title: "Inscripcion Permanente Aprobada",
@@ -877,7 +703,7 @@ export default function AdminPanel() {
       console.error("Error al aprobar solicitud permanente:", error)
       Swal.fire({
         title: "Error",
-        text: "No se pudo procesar la solicitud. Intenta de nuevo.",
+        text: error instanceof ErrorDeApi ? error.message : "No se pudo procesar la solicitud. Intenta de nuevo.",
         icon: "error",
         confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
       })
@@ -898,9 +724,8 @@ export default function AdminPanel() {
 
     if (result.isConfirmed) {
       try {
-        await updateDoc(doc(db, "SolicitudesIngreso", solicitud.id), {
-          estado: "rechazado",
-        })
+        await API.resolverSolicitud(solicitud.id, "rechazada")
+        await recargarSolicitudes()
 
         Swal.fire({
           title: "Solicitud Rechazada",
@@ -915,7 +740,7 @@ export default function AdminPanel() {
         console.error("Error al rechazar solicitud:", error)
         Swal.fire({
           title: "Error",
-          text: "No se pudo rechazar la solicitud. Intenta de nuevo.",
+          text: error instanceof ErrorDeApi ? error.message : "No se pudo rechazar la solicitud. Intenta de nuevo.",
           icon: "error",
           confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
         })
@@ -1324,7 +1149,7 @@ export default function AdminPanel() {
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-gray-400" />
                       <span className={theme === "dark" ? "text-gray-200" : "text-gray-800"}>
-                        {notificacionSeleccionada.fecha.toDate().toLocaleString("es-MX", {
+                        {notificacionSeleccionada.fecha?.toLocaleString("es-MX", {
                           dateStyle: "full",
                           timeStyle: "short",
                         })}
@@ -1451,7 +1276,7 @@ export default function AdminPanel() {
                   className="flex-1 bg-transparent"
                   onClick={() => {
                     if (notificacionSeleccionada.leida) {
-                      updateDoc(doc(db, "NotificacionesAdmin", notificacionSeleccionada.id), { leida: false })
+                      API.marcarNotificacionNoLeida(notificacionSeleccionada.id)
                       setNotificaciones((prev) =>
                         prev.map((n) => (n.id === notificacionSeleccionada.id ? { ...n, leida: false } : n)),
                       )
@@ -1874,19 +1699,19 @@ export default function AdminPanel() {
 
           {/* Resumen de notificaciones recientes en el dashboard */}
           {activeTab === "alumnos" && (
-            <AlumnosTab db={db} isDarkMode={theme === "dark"} currentColors={currentColors} />
+            <AlumnosTab isDarkMode={theme === "dark"} currentColors={currentColors} />
           )}
           {activeTab === "docentes" && (
-            <DocentesTab db={db} isDarkMode={theme === "dark"} currentColors={currentColors} />
+            <DocentesTab isDarkMode={theme === "dark"} currentColors={currentColors} />
           )}
           {activeTab === "materias" && (
-            <MateriasTab db={db} isDarkMode={theme === "dark"} currentColors={currentColors} />
+            <MateriasTab isDarkMode={theme === "dark"} currentColors={currentColors} />
           )}
           {activeTab === "laboratoristas" && (
-            <LaboratoristasTab db={db} isDarkMode={theme === "dark"} currentColors={currentColors} />
+            <LaboratoristasTab isDarkMode={theme === "dark"} currentColors={currentColors} />
           )}
           {activeTab === "administradores" && (
-            <AdministradoresTab db={db} isDarkMode={theme === "dark"} currentColors={currentColors} />
+            <AdministradoresTab isDarkMode={theme === "dark"} currentColors={currentColors} />
           )}
         </main>
       </div>

@@ -25,22 +25,13 @@ import {
   List,
   ArrowLeft,
 } from "lucide-react"
-import {
-  collection,
-  setDoc,
-  doc,
-  getDocs,
-  query,
-  deleteDoc,
-  updateDoc,
-  type Firestore,
-  getDoc,
-} from "firebase/firestore"
 import Swal from "sweetalert2"
-import bcrypt from "bcryptjs"
+import { API, ErrorDeApi } from "../lib/api"
 import type React from "react"
 
 interface Administrador {
+  /** Identificador interno en la base; el de un administrador nuevo aún no existe. */
+  id?: number
   Matricula: string
   Nombre: string
   Apellido: string
@@ -49,10 +40,9 @@ interface Administrador {
 }
 
 export function AdministradoresTab({
-  db,
   isDarkMode,
   currentColors,
-}: { db: Firestore; isDarkMode: boolean; currentColors: any }) {
+}: { isDarkMode: boolean; currentColors: any }) {
   const [vistaActual, setVistaActual] = useState<"menu" | "agregar" | "lista">("menu")
   const [administradores, setAdministradores] = useState<Administrador[]>([])
   const [administradoresFiltrados, setAdministradoresFiltrados] = useState<Administrador[]>([])
@@ -93,15 +83,8 @@ export function AdministradoresTab({
   const cargarAdministradores = async () => {
     setCargando(true)
     try {
-      const administradoresRef = collection(db, "Administrador")
-      const administradoresSnapshot = await getDocs(query(administradoresRef))
-      const administradoresData = administradoresSnapshot.docs.map((doc) => ({
-        Matricula: doc.id,
-        Nombre: doc.data().Nombre || "",
-        Apellido: doc.data().Apellido || "",
-        Email: doc.data().Email || "",
-        Contraseña: doc.data().Contraseña || "",
-      })) as Administrador[]
+      // La API nunca devuelve contraseñas, ni siquiera cifradas.
+      const administradoresData: Administrador[] = (await API.getAdministradores()).map((a) => ({ ...a, Contraseña: "" }))
       // Ordenar alfabéticamente por Apellido, luego por Nombre
       administradoresData.sort((a, b) => {
         const apellidoCompare = a.Apellido.localeCompare(b.Apellido, 'es', { sensitivity: 'base' })
@@ -131,10 +114,7 @@ export function AdministradoresTab({
     if (editando) return true // Skip validation during edit mode
 
     try {
-      const administradorDoc = doc(db, "Administrador", matricula)
-      const administradorSnapshot = await getDoc(administradorDoc)
-
-      if (administradorSnapshot.exists()) {
+      if (administradores.some((a) => a.Matricula === matricula)) {
         setErrorMatricula("Esta matrícula ya existe. Por favor, usa una diferente.")
         return false
       }
@@ -155,21 +135,14 @@ export function AdministradoresTab({
     if (!matriculaValida) return
 
     try {
-      const { Matricula, Contraseña, ...restoDatosAdministrador } = datosAdministrador as {
-        Matricula: string
-        Contraseña?: string
-        [key: string]: any
-      }
+      const { Contraseña } = datosAdministrador
 
       if (!editando) {
         if (!Contraseña) {
           throw new Error("La contraseña es requerida para crear un nuevo administrador")
         }
-        const hashedPassword = await bcrypt.hash(Contraseña, 10)
-        await setDoc(doc(db, "Administrador", Matricula), {
-          ...restoDatosAdministrador,
-          Contraseña: hashedPassword,
-        } as Administrador)
+        // El servidor cifra la contraseña; antes se cifraba aquí, en el navegador.
+        await API.guardarAdministrador({ ...datosAdministrador, id: undefined })
 
         await Swal.fire({
           title: "¡Éxito!",
@@ -177,11 +150,8 @@ export function AdministradoresTab({
           icon: "success",
         })
       } else {
-        const updateData: Partial<Administrador> = { ...restoDatosAdministrador }
-        if (Contraseña) {
-          updateData.Contraseña = await bcrypt.hash(Contraseña, 10)
-        }
-        await updateDoc(doc(db, "Administrador", Matricula), updateData)
+        // Sin contraseña nueva, el servidor conserva la que tenía.
+        await API.guardarAdministrador(datosAdministrador)
 
         await Swal.fire({
           title: "¡Éxito!",
@@ -198,11 +168,13 @@ export function AdministradoresTab({
       console.error("Error al agregar/actualizar administrador:", error)
       await Swal.fire({
         title: "Error",
-        text: "Ha ocurrido un error al agregar/actualizar el administrador. Por favor, intenta de nuevo.",
+        text: error instanceof ErrorDeApi || error instanceof Error ? error.message : "Ha ocurrido un error al agregar/actualizar el administrador. Por favor, intenta de nuevo.",
         icon: "error",
       })
     }
   }
+
+  const idDeMatricula = (matricula: string) => administradores.find((a) => a.Matricula === matricula)?.id ?? 0
 
   const eliminarAdministrador = async (matricula: string) => {
     const result = await Swal.fire({
@@ -218,7 +190,7 @@ export function AdministradoresTab({
 
     if (result.isConfirmed) {
       try {
-        await deleteDoc(doc(db, "Administrador", matricula))
+        await API.eliminarAdministrador(idDeMatricula(matricula))
         Swal.fire({
           title: "Eliminado!",
           text: "El administrador ha sido eliminado.",
@@ -229,7 +201,7 @@ export function AdministradoresTab({
         console.error("Error al eliminar administrador:", error)
         Swal.fire({
           title: "Error!",
-          text: "Ha ocurrido un error al eliminar el administrador.",
+          text: error instanceof ErrorDeApi ? error.message : "Ha ocurrido un error al eliminar el administrador.",
           icon: "error",
         })
       }
@@ -280,7 +252,7 @@ export function AdministradoresTab({
 
     if (result.isConfirmed) {
       try {
-        await Promise.all(seleccionados.map((matricula) => deleteDoc(doc(db, "Administrador", matricula))))
+        await Promise.all(seleccionados.map((matricula) => API.eliminarAdministrador(idDeMatricula(matricula))))
         Swal.fire("Eliminados!", `${seleccionados.length} administrador(es) eliminado(s).`, "success")
         setSeleccionados([])
         cargarAdministradores()

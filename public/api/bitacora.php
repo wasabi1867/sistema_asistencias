@@ -2,9 +2,10 @@
 require_once __DIR__ . '/db.php';
 
 // Consulta de la bitácora (tabla logs). La llena el servidor en cada acción
-// importante; aquí solo se lee. Solo el administrador.
+// importante; aquí solo se lee. La consultan el administrador y el laboratorista
+// (su panel tiene una vista de la bitácora del laboratorio).
 
-requerirRol(ROLES_ADMIN);
+requerirRol(ROLES_PERSONAL);
 $pdo = getDBConnection();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {

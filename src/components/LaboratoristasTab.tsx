@@ -23,19 +23,8 @@ import {
   List,
   ArrowLeft,
 } from "lucide-react"
-import {
-  collection,
-  setDoc,
-  doc,
-  getDocs,
-  query,
-  deleteDoc,
-  updateDoc,
-  type Firestore,
-  getDoc,
-} from "firebase/firestore"
 import Swal from "sweetalert2"
-import bcrypt from "bcryptjs"
+import { API, ErrorDeApi } from "../lib/api"
 import type React from "react"
 
 interface Laboratorista {
@@ -48,10 +37,9 @@ interface Laboratorista {
 }
 
 export function LaboratoristasTab({
-  db,
   isDarkMode,
   currentColors,
-}: { db: Firestore; isDarkMode: boolean; currentColors: any }) {
+}: { isDarkMode: boolean; currentColors: any }) {
   const [vistaActual, setVistaActual] = useState<"menu" | "agregar" | "lista">("menu")
   const [laboratoristas, setLaboratoristas] = useState<Laboratorista[]>([])
   const [datosLaboratorista, setDatosLaboratorista] = useState<Laboratorista>({
@@ -91,16 +79,8 @@ export function LaboratoristasTab({
   const cargarLaboratoristas = async () => {
     setCargando(true)
     try {
-      const laboratoristasRef = collection(db, "Laboratoristas")
-      const laboratoristasSnapshot = await getDocs(query(laboratoristasRef))
-      const laboratoristasData = laboratoristasSnapshot.docs.map((doc) => ({
-        Matricula: doc.id,
-        Nombre: doc.data().Nombre || "",
-        Apellido: doc.data().Apellido || "",
-        Email: doc.data().Email || "",
-        Contraseña: doc.data().Contraseña || "",
-        ...doc.data(),
-      })) as Laboratorista[]
+      // La API nunca devuelve contraseñas, ni siquiera cifradas.
+      const laboratoristasData: Laboratorista[] = (await API.getLaboratoristas()).map((l) => ({ ...l, Contraseña: "" }))
       // Ordenar alfabéticamente por Apellido, luego por Nombre
       laboratoristasData.sort((a, b) => {
         const apellidoCompare = a.Apellido.localeCompare(b.Apellido, 'es', { sensitivity: 'base' })
@@ -124,14 +104,11 @@ export function LaboratoristasTab({
   const manejarEnvio = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     try {
-      const { Matricula, Contraseña, ...restoDatosLaboratorista } = datosLaboratorista
+      const { Matricula } = datosLaboratorista
 
       if (!editando) {
         // Check if the matricula already exists when adding a new laboratory technician
-        const laboratoristaDoc = doc(db, "Laboratoristas", Matricula)
-        const laboratoristaSnapshot = await getDoc(laboratoristaDoc)
-
-        if (laboratoristaSnapshot.exists()) {
+        if (laboratoristas.some((l) => l.Matricula === Matricula)) {
           await Swal.fire({
             title: "Error",
             text: "Esta matrícula ya existe. Por favor, use una matrícula diferente.",
@@ -140,19 +117,16 @@ export function LaboratoristasTab({
           return
         }
 
-        const hashedPassword = await bcrypt.hash(Contraseña, 10)
-        await setDoc(laboratoristaDoc, { ...restoDatosLaboratorista, Contraseña: hashedPassword })
+        // El servidor cifra la contraseña; antes se cifraba aquí, en el navegador.
+        await API.guardarLaboratorista(datosLaboratorista)
         await Swal.fire({
           title: "¡Éxito!",
           text: "Laboratorista agregado correctamente",
           icon: "success",
         })
       } else {
-        const updateData = { ...restoDatosLaboratorista }
-        if (Contraseña !== "") {
-          updateData.Contraseña = await bcrypt.hash(Contraseña, 10)
-        }
-        await updateDoc(doc(db, "Laboratoristas", Matricula), updateData)
+        // Sin contraseña nueva, el servidor conserva la que tenía.
+        await API.guardarLaboratorista(datosLaboratorista)
         await Swal.fire({
           title: "¡Éxito!",
           text: "Laboratorista actualizado correctamente",
@@ -167,7 +141,7 @@ export function LaboratoristasTab({
       console.error("Error al agregar/actualizar laboratorista:", error)
       await Swal.fire({
         title: "Error",
-        text: "Ha ocurrido un error al agregar/actualizar el laboratorista. Por favor, intenta de nuevo.",
+        text: error instanceof ErrorDeApi ? error.message : "Ha ocurrido un error al agregar/actualizar el laboratorista. Por favor, intenta de nuevo.",
         icon: "error",
       })
     }
@@ -187,7 +161,7 @@ export function LaboratoristasTab({
 
     if (result.isConfirmed) {
       try {
-        await deleteDoc(doc(db, "Laboratoristas", matricula))
+        await API.eliminarLaboratorista(matricula)
         Swal.fire({
           title: "Eliminado!",
           text: "El laboratorista ha sido eliminado.",
@@ -247,7 +221,7 @@ export function LaboratoristasTab({
 
     if (result.isConfirmed) {
       try {
-        await Promise.all(seleccionados.map((matricula) => deleteDoc(doc(db, "Laboratoristas", matricula))))
+        await Promise.all(seleccionados.map((matricula) => API.eliminarLaboratorista(matricula)))
         Swal.fire("Eliminados!", `${seleccionados.length} laboratorista(s) eliminado(s).`, "success")
         setSeleccionados([])
         cargarLaboratoristas()

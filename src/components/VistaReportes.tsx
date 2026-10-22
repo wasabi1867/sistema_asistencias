@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
-import { db } from "../pages/panel-laboratorista"
+import { API, type InformacionDeClase } from "../lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -159,88 +158,67 @@ export default function VistaReportes({ esModoOscuro, logAction }: VistaReportes
   }, [practicasHoy, filtroMateria, filtroPractica, filtroProfesor])
 
   const obtenerPracticasHoy = () => {
-    try {
-      const hoy = new Date()
-      const fechaHoy = format(hoy, "dd/MM/yyyy")
+    const hoy = new Date()
+    const fechaHoy = format(hoy, "dd/MM/yyyy")
+    const desde = format(hoy, "yyyy-MM-dd")
+    const lab = localStorage.getItem("laboratorio") || "programacion"
 
-      const refInfoClase = collection(db, "ClassInformation")
-      const consultaInfoClase = query(
-        refInfoClase,
-        where("fecha", "==", fechaHoy),
-        // Quitamos temporalmente el orderBy mientras se crea el índice
-      )
+    const comoReporte = (info: InformacionDeClase): ReportData => ({
+      id: info.id,
+      practica: info.practica,
+      materia: info.materia,
+      fecha: info.fecha,
+      horaInicio: info.horaInicio,
+      estudiantes: info.alumnos.map((alumno) => ({
+        id: alumno.id,
+        Nombre: alumno.nombre,
+        Apellido: alumno.apellido,
+        Carrera: alumno.carrera,
+        Semestre: alumno.semestre,
+        Turno: alumno.turno,
+        Grupo: alumno.grupo,
+        Equipo: alumno.equipo,
+      })),
+      maestro: {
+        id: info.maestroId,
+        nombre: info.maestroNombre,
+        apellido: info.maestroApellido,
+      },
+      totalAsistencias: info.totalAsistencias,
+      alumnosIds: info.alumnos.map((a) => a.id),
+      maestroApellido: info.maestroApellido,
+      maestroId: info.maestroId,
+      maestroNombre: info.maestroNombre,
+    })
 
-      // Usar onSnapshot para actualizaciones en tiempo real
-      const lab = localStorage.getItem("laboratorio") || "programacion"
-      const unsubscribe = onSnapshot(
-        consultaInfoClase,
-        (snapshot) => {
-          const practicasDelDia = snapshot.docs
-            .filter((doc) => {
-              const data = doc.data()
-              return !data.laboratorio || data.laboratorio === lab
-            })
-            .map((doc) => {
-            const data = doc.data()
-            return {
-              id: doc.id,
-              practica: data.practica,
-              materia: data.materia,
-              fecha: data.fecha,
-              horaInicio: data.horaInicio,
-              estudiantes: data.alumnos
-                ? data.alumnos.map((alumno: any) => ({
-                    id: alumno.id || "",
-                    Nombre: alumno.Nombre || alumno.nombre || "",
-                    Apellido: alumno.Apellido || alumno.apellido || "",
-                    Carrera: alumno.Carrera || alumno.carrera || "",
-                    Semestre: alumno.Semestre || alumno.semestre || "",
-                    Turno: alumno.Turno || alumno.turno || "",
-                    Grupo: alumno.Grupo || alumno.grupo || "",
-                    Equipo: alumno.Equipo || alumno.equipo || "",
-                  }))
-                : [],
-              maestro: {
-                id: data.maestroId,
-                nombre: data.maestroNombre,
-                apellido: data.maestroApellido,
-              },
-              totalAsistencias: data.totalAsistencias,
-              alumnosIds: data.alumnosIds,
-              maestroApellido: data.maestroApellido,
-              maestroId: data.maestroId,
-              maestroNombre: data.maestroNombre,
-            } as ReportData
-          })
+    // Las clases de hoy (abiertas y cerradas), al día cada 15 segundos. Antes llegaban
+    // en vivo desde Firebase.
+    const consultar = async () => {
+      try {
+        const practicasDelDia = (await API.getInformacionDeClases({ laboratorio: lab, desde, hasta: desde })).map(comoReporte)
 
-          // Ordenamos manualmente las prácticas por horaInicio (más recientes primero)
-          practicasDelDia.sort((a, b) => {
-            if (!a.horaInicio) return 1
-            if (!b.horaInicio) return -1
-            return b.horaInicio.localeCompare(a.horaInicio)
-          })
+        // Ordenamos las prácticas por horaInicio (más recientes primero)
+        practicasDelDia.sort((a, b) => {
+          if (!a.horaInicio) return 1
+          if (!b.horaInicio) return -1
+          return b.horaInicio.localeCompare(a.horaInicio)
+        })
 
-          setPracticasHoy(practicasDelDia)
-          setPracticasFiltradas(practicasDelDia)
-          setEstaCargando(false)
-          logAction("Obtener Prácticas", `Se obtuvieron ${practicasDelDia.length} prácticas del día ${fechaHoy}`)
-          console.log("Prácticas actualizadas en tiempo real:", practicasDelDia.length)
-        },
-        (error) => {
-          console.error("Error al obtener prácticas del día:", error)
-          setEstaCargando(false)
-          logAction("Error", `Error al obtener prácticas del día: ${error}`)
-        },
-      )
-
-      // Retornar la función de limpieza para desuscribirse cuando el componente se desmonte
-      return unsubscribe
-    } catch (error) {
-      console.error("Error al configurar el listener de prácticas:", error)
-      setEstaCargando(false)
-      logAction("Error", `Error al configurar el listener de prácticas: ${error}`)
-      return () => {}
+        setPracticasHoy(practicasDelDia)
+        setPracticasFiltradas(practicasDelDia)
+        console.log(`Prácticas del día ${fechaHoy}:`, practicasDelDia.length)
+      } catch (error) {
+        console.error("Error al obtener prácticas del día:", error)
+      } finally {
+        setEstaCargando(false)
+      }
     }
+
+    consultar()
+    const intervalo = setInterval(consultar, 15000)
+
+    // Retornar la función de limpieza para dejar de consultar cuando el componente se desmonte
+    return () => clearInterval(intervalo)
   }
 
   const filtrarPracticas = () => {

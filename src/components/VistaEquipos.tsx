@@ -4,7 +4,6 @@ import { TooltipContent } from "@/components/ui/tooltip"
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { doc, updateDoc, setDoc, onSnapshot, addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -30,7 +29,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { motion, AnimatePresence } from "framer-motion"
-import { db } from "../pages/panel-laboratorista"
+import { API, ErrorDeApi, fechaDeLaBase } from "../lib/api"
+import { useConsultaPeriodica } from "../hooks/useConsultaPeriodica"
 import { toast } from "../hooks/use-toast"
 import { AlertTriangle, Wrench, CheckCircle2 } from "lucide-react"
 import Swal from "sweetalert2"
@@ -128,94 +128,16 @@ const estadosEquipo = {
 }
 
 // Función para crear notificaciones para el administrador
-const crearNotificacionAdmin = async (
-  tipo: string,
-  titulo: string,
-  mensaje: string,
-  prioridad: string,
-  datos?: any,
-) => {
+const crearNotificacionAdmin = async (tipo: string, titulo: string, mensaje: string, prioridad: string, datos?: any) => {
   try {
-    // Construir el objeto base de la notificación
     const labNotif = typeof window !== "undefined" ? localStorage.getItem("laboratorio") || "programacion" : "programacion"
-    const notificacionBase: any = {
-      tipo,
-      titulo,
-      mensaje,
-      fecha: serverTimestamp(),
-      leida: false,
-      prioridad,
-      datos: datos || null,
-      laboratorio: labNotif,
-    }
-
-    // Solo agregar estadoEquipo si es una notificación de equipo deshabilitado
-    if (tipo === "equipo" && datos?.accion === "deshabilitar_equipo") {
-      notificacionBase.estadoEquipo = "reportado"
-    }
-
-    const docRef = await addDoc(collection(db, "NotificacionesAdmin"), notificacionBase)
+    await API.crearNotificacion({ tipo, titulo, mensaje, prioridad, datos: datos || null, laboratorio: labNotif })
     console.log("Notificación creada para el administrador:", titulo)
-    return docRef.id
   } catch (error) {
     console.error("Error al crear notificación:", error)
-    return null
   }
 }
 
-// Función para actualizar el estado de una notificación existente
-const actualizarEstadoNotificacionAdmin = async (
-  notificacionId: string,
-  nuevoEstado: "reportado" | "en_proceso" | "resuelto",
-  comentario?: string,
-) => {
-  try {
-    await updateDoc(doc(db, "NotificacionesAdmin", notificacionId), {
-      estadoEquipo: nuevoEstado,
-      fechaActualizacionEstado: serverTimestamp(),
-      comentarioEstado: comentario || null,
-    })
-    console.log("Estado de notificación actualizado:", notificacionId, nuevoEstado)
-  } catch (error) {
-    console.error("Error al actualizar estado de notificación:", error)
-  }
-}
-
-// Función auxiliar para limpiar campos undefined de un equipo
-const limpiarEquipo = (equipo: Equipo): any => {
-  const equipoLimpio: any = {
-    id: equipo.id,
-    fueraDeServicio: equipo.fueraDeServicio,
-    ultimaActualizacion: equipo.ultimaActualizacion || new Date().toISOString(),
-  }
-
-  // Solo agregar campos opcionales si tienen valores válidos
-  if (equipo.enUso !== undefined) {
-    equipoLimpio.enUso = equipo.enUso
-  }
-
-  if (equipo.notas) {
-    equipoLimpio.notas = equipo.notas
-  }
-
-  if (equipo.estadoReparacion) {
-    equipoLimpio.estadoReparacion = equipo.estadoReparacion
-  }
-
-  if (equipo.fechaActualizacionEstado) {
-    equipoLimpio.fechaActualizacionEstado = equipo.fechaActualizacionEstado
-  }
-
-  if (equipo.comentarioEstado) {
-    equipoLimpio.comentarioEstado = equipo.comentarioEstado
-  }
-
-  if (equipo.notificacionAdminId) {
-    equipoLimpio.notificacionAdminId = equipo.notificacionAdminId
-  }
-
-  return equipoLimpio
-}
 
 export default function VistaEquipos({
   esModoOscuro,
@@ -246,62 +168,41 @@ export default function VistaEquipos({
 
   const modoColor = esModoOscuro ? colors.dark : colors.light
 
-  const cargarEquipos = () => {
-    setCargando(true)
-    try {
-      const unsubscribe = onSnapshot(
-        doc(db, "Numero de equipos", localStorage.getItem("laboratorio") || "programacion"),
-        (equiposDoc) => {
-          if (equiposDoc.exists()) {
-            const data = equiposDoc.data()
-            const equiposData = Array.isArray(data.Equipos) ? data.Equipos : []
+  const laboratorio = () => localStorage.getItem("laboratorio") || "programacion"
 
-            const equiposCompletos: Equipo[] = equiposData.map((equipo: any) => ({
-              id: equipo.id,
-              fueraDeServicio: equipo.fueraDeServicio || false,
-              enUso: equipo.enUso || false,
-              ultimaActualizacion: equipo.ultimaActualizacion || new Date().toISOString(),
-              notas: equipo.notas || "",
-              estadoReparacion: equipo.estadoReparacion as "reportado" | "en_proceso" | "resuelto" | undefined,
-              fechaActualizacionEstado: equipo.fechaActualizacionEstado || undefined,
-              comentarioEstado: equipo.comentarioEstado || undefined,
-              notificacionAdminId: equipo.notificacionAdminId || undefined,
-            }))
-
-            setEquipos(equiposCompletos)
-            setCargando(false)
-            logAction("Cargar Equipos", `Se cargaron ${equiposCompletos.length} equipos`)
-          } else {
-            setEquipos([])
-            setCargando(false)
-            logAction("Cargar Equipos", "No se encontraron equipos")
-          }
-        },
-        (error) => {
-          console.error("Error al escuchar cambios en equipos:", error)
-          setCargando(false)
-          logAction("Error", `Error al escuchar cambios en equipos: ${error}`)
-        },
-      )
-
-      return unsubscribe
-    } catch (error) {
-      console.error("Error al configurar el listener de equipos:", error)
-      setCargando(false)
-      logAction("Error", `Error al configurar el listener de equipos: ${error}`)
-      return () => {}
-    }
-  }
+  // Los equipos del laboratorio, al día cada pocos segundos (antes llegaban en vivo
+  // desde Firebase).
+  const {
+    datos: equiposDeLaApi,
+    error: errorEquipos,
+    recargar: recargarEquipos,
+  } = useConsultaPeriodica(() => API.getEquipos(laboratorio()), 5000, [])
 
   useEffect(() => {
-    const unsubscribe = cargarEquipos()
+    if (!equiposDeLaApi) return
+    // 'personal' es el equipo propio de cada alumno, no uno del laboratorio.
+    const equiposCompletos: Equipo[] = equiposDeLaApi
+      .filter((equipo) => equipo.id !== "personal")
+      .map((equipo) => ({
+        id: equipo.id,
+        fueraDeServicio: equipo.fueraDeServicio,
+        enUso: equipo.enUso,
+        ultimaActualizacion: fechaDeLaBase(equipo.ultimaActualizacion)?.toISOString(),
+        notas: equipo.notas || "",
+        estadoReparacion: equipo.estadoReparacion === "ninguno" ? undefined : equipo.estadoReparacion,
+        fechaActualizacionEstado: fechaDeLaBase(equipo.ultimaActualizacion)?.toISOString(),
+        comentarioEstado: equipo.comentarioEstado || undefined,
+      }))
+    setEquipos(equiposCompletos)
+    setCargando(false)
+  }, [equiposDeLaApi])
 
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe()
-      }
+  useEffect(() => {
+    if (errorEquipos) {
+      console.error("Error al consultar los equipos:", errorEquipos)
+      setCargando(false)
     }
-  }, [])
+  }, [errorEquipos])
 
   // Funcion para enviar reporte a Google Apps Script
   const enviarReporteGoogle = async (equipo: Equipo, razon: string, usuario = "Laboratorista") => {
@@ -439,55 +340,24 @@ Generado el: ${new Date().toLocaleString("es-MX")}
         throw new Error("Cantidad inválida")
       }
 
-      const equiposAnteriores = equipos.length
-
-      const nuevosEquipos: Equipo[] = Array.from({ length: cantidad }, (_, i) => ({
-        id: (i + 1).toString(),
-        fueraDeServicio: false,
-        enUso: false,
-        ultimaActualizacion: new Date().toISOString(),
-        notas: `Equipo agregado el ${new Date().toLocaleString("es-MX")}`,
-      }))
-
-      await setDoc(doc(db, "Numero de equipos", localStorage.getItem("laboratorio") || "programacion"), { Equipos: nuevosEquipos })
-      setEquipos(nuevosEquipos)
+      // Reemplaza los equipos del laboratorio; el servidor avisa al administrador.
+      const { anteriores } = await API.configurarEquipos(cantidad, laboratorio())
+      await recargarEquipos()
       setCantidadEquipos("")
       setDialogoAbierto(false)
 
-      await crearNotificacionAdmin(
-        "sistema",
-        `🔧 Configuración de Equipos Actualizada`,
-        `Se ha actualizado la configuración del laboratorio con ${cantidad} equipos nuevos, reemplazando la configuración anterior de ${equiposAnteriores} equipos.`,
-        "media",
-        {
-          cantidadEquipos: cantidad,
-          equiposAnteriores: equiposAnteriores,
-          accion: "actualizar_equipos",
-          fecha: new Date().toLocaleString("es-MX"),
-          rangoEquipos: `#1 - #${cantidad}`,
-          configuracionAnterior: `${equiposAnteriores} equipos`,
-          configuracionNueva: `${cantidad} equipos`,
-        },
-      )
-
       toast({
         title: "¡Éxito!",
-        description: `${cantidad} equipos agregados correctamente, reemplazando los ${equiposAnteriores} anteriores`,
+        description: `${cantidad} equipos agregados correctamente, reemplazando los ${anteriores} anteriores`,
         variant: "default",
       })
-
-      await logAction(
-        "Agregar Equipos",
-        `Se agregaron ${cantidad} equipos nuevos, reemplazando los ${equiposAnteriores} anteriores`,
-      )
     } catch (error) {
       console.error("Error al agregar equipos:", error)
       toast({
         title: "Error",
-        description: "Ha ocurrido un error al agregar los equipos.",
+        description: error instanceof ErrorDeApi ? error.message : "Ha ocurrido un error al agregar los equipos.",
         variant: "destructive",
       })
-      await logAction("Error", `Error al agregar equipos: ${error}`)
     }
   }
 
@@ -503,21 +373,8 @@ Generado el: ${new Date().toLocaleString("es-MX")}
     try {
       const notasAnteriores = equipoSeleccionado.notas || "Sin notas previas"
 
-      const equiposActualizados: Equipo[] = equipos.map((equipo) =>
-        equipo.id === equipoSeleccionado.id
-          ? {
-              ...equipo,
-              notas: notas,
-              ultimaActualizacion: new Date().toISOString(),
-            }
-          : equipo,
-      )
-
-      await updateDoc(doc(db, "Numero de equipos", localStorage.getItem("laboratorio") || "programacion"), {
-        Equipos: equiposActualizados.map(limpiarEquipo),
-      })
-
-      setEquipos(equiposActualizados)
+      await API.actualizarEquipo({ id: equipoSeleccionado.id, laboratorio: laboratorio(), notas })
+      await recargarEquipos()
       setDialogoNotasAbierto(false)
 
       const palabrasProblema = ["problema", "falla", "error", "dañado", "roto", "no funciona", "defecto"]
@@ -560,8 +417,6 @@ Generado el: ${new Date().toLocaleString("es-MX")}
         description: `Notas del equipo #${equipoSeleccionado.id} actualizadas`,
         variant: "default",
       })
-
-      await logAction("Actualizar Notas", `Notas del equipo #${equipoSeleccionado.id} actualizadas`)
     } catch (error) {
       console.error("Error al actualizar las notas:", error)
       toast({
@@ -569,7 +424,6 @@ Generado el: ${new Date().toLocaleString("es-MX")}
         description: "Ha ocurrido un error al actualizar las notas.",
         variant: "destructive",
       })
-      await logAction("Error", `Error al actualizar las notas del equipo #${equipoSeleccionado.id}: ${error}`)
     }
   }
 
@@ -607,26 +461,18 @@ Generado el: ${new Date().toLocaleString("es-MX")}
     }
 
     try {
-      const equiposActualizados: Equipo[] = equipos.map((equipo) =>
-        equipo.id === equipoADeshabilitar.id
-          ? {
-              ...equipo,
-              fueraDeServicio: true,
-              ultimaActualizacion: new Date().toISOString(),
-              notas: equipo.notas
-                ? `${equipo.notas}\n\n[${new Date().toLocaleString("es-MX")}] Deshabilitado: ${razonDeshabilitacion}`
-                : `[${new Date().toLocaleString("es-MX")}] Deshabilitado: ${razonDeshabilitacion}`,
-              estadoReparacion: "reportado" as const,
-              fechaActualizacionEstado: new Date().toISOString(),
-            }
-          : equipo,
-      )
-
-      await updateDoc(doc(db, "Numero de equipos", localStorage.getItem("laboratorio") || "programacion"), {
-        Equipos: equiposActualizados.map(limpiarEquipo),
+      const marca = `[${new Date().toLocaleString("es-MX")}] Deshabilitado: ${razonDeshabilitacion}`
+      await API.actualizarEquipo({
+        id: equipoADeshabilitar.id,
+        laboratorio: laboratorio(),
+        fueraDeServicio: true,
+        notas: equipoADeshabilitar.notas ? `${equipoADeshabilitar.notas}\n\n${marca}` : marca,
+        estadoReparacion: "reportado",
+        comentarioEstado: "",
       })
 
-      const notificacionId = await crearNotificacionAdmin(
+      // El estado de la reparación queda en el equipo; el aviso solo lo da a conocer.
+      await crearNotificacionAdmin(
         "equipo",
         `🚨EQUIPO #${equipoADeshabilitar.id} FUERA DE SERVICIO`,
         `URGENTE: El equipo #${equipoADeshabilitar.id} ha sido deshabilitado y requiere atención inmediata del departamento de sistemas. Se ha enviado un reporte automático por correo.`,
@@ -643,25 +489,7 @@ Generado el: ${new Date().toLocaleString("es-MX")}
           accion: "deshabilitar_equipo",
         },
       )
-
-      if (notificacionId) {
-        const equiposConNotificacion: Equipo[] = equiposActualizados.map((equipo) =>
-          equipo.id === equipoADeshabilitar.id
-            ? {
-                ...equipo,
-                notificacionAdminId: notificacionId,
-              }
-            : equipo,
-        )
-
-        await updateDoc(doc(db, "Numero de equipos", localStorage.getItem("laboratorio") || "programacion"), {
-          Equipos: equiposConNotificacion.map(limpiarEquipo),
-        })
-
-        setEquipos(equiposConNotificacion)
-      } else {
-        setEquipos(equiposActualizados)
-      }
+      await recargarEquipos()
 
       await Swal.fire({
         icon: "success",
@@ -674,14 +502,9 @@ Generado el: ${new Date().toLocaleString("es-MX")}
       setDialogoDeshabilitarAbierto(false)
       setRazonDeshabilitacion("")
 
-      await logAction(
-        "Deshabilitar Equipo",
-        `Equipo #${equipoADeshabilitar.id} deshabilitado. Razón: ${razonDeshabilitacion}`,
-      )
-
       // Enviar correo al departamento de sistemas
       const envioExitoso = await enviarReporteGoogle(equipoADeshabilitar, razonDeshabilitacion)
-      
+
       if (envioExitoso) {
         await Swal.fire({
           icon: "success",
@@ -701,51 +524,29 @@ Generado el: ${new Date().toLocaleString("es-MX")}
         text: "Ha ocurrido un error al deshabilitar el equipo.",
         confirmButtonColor: "#dc2626",
       })
-      await logAction("Error", `Error al deshabilitar el equipo #${equipoADeshabilitar?.id}: ${error}`)
     }
   }
 
   const reactivarEquipo = async (id: string) => {
     try {
       const equipoAnterior = equipos.find((e) => e.id === id)
+      const marca = `[${new Date().toLocaleString("es-MX")}] Reactivado y disponible para uso`
 
-      const equiposActualizados: Equipo[] = equipos.map((equipo) =>
-        equipo.id === id
-          ? {
-              ...equipo,
-              fueraDeServicio: false,
-              ultimaActualizacion: new Date().toISOString(),
-              notas: equipo.notas
-                ? `${equipo.notas}\n\n[${new Date().toLocaleString("es-MX")}] Reactivado y disponible para uso`
-                : `[${new Date().toLocaleString("es-MX")}] Reactivado y disponible para uso`,
-              estadoReparacion: "resuelto" as const,
-              fechaActualizacionEstado: new Date().toISOString(),
-              comentarioEstado: "Equipo reactivado y disponible para uso",
-            }
-          : equipo,
-      )
-
-      await updateDoc(doc(db, "Numero de equipos", localStorage.getItem("laboratorio") || "programacion"), {
-        Equipos: equiposActualizados.map(limpiarEquipo),
+      await API.actualizarEquipo({
+        id,
+        laboratorio: laboratorio(),
+        fueraDeServicio: false,
+        notas: equipoAnterior?.notas ? `${equipoAnterior.notas}\n\n${marca}` : marca,
+        estadoReparacion: "resuelto",
+        comentarioEstado: "Equipo reactivado y disponible para uso",
       })
-
-      setEquipos(equiposActualizados)
-
-      if (equipoAnterior?.notificacionAdminId) {
-        await actualizarEstadoNotificacionAdmin(
-          equipoAnterior.notificacionAdminId,
-          "resuelto",
-          "Equipo reactivado y disponible para uso",
-        )
-      }
+      await recargarEquipos()
 
       toast({
         title: "¡Éxito!",
         description: `El equipo #${id} ha sido reactivado y está disponible para uso.`,
         variant: "default",
       })
-
-      await logAction("Reactivar Equipo", `Equipo #${id} reactivado y disponible para uso`)
     } catch (error) {
       console.error("Error al reactivar el equipo:", error)
       toast({
@@ -753,7 +554,6 @@ Generado el: ${new Date().toLocaleString("es-MX")}
         description: "Ha ocurrido un error al reactivar el equipo.",
         variant: "destructive",
       })
-      await logAction("Error", `Error al reactivar el equipo #${id}: ${error}`)
     }
   }
 
@@ -769,69 +569,23 @@ Generado el: ${new Date().toLocaleString("es-MX")}
 
     try {
       const reactivarEquipo = nuevoEstado === "resuelto"
+      const marca = `[${new Date().toLocaleString("es-MX")}] Reactivado y disponible para uso - ${comentarioEstado.trim() || "Problema resuelto"}`
 
-      const equiposActualizados: Equipo[] = equipos.map((equipo) => {
-        if (equipo.id === equipoParaEstado.id) {
-          const equipoActualizado: Equipo = {
-            id: equipo.id,
-            fueraDeServicio: reactivarEquipo ? false : equipo.fueraDeServicio, // Reactivar si se marca como resuelto
-            ultimaActualizacion: new Date().toISOString(),
-            estadoReparacion: nuevoEstado,
-            fechaActualizacionEstado: new Date().toISOString(),
-          }
-
-          if (equipo.enUso !== undefined) {
-            equipoActualizado.enUso = equipo.enUso
-          }
-
-          if (reactivarEquipo) {
-            equipoActualizado.notas = equipo.notas
-              ? `${equipo.notas}\n\n[${new Date().toLocaleString("es-MX")}] Reactivado y disponible para uso - ${comentarioEstado.trim() || "Problema resuelto"}`
-              : `[${new Date().toLocaleString("es-MX")}] Reactivado y disponible para uso - ${comentarioEstado.trim() || "Problema resuelto"}`
-          } else if (equipo.notas) {
-            equipoActualizado.notas = equipo.notas
-          }
-
-          if (comentarioEstado.trim()) {
-            equipoActualizado.comentarioEstado = comentarioEstado.trim()
-          } else if (equipo.comentarioEstado) {
-            equipoActualizado.comentarioEstado = equipo.comentarioEstado
-          }
-
-          if (equipo.notificacionAdminId) {
-            equipoActualizado.notificacionAdminId = equipo.notificacionAdminId
-          }
-
-          return equipoActualizado
-        }
-        return equipo
+      // Marcarlo como resuelto lo vuelve a poner en servicio.
+      await API.actualizarEquipo({
+        id: equipoParaEstado.id,
+        laboratorio: laboratorio(),
+        estadoReparacion: nuevoEstado,
+        comentarioEstado: comentarioEstado.trim() || equipoParaEstado.comentarioEstado || "",
+        ...(reactivarEquipo
+          ? { fueraDeServicio: false, notas: equipoParaEstado.notas ? `${equipoParaEstado.notas}\n\n${marca}` : marca }
+          : {}),
       })
-
-      // Limpiar todos los equipos para eliminar campos undefined
-      const equiposLimpios = equiposActualizados.map(limpiarEquipo)
-
-      await updateDoc(doc(db, "Numero de equipos", localStorage.getItem("laboratorio") || "programacion"), {
-        Equipos: equiposLimpios,
-      })
-
-      setEquipos(equiposActualizados)
-
-      if (equipoParaEstado.notificacionAdminId) {
-        await actualizarEstadoNotificacionAdmin(
-          equipoParaEstado.notificacionAdminId,
-          nuevoEstado,
-          comentarioEstado.trim() || undefined,
-        )
-      }
+      await recargarEquipos()
 
       setDialogoEstadoAbierto(false)
       setEquipoParaEstado(null)
       setComentarioEstado("")
-
-      await logAction(
-        "Actualizar Estado Reparación",
-        `Estado del equipo #${equipoParaEstado.id} cambiado a "${estadosEquipo[nuevoEstado].label}"${reactivarEquipo ? " y reactivado automáticamente" : ""}`,
-      )
 
       toast({
         title: reactivarEquipo ? "¡Equipo reactivado!" : "¡Estado actualizado!",
@@ -847,7 +601,6 @@ Generado el: ${new Date().toLocaleString("es-MX")}
         description: "Ha ocurrido un error al actualizar el estado del equipo.",
         variant: "destructive",
       })
-      await logAction("Error", `Error al actualizar estado del equipo #${equipoParaEstado.id}: ${error}`)
     }
   }
 
@@ -1083,7 +836,7 @@ Generado el: ${new Date().toLocaleString("es-MX")}
             </div>
             <div className="flex items-end">
               <Button
-                onClick={cargarEquipos}
+                onClick={() => recargarEquipos()}
                 className={`${esModoOscuro ? colors.dark.buttonTertiary : colors.light.buttonTertiary}`}
               >
                 <RefreshCw className="mr-2 h-4 w-4" />

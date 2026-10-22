@@ -78,21 +78,42 @@ switch ($method) {
         $data = getJsonInput();
         $action = $_GET['action'] ?? 'crear_materia';
 
-        if ($action === 'crear_practica') {
+        if ($action === 'crear_practica' || $action === 'editar_practica') {
             $usuario = requerirRol(['admin', 'docente']);
-            $materiaId = (string)($data['materia_id'] ?? '');
             $num = $data['numero_practica'] ?? '';
-            $titulo = $data['titulo'] ?? '';
+            $titulo = trim($data['titulo'] ?? '');
             $desc = $data['descripcion'] ?? '';
             $duracion = $data['duracion'] ?? '';
+            $fecha = trim($data['fecha'] ?? '');
+            if ($fecha !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                sendResponse(["success" => false, "error" => "La fecha debe tener el formato AAAA-MM-DD"], 400);
+            }
 
+            if ($action === 'editar_practica') {
+                $id = (int)($data['id'] ?? 0);
+                $stmt = $pdo->prepare("SELECT materia_id FROM practicas WHERE id = ?");
+                $stmt->execute([$id]);
+                $materiaId = $stmt->fetchColumn();
+                if ($materiaId === false) {
+                    sendResponse(["success" => false, "error" => "Práctica no encontrada"], 404);
+                }
+                if (!$titulo) {
+                    sendResponse(["success" => false, "error" => "Título requerido"], 400);
+                }
+                requerirPermisoSobrePracticas($pdo, $usuario, $materiaId);
+                $stmt = $pdo->prepare("UPDATE practicas SET numero_practica = ?, titulo = ?, descripcion = ?, duracion = ?, fecha = ? WHERE id = ?");
+                $stmt->execute([$num, $titulo, $desc, $duracion, $fecha ?: null, $id]);
+                sendResponse(["success" => true, "message" => "Práctica actualizada"]);
+            }
+
+            $materiaId = (string)($data['materia_id'] ?? '');
             if (!$materiaId || !$titulo) {
                 sendResponse(["success" => false, "error" => "Materia y título requeridos"], 400);
             }
             requerirPermisoSobrePracticas($pdo, $usuario, $materiaId);
-            $stmt = $pdo->prepare("INSERT INTO practicas (materia_id, numero_practica, titulo, descripcion, duracion) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$materiaId, $num, $titulo, $desc, $duracion]);
-            sendResponse(["success" => true, "message" => "Práctica creada"]);
+            $stmt = $pdo->prepare("INSERT INTO practicas (materia_id, numero_practica, titulo, descripcion, duracion, fecha) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$materiaId, $num, $titulo, $desc, $duracion, $fecha ?: null]);
+            sendResponse(["success" => true, "message" => "Práctica creada", "id" => (int)$pdo->lastInsertId()]);
         } else {
             requerirRol(ROLES_ADMIN);
             $id = trim($data['id'] ?? $data['ID'] ?? uniqid('mat_'));

@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { FileText, Plus, Edit, Trash2, FileDown, RefreshCw, Menu, X } from "lucide-react"
-import { collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore"
-import { db } from "../pages/panel-laboratorista"
+import { API, claseComoInformacion } from "../lib/api"
 import Swal from "sweetalert2"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -95,40 +94,13 @@ export function AppSidebar({
     async (materiaId: string) => {
       if (!maestroId || !materiaId) return
 
-      let q = query(
-        collection(db, "ClassInformation"),
-        where("maestroId", "==", maestroId),
-        where("materia", "==", materias.find((m) => m.id === materiaId)?.nombre),
-      )
-
-      if (dateFilter) {
-        q = query(q, where("fecha", "==", dateFilter))
-      }
-
-      if (groupFilter) {
-        q = query(q, where("grupo", "==", groupFilter))
-      }
-
+      // Las clases ya cerradas de este docente en el laboratorio, con quiénes asistieron.
       const labSidebar = typeof window !== "undefined" ? localStorage.getItem("laboratorio") || "programacion" : "programacion"
-      const querySnapshot = await getDocs(q)
-      const classInfoData: ClassInfo[] = []
-      querySnapshot.forEach((doc) => {
-        const data = doc.data()
-        if (data.laboratorio && data.laboratorio !== labSidebar) return
-        classInfoData.push({
-          id: doc.id,
-          materia: data.materia,
-          practica: data.practica,
-          fecha: data.fecha,
-          totalAsistencias: data.totalAsistencias,
-          maestroNombre: data.maestroNombre,
-          maestroApellido: data.maestroApellido,
-          horaInicio: data.horaInicio || "",
-          carrera: data.alumnos && data.alumnos[0] ? data.alumnos[0].carrera : "",
-          grupo: data.alumnos && data.alumnos[0] ? data.alumnos[0].grupo : "",
-          alumnos: data.alumnos || [],
-        })
-      })
+      const clases = await API.getClases({ docenteId: maestroId, laboratorio: labSidebar, estado: "cerradas", conAlumnos: true })
+      const classInfoData: ClassInfo[] = clases
+        .filter((c) => c.materiaId === materiaId)
+        .map(claseComoInformacion)
+        .filter((c) => (!dateFilter || c.fecha === dateFilter) && (!groupFilter || c.grupo === groupFilter))
       setSelectedClassInfo(classInfoData)
     },
     [maestroId, materias, dateFilter, groupFilter],
@@ -137,13 +109,7 @@ export function AppSidebar({
   const fetchPracticas = React.useCallback(async (materiaId: string) => {
     if (!materiaId) return
 
-    const practicasRef = collection(db, "Materias", materiaId, "Practicas")
-    const practicasSnapshot = await getDocs(practicasRef)
-    const practicasData = practicasSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Practica[]
-    setPracticas(practicasData)
+    setPracticas(await API.getPracticas(materiaId))
   }, [])
 
   React.useEffect(() => {
@@ -181,8 +147,7 @@ export function AppSidebar({
     }
 
     try {
-      const practicasRef = collection(db, "Materias", selectedMateria, "Practicas")
-      await addDoc(practicasRef, newPractica)
+      await API.guardarPractica(selectedMateria, newPractica)
 
       setNewPractica({
         Titulo: "",
@@ -252,9 +217,7 @@ export function AppSidebar({
 
     if (result.isConfirmed) {
       try {
-        const practicaRef = doc(db, "Materias", selectedMateria, "Practicas", editingPractica.id)
-        const { id, ...practicaData } = editingPractica
-        await updateDoc(practicaRef, practicaData)
+        await API.guardarPractica(selectedMateria, editingPractica)
 
         await Swal.fire({
           title: "Éxito",
@@ -296,7 +259,7 @@ export function AppSidebar({
 
     if (result.isConfirmed) {
       try {
-        await deleteDoc(doc(db, "Materias", selectedMateria, "Practicas", practicaId))
+        await API.eliminarPractica(practicaId)
 
         await Swal.fire({
           title: "Éxito",

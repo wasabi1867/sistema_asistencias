@@ -9,19 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  addDoc,
-  collection,
-  getDocs,
-  query,
-  where,
-  setDoc,
-  doc,
-  orderBy,
-  type Timestamp,
-  serverTimestamp,
-} from "firebase/firestore"
-import { db } from "../lib/firebase"
+import { API, ErrorDeApi } from "../lib/api"
 import { toast, Toaster } from "react-hot-toast"
 import {
   UserPlus,
@@ -61,7 +49,7 @@ interface Evento {
   duracion: string
   descripcion: string
   resultados: string
-  createdAt: Timestamp
+  createdAt: Date | null
 }
 
 interface Maestro {
@@ -94,15 +82,8 @@ const crearNotificacionAdmin = async (
   datos?: any,
 ) => {
   try {
-    await addDoc(collection(db, "NotificacionesAdmin"), {
-      tipo,
-      titulo,
-      mensaje,
-      fecha: serverTimestamp(),
-      leida: false,
-      prioridad,
-      datos: datos || null,
-    })
+    const laboratorio = localStorage.getItem("laboratorio") || "programacion"
+    await API.crearNotificacion({ tipo, titulo, mensaje, prioridad, datos: datos || null, laboratorio })
     console.log("Notificación creada para el administrador:", titulo)
   } catch (error) {
     console.error("Error al crear notificación:", error)
@@ -203,15 +184,9 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
 
       setCargandoMaestros(true)
       try {
-        const maestrosQuery = query(collection(db, "Docentes"), where("Departamento", "==", departamento))
-        const querySnapshot = await getDocs(maestrosQuery)
-        const maestrosData = querySnapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            }) as Maestro,
-        )
+        const maestrosData: Maestro[] = (await API.getDocentes())
+          .filter((d) => d.Departamento === departamento)
+          .map((d) => ({ id: d.Matricula, Nombre: d.Nombre, Apellido: d.Apellido, Departamento: d.Departamento }))
         setMaestros(maestrosData)
         await logAction(
           "Cargar Maestros",
@@ -238,20 +213,8 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
       setCargandoMaterias(true)
       try {
         const labActual = localStorage.getItem("laboratorio") || "programacion"
-        const materiasQuery = query(collection(db, "Materias"), where("MaestroID", "==", maestroSeleccionado))
-        const querySnapshot = await getDocs(materiasQuery)
-        const materiasData = querySnapshot.docs
-          .filter((doc) => {
-            const labMateria = doc.data().Laboratorio || ""
-            return !labMateria || labMateria === labActual || labMateria === "todos"
-          })
-          .map(
-            (doc) =>
-              ({
-                id: doc.id,
-                ...doc.data(),
-              }) as Materia,
-          )
+        // Las materias del docente que se imparten en este laboratorio (o en todos)
+        const materiasData: Materia[] = await API.getMaterias({ docenteId: maestroSeleccionado, laboratorio: labActual })
         setMaterias(materiasData)
 
         const maestroSeleccionadoData = maestros.find((m) => m.id === maestroSeleccionado)
@@ -279,17 +242,7 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
       setCargandoEventos(true)
       try {
         const labEventos = localStorage.getItem("laboratorio") || "programacion"
-        const eventosQuery = query(collection(db, "EventosLaboratorio"), orderBy("createdAt", "desc"))
-        const querySnapshot = await getDocs(eventosQuery)
-        const eventosData = querySnapshot.docs
-          .map(
-            (doc) =>
-              ({
-                id: doc.id,
-                ...doc.data(),
-              }) as Evento,
-          )
-          .filter((e: any) => !e.laboratorio || e.laboratorio === labEventos)
+        const eventosData: Evento[] = await API.getEventos(labEventos)
         setEventos(eventosData)
         await logAction("Cargar Eventos", `Se cargaron ${eventosData.length} eventos del laboratorio`)
       } catch (error) {
@@ -316,30 +269,15 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
     }
 
     try {
-      const labClassInfo = localStorage.getItem("laboratorio") || "programacion"
-      const docRef = await addDoc(collection(db, "ClassInformation"), {
-        maestroNombre: nombreMaestroSeleccionado,
-        maestroId: maestroSeleccionado,
+      // El servidor abre la clase, avisa al administrador y lo anota en la bitácora.
+      const laboratorio = localStorage.getItem("laboratorio") || "programacion"
+      const clase = await API.abrirClaseDeInvitado({
+        laboratorio,
+        docente_id: maestroSeleccionado,
         departamento,
         materia,
         practica,
         grupo,
-        fecha: new Date().toLocaleDateString(),
-        laboratorio: labClassInfo,
-        horaInicio: new Date().toLocaleTimeString(),
-        totalAsistencias: 0,
-        alumnos: [],
-      })
-
-      const labClaseInv = localStorage.getItem("laboratorio") || "programacion"
-      await setDoc(doc(db, "EstadoClaseInvitado", labClaseInv), {
-        iniciada: true,
-        MaestroInvitado: nombreMaestroSeleccionado,
-        Materia: materia,
-        Practica: practica,
-        Departamento: departamento,
-        HoraInicio: new Date().toLocaleTimeString(),
-        laboratorio: labClaseInv,
       })
 
       const nombreCompletoDocente = nombreMaestroSeleccionado
@@ -347,6 +285,7 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
       localStorage.setItem(
         "claseInfo",
         JSON.stringify({
+          claseId: clase.id,
           maestroNombre: nombreMaestroSeleccionado,
           maestroId: maestroSeleccionado,
           departamento,
@@ -359,35 +298,12 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
         }),
       )
 
-      // Crear notificación DETALLADA para el administrador
-      await crearNotificacionAdmin(
-        "maestro_invitado",
-        `👨‍🏫 Clase de Maestro Invitado Iniciada`,
-        `El maestro invitado ${nombreMaestroSeleccionado} del departamento de ${departamento} ha iniciado una clase especial. Los estudiantes pueden registrar su asistencia.`,
-        "media",
-        {
-          maestroNombre: nombreMaestroSeleccionado,
-          maestroId: maestroSeleccionado,
-          departamento: departamento,
-          materia: materia,
-          practica: practica,
-          grupo: grupo,
-          horaInicio: new Date().toLocaleTimeString(),
-          fecha: new Date().toLocaleDateString("es-MX"),
-          tipoClase: "Maestro Invitado",
-          estado: "Iniciada",
-          ubicacion: "Laboratorio de Cómputo",
-          accion: "iniciar_clase_invitado",
-        },
-      )
-
       toast.success("Clase iniciada con éxito")
       await logAction("Iniciar Clase", `Clase iniciada por ${nombreMaestroSeleccionado} para ${materia} - ${practica}`)
       router.push("/lista-asistenciasInvitado")
     } catch (error) {
       console.error("Error al iniciar la clase:", error)
-      toast.error("Error al iniciar la clase")
-      await logAction("Error", `Error al iniciar la clase: ${error}`)
+      toast.error(error instanceof ErrorDeApi ? error.message : "Error al iniciar la clase")
     }
   }
 
@@ -410,7 +326,7 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
 
     try {
       const labEvento = localStorage.getItem("laboratorio") || "programacion"
-      await addDoc(collection(db, "EventosLaboratorio"), {
+      await API.guardarEvento({
         nombre: nombreEvento,
         tipo: tipoEvento,
         organizador: organizadorEvento,
@@ -421,7 +337,6 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
         descripcion: descripcionEvento,
         resultados: resultadosEvento,
         laboratorio: labEvento,
-        createdAt: serverTimestamp(),
       })
 
       // Crear notificación DETALLADA para el administrador
@@ -462,19 +377,7 @@ export default function VistaMaestroInvitado({ esModoOscuro, logAction }: VistaM
       await logAction("Registrar Evento", `Evento "${nombreEvento}" registrado por ${organizadorEvento}`)
 
       // Recargar la lista de eventos
-      const labRecarga = localStorage.getItem("laboratorio") || "programacion"
-      const eventosQuery = query(collection(db, "EventosLaboratorio"), orderBy("createdAt", "desc"))
-      const querySnapshot = await getDocs(eventosQuery)
-      const eventosData = querySnapshot.docs
-        .map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            }) as Evento,
-        )
-        .filter((e: any) => !e.laboratorio || e.laboratorio === labRecarga)
-      setEventos(eventosData)
+      setEventos(await API.getEventos(labEvento))
     } catch (error) {
       console.error("Error al registrar el evento:", error)
       toast.error("Error al registrar el evento")

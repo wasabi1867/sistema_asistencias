@@ -47,3 +47,6 @@ public/api/config.local.php
 # Dependencias y caché de las pruebas (composer install, vendor/bin/phpunit)
 /vendor
 /.phpunit.cache
+# Respaldo e importación de Firebase (scripts/importar-de-firebase.php): datos personales
+/respaldo-firebase*/
+/importacion*.sql

@@ -25,18 +25,8 @@ import {
   Layers,
   List,
 } from "lucide-react"
-import {
-  collection,
-  setDoc,
-  doc,
-  getDocs,
-  query,
-  deleteDoc,
-  updateDoc,
-  type Firestore,
-  getDoc,
-} from "firebase/firestore"
 import Swal from "sweetalert2"
+import { API, ErrorDeApi } from "../lib/api"
 import type React from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -55,10 +45,9 @@ interface Alumno {
 type Vista = "menu" | "agregar" | "lista"
 
 export function AlumnosTab({
-  db,
   isDarkMode,
   currentColors,
-}: { db: Firestore; isDarkMode: boolean; currentColors: any }) {
+}: { isDarkMode: boolean; currentColors: any }) {
   const [vistaActual, setVistaActual] = useState<Vista>("menu")
 
   const [alumnos, setAlumnos] = useState<Alumno[]>([])
@@ -106,10 +95,9 @@ export function AlumnosTab({
   useEffect(() => {
     const cargarMaterias = async () => {
       try {
-        const materiasSnapshot = await getDocs(collection(db, "Materias"))
-        const materiasData = materiasSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          nombre: doc.data().NombreMateria,
+        const materiasData = (await API.getMaterias()).map((m) => ({
+          id: m.id,
+          nombre: m.NombreMateria,
         }))
         // Ordenar alfabéticamente por nombre
         materiasData.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
@@ -119,24 +107,12 @@ export function AlumnosTab({
       }
     }
     cargarMaterias()
-  }, [db])
+  }, [])
 
   const cargarAlumnos = async () => {
     setIsLoading(true)
     try {
-      const alumnosRef = collection(db, "Alumnos")
-      const alumnosSnapshot = await getDocs(query(alumnosRef))
-      const alumnosData = alumnosSnapshot.docs.map((doc) => ({
-        Matricula: doc.id,
-        Nombre: doc.data().Nombre || "",
-        Apellido: doc.data().Apellido || "",
-        Carrera: doc.data().Carrera || "",
-        Semestre: doc.data().Semestre || "",
-        Turno: doc.data().Turno || "",
-        Grupo: doc.data().Grupo || "",
-        Materias: doc.data().Materias || [], // Asegurar que Materias exista
-        ...doc.data(),
-      })) as Alumno[]
+      const alumnosData: Alumno[] = await API.getAlumnos()
       // Ordenar alfabéticamente por Apellido, luego por Nombre
       alumnosData.sort((a, b) => {
         const apellidoCompare = a.Apellido.localeCompare(b.Apellido, 'es', { sensitivity: 'base' })
@@ -159,18 +135,15 @@ export function AlumnosTab({
   const manejarEnvio = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     try {
-      const { Matricula, ...restoDatosAlumno } = datosAlumno
+      const { Matricula } = datosAlumno
 
       const datosConMaterias = {
-        ...restoDatosAlumno,
+        ...datosAlumno,
         Materias: materiasSeleccionadas,
       }
 
       if (!editando) {
-        const alumnoDoc = doc(db, "Alumnos", Matricula)
-        const alumnoSnapshot = await getDoc(alumnoDoc)
-
-        if (alumnoSnapshot.exists()) {
+        if (alumnos.some((a) => a.Matricula === Matricula)) {
           await Swal.fire({
             title: "Error",
             text: "Esta matrícula ya existe. Por favor, use una matrícula diferente.",
@@ -179,14 +152,14 @@ export function AlumnosTab({
           return
         }
 
-        await setDoc(alumnoDoc, datosConMaterias) // Guardar con materias
+        await API.guardarAlumno(datosConMaterias) // Guardar con materias
         await Swal.fire({
           title: "¡Éxito!",
           text: "Alumno agregado correctamente",
           icon: "success",
         })
       } else {
-        await updateDoc(doc(db, "Alumnos", Matricula), datosConMaterias) // Actualizar con materias
+        await API.guardarAlumno(datosConMaterias) // Actualizar con materias
         await Swal.fire({
           title: "¡Éxito!",
           text: "Alumno actualizado correctamente",
@@ -211,7 +184,7 @@ export function AlumnosTab({
       console.error("Error al agregar/actualizar alumno:", error)
       await Swal.fire({
         title: "Error",
-        text: "Ha ocurrido un error al agregar/actualizar el alumno. Por favor, intenta de nuevo.",
+        text: error instanceof ErrorDeApi ? error.message : "Ha ocurrido un error al agregar/actualizar el alumno. Por favor, intenta de nuevo.",
         icon: "error",
       })
     }
@@ -231,7 +204,7 @@ export function AlumnosTab({
 
     if (result.isConfirmed) {
       try {
-        await deleteDoc(doc(db, "Alumnos", matricula))
+        await API.eliminarAlumno(matricula)
         Swal.fire("Eliminado!", "El alumno ha sido eliminado.", "success")
         cargarAlumnos()
       } catch (error) {
@@ -272,7 +245,7 @@ export function AlumnosTab({
 
     if (result.isConfirmed) {
       try {
-        await Promise.all(seleccionados.map((matricula) => deleteDoc(doc(db, "Alumnos", matricula))))
+        await Promise.all(seleccionados.map((matricula) => API.eliminarAlumno(matricula)))
         Swal.fire("Eliminados!", `${seleccionados.length} alumno(s) eliminado(s).`, "success")
         setSeleccionados([])
         cargarAlumnos()
@@ -307,25 +280,13 @@ export function AlumnosTab({
     if (result.isConfirmed) {
       try {
         setActualizando(true)
-        const alumnosRef = collection(db, "Alumnos")
-        const alumnosSnapshot = await getDocs(query(alumnosRef))
-
-        const actualizaciones = []
-        let contador = 0
-
-        for (const docSnapshot of alumnosSnapshot.docs) {
-          const alumnoData = docSnapshot.data()
-          if (alumnoData.Carrera === carreraSeleccionada && alumnoData.Semestre === semestreActual) {
-            actualizaciones.push(
-              updateDoc(doc(db, "Alumnos", docSnapshot.id), {
-                Semestre: nuevoSemestre,
-              }),
-            )
-            contador++
-          }
-        }
-
-        await Promise.all(actualizaciones)
+        // El servidor cambia a todos de una vez (antes se descargaban todos los alumnos
+        // y se actualizaban uno por uno desde el navegador).
+        const { actualizados: contador } = await API.cambioMasivoDeAlumnos({
+          carrera: carreraSeleccionada,
+          semestre: semestreActual,
+          nuevo_semestre: nuevoSemestre,
+        })
 
         await Swal.fire({
           title: "¡Éxito!",
@@ -375,29 +336,12 @@ export function AlumnosTab({
     if (result.isConfirmed) {
       try {
         setActualizando(true)
-        const alumnosRef = collection(db, "Alumnos")
-        const alumnosSnapshot = await getDocs(query(alumnosRef))
-
-        const actualizaciones = []
-        let contador = 0
-
-        for (const docSnapshot of alumnosSnapshot.docs) {
-          const alumnoData = docSnapshot.data()
-          if (
-            alumnoData.Carrera === carreraGrupo &&
-            alumnoData.Semestre === semestreGrupo &&
-            alumnoData.Grupo === grupoActual
-          ) {
-            actualizaciones.push(
-              updateDoc(doc(db, "Alumnos", docSnapshot.id), {
-                Grupo: nuevoGrupo,
-              }),
-            )
-            contador++
-          }
-        }
-
-        await Promise.all(actualizaciones)
+        const { actualizados: contador } = await API.cambioMasivoDeAlumnos({
+          carrera: carreraGrupo,
+          semestre: semestreGrupo,
+          grupo: grupoActual,
+          nuevo_grupo: nuevoGrupo,
+        })
 
         await Swal.fire({
           title: "¡Éxito!",

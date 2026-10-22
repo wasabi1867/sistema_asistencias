@@ -4,9 +4,9 @@ name: API PHP
 on:
   push:
     branches: [main]
-    paths: ['public/api/**', 'tests/api/**', 'schema.sql', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
+    paths: ['public/api/**', 'tests/api/**', 'scripts/**', 'db/**', 'schema.sql', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
   pull_request:
-    paths: ['public/api/**', 'tests/api/**', 'schema.sql', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
+    paths: ['public/api/**', 'tests/api/**', 'scripts/**', 'db/**', 'schema.sql', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
 
 jobs:
   pruebas:

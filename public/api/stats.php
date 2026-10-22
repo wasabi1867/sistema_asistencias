@@ -10,6 +10,8 @@ try {
     $alumnosCount = $pdo->query("SELECT COUNT(*) FROM alumnos")->fetchColumn();
     $docentesCount = $pdo->query("SELECT COUNT(*) FROM docentes")->fetchColumn();
     $materiasCount = $pdo->query("SELECT COUNT(*) FROM materias")->fetchColumn();
+    $laboratoristasCount = $pdo->query("SELECT COUNT(*) FROM laboratoristas")->fetchColumn();
+    $administradoresCount = $pdo->query("SELECT COUNT(*) FROM administradores")->fetchColumn();
 
     $asistenciasActivas = $pdo->prepare("SELECT COUNT(*) FROM asistencias WHERE laboratorio = ?");
     $asistenciasActivas->execute([$lab]);
@@ -30,6 +32,8 @@ try {
             "alumnos" => (int)$alumnosCount,
             "docentes" => (int)$docentesCount,
             "materias" => (int)$materiasCount,
+            "laboratoristas" => (int)$laboratoristasCount,
+            "administradores" => (int)$administradoresCount,
             "asistenciasActivas" => (int)$activasCount,
             "equipos" => [
                 "total" => (int)($eqStats['total'] ?? 0),

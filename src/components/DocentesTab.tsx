@@ -22,19 +22,8 @@ import {
   ArrowLeft,
   List,
 } from "lucide-react"
-import {
-  collection,
-  setDoc,
-  doc,
-  getDocs,
-  query,
-  deleteDoc,
-  updateDoc,
-  type Firestore,
-  getDoc,
-} from "firebase/firestore"
 import Swal from "sweetalert2"
-import bcrypt from "bcryptjs"
+import { API, ErrorDeApi } from "../lib/api"
 import type React from "react"
 
 interface Docente {
@@ -50,10 +39,9 @@ interface Docente {
 type Vista = "menu" | "agregar" | "lista"
 
 export function DocentesTab({
-  db,
   isDarkMode,
   currentColors,
-}: { db: Firestore; isDarkMode: boolean; currentColors: any }) {
+}: { isDarkMode: boolean; currentColors: any }) {
   const [vistaActual, setVistaActual] = useState<Vista>("menu")
 
   const [docentes, setDocentes] = useState<Docente[]>([])
@@ -77,17 +65,8 @@ export function DocentesTab({
   const cargarDocentes = async () => {
     setIsLoading(true)
     try {
-      const docentesRef = collection(db, "Docentes")
-      const docentesSnapshot = await getDocs(query(docentesRef))
-      const docentesData = docentesSnapshot.docs.map((doc) => ({
-        Matricula: doc.id,
-        Nombre: doc.data().Nombre || "",
-        Apellido: doc.data().Apellido || "",
-        Email: doc.data().Email || "",
-        Contraseña: doc.data().Contraseña || "",
-        Departamento: doc.data().Departamento || "",
-        ...doc.data(),
-      })) as Docente[]
+      // La API nunca devuelve contraseñas, ni siquiera cifradas.
+      const docentesData: Docente[] = (await API.getDocentes()).map((d) => ({ ...d, Contraseña: "" }))
       // Ordenar alfabéticamente por Apellido, luego por Nombre
       docentesData.sort((a, b) => {
         const apellidoCompare = a.Apellido.localeCompare(b.Apellido, 'es', { sensitivity: 'base' })
@@ -110,13 +89,10 @@ export function DocentesTab({
   const manejarEnvio = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     try {
-      const { Matricula, Contraseña, ...restoDatosDocente } = datosDocente
+      const { Matricula, Contraseña } = datosDocente
 
       if (!editando) {
-        const docenteDoc = doc(db, "Docentes", Matricula)
-        const docenteSnapshot = await getDoc(docenteDoc)
-
-        if (docenteSnapshot.exists()) {
+        if (docentes.some((d) => d.Matricula === Matricula)) {
           await Swal.fire({
             title: "Error",
             text: "Esta matrícula ya existe. Por favor, use una matrícula diferente.",
@@ -128,19 +104,16 @@ export function DocentesTab({
         if (!Contraseña) {
           throw new Error("La contraseña es requerida para nuevos docentes")
         }
-        const hashedPassword = await bcrypt.hash(Contraseña, 10)
-        await setDoc(docenteDoc, { ...restoDatosDocente, Contraseña: hashedPassword })
+        // El servidor cifra la contraseña; antes se cifraba aquí, en el navegador.
+        await API.guardarDocente(datosDocente)
         await Swal.fire({
           title: "¡Éxito!",
           text: "Docente agregado correctamente",
           icon: "success",
         })
       } else {
-        const updateData = { ...restoDatosDocente }
-        if (Contraseña) {
-          updateData.Contraseña = await bcrypt.hash(Contraseña, 10)
-        }
-        await updateDoc(doc(db, "Docentes", Matricula), updateData)
+        // Sin contraseña nueva, el servidor conserva la que tenía.
+        await API.guardarDocente(datosDocente)
         await Swal.fire({
           title: "¡Éxito!",
           text: "Docente actualizado correctamente",
@@ -155,7 +128,7 @@ export function DocentesTab({
       console.error("Error al agregar/actualizar docente:", error)
       await Swal.fire({
         title: "Error",
-        text: "Ha ocurrido un error al agregar/actualizar el docente. Por favor, intenta de nuevo.",
+        text: error instanceof ErrorDeApi || error instanceof Error ? error.message : "Ha ocurrido un error al agregar/actualizar el docente. Por favor, intenta de nuevo.",
         icon: "error",
       })
     }
@@ -175,7 +148,7 @@ export function DocentesTab({
 
     if (result.isConfirmed) {
       try {
-        await deleteDoc(doc(db, "Docentes", matricula))
+        await API.eliminarDocente(matricula)
         Swal.fire("Eliminado!", "El docente ha sido eliminado.", "success")
         cargarDocentes()
       } catch (error) {
@@ -227,7 +200,7 @@ export function DocentesTab({
 
     if (result.isConfirmed) {
       try {
-        await Promise.all(seleccionados.map((matricula) => deleteDoc(doc(db, "Docentes", matricula))))
+        await Promise.all(seleccionados.map((matricula) => API.eliminarDocente(matricula)))
         Swal.fire("Eliminados!", `${seleccionados.length} docente(s) eliminado(s).`, "success")
         setSeleccionados([])
         cargarDocentes()

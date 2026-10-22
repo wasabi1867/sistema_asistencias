@@ -99,10 +99,14 @@ sendResponse([
 function contrasenaCorrecta(PDO $pdo, string $role, ?array $user, string $password): bool {
     $guardada = (string)($user['password'] ?? '');
 
-    if (password_get_info($guardada)['algo'] !== null) {
+    // Un hash empieza con '$'. No basta con password_get_info(): los de bcryptjs, que
+    // usaba la versión con Firebase ($2a$ y $2b$), PHP los verifica bien pero no los
+    // reconoce como suyos, y se habrían tomado por texto plano.
+    if (str_starts_with($guardada, '$')) {
         if (!password_verify($password, $guardada)) {
             return false;
         }
+        // Los de bcryptjs se vuelven a cifrar en el formato de PHP al entrar.
         if (password_needs_rehash($guardada, PASSWORD_DEFAULT)) {
             guardarContrasena($pdo, $role, $user, $password);
         }

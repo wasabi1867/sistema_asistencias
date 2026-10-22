@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { initializeApp, getApps, getApp } from "firebase/app"
-import { getFirestore, addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -30,9 +28,7 @@ import VistaEquipos from "../components/VistaEquipos"
 import VistaMaestroInvitado from "../components/VistaMaestroInvitado"
 import VistaBitacora from "../components/VistaBitacora"
 import VistaReporteMensual from "../components/VistaReporteMensual"
-import { firebaseConfig } from "../lib/constants"
 import { getTheme, toggleTheme, applyTheme, type Theme } from "../lib/theme"
-import { getAuth, signOut } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import Swal from "sweetalert2"
 import { motion, AnimatePresence } from "framer-motion"
@@ -46,10 +42,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { onSnapshot, query, orderBy, limit, updateDoc, doc, type Timestamp, where, getDoc } from "firebase/firestore"
-
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
-export const db = typeof window !== 'undefined' ? getFirestore(app) : ({} as any)
+import { API, ErrorDeApi, type Clase, type Notificacion as NotificacionDeApi } from "../lib/api"
+import { useSesion } from "../hooks/useSesion"
+import { useConsultaPeriodica } from "../hooks/useConsultaPeriodica"
 
 // Definición de colores para mantener consistencia
 const colors = {
@@ -109,13 +104,14 @@ interface Notificacion {
   tipo: "equipo" | "maestro_invitado" | "evento" | "asistencia" | "sistema" | "seguridad"
   titulo: string
   mensaje: string
-  fecha: Timestamp
+  fecha: Date | null
   leida: boolean
   prioridad: "alta" | "media" | "baja"
   datos?: any
-  estadoEquipo?: "reportado" | "en_proceso" | "resuelto"
-  fechaActualizacionEstado?: Timestamp
-  comentarioEstado?: string
+  estadoEquipo?: "reportado" | "en_proceso" | "resuelto" | null
+  fechaActualizacionEstado?: Date | null
+  comentarioEstado?: string | null
+  laboratorio?: string | null
 }
 
 // Configuración de estados de equipos
@@ -244,15 +240,14 @@ export default function PanelLaboratorista() {
     }
   }
 
+  // Solo personal del laboratorio. La sesión la confirma la API.
+  const { usuario } = useSesion(["laboratorista", "admin"])
+  const laboratorio = () => localStorage.getItem("laboratorio") || "programacion"
+
   useEffect(() => {
     const currentTheme = getTheme()
     setThemeState(currentTheme)
     applyTheme(currentTheme)
-
-    // Configurar listeners para notificaciones de equipos
-    const unsubscribeNotificaciones = setupNotificacionesListeners()
-
-    const unsubscribeClases = setupClasesListeners()
 
     // Simular tiempo de carga
     const timer = setTimeout(() => {
@@ -261,8 +256,6 @@ export default function PanelLaboratorista() {
 
     return () => {
       clearTimeout(timer)
-      unsubscribeNotificaciones()
-      unsubscribeClases()
     }
   }, [])
 
@@ -279,60 +272,34 @@ export default function PanelLaboratorista() {
     }
   }, [])
 
-  const setupNotificacionesListeners = () => {
-    // Listener para notificaciones de equipos enviadas al administrador
-    const unsubscribeNotificaciones = onSnapshot(
-      query(collection(db, "NotificacionesAdmin"), where("tipo", "==", "equipo"), orderBy("fecha", "desc"), limit(20)),
-      (snapshot) => {
-        const labNotif = localStorage.getItem("laboratorio") || "programacion"
-        const notificacionesData = snapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }))
-          .filter((n: any) => !n.laboratorio || n.laboratorio === labNotif) as Notificacion[]
+  // Avisos de equipos dañados del laboratorio, con el estado de reparación de cada equipo.
+  const { datos: avisosDeEquipos, recargar: recargarAvisos } = useConsultaPeriodica<NotificacionDeApi[]>(
+    () => (usuario ? API.getNotificaciones(laboratorio(), "equipo") : undefined),
+    10000,
+    [usuario],
+  )
 
-        setNotificacionesEquipos(notificacionesData)
+  useEffect(() => {
+    if (!avisosDeEquipos) return
+    const notificacionesData = avisosDeEquipos.slice(0, 20) as Notificacion[]
+    setNotificacionesEquipos(notificacionesData)
 
-        // Contar notificaciones no resueltas
-        const noResueltas = notificacionesData.filter((n) => n.estadoEquipo !== "resuelto").length
-        setNotificacionesNoLeidas(noResueltas)
-      },
-      (error) => {
-        console.error("Error al escuchar notificaciones:", error)
-      },
-    )
+    // Contar notificaciones no resueltas
+    const noResueltas = notificacionesData.filter((n) => n.estadoEquipo !== "resuelto").length
+    setNotificacionesNoLeidas(noResueltas)
+  }, [avisosDeEquipos])
 
-    return unsubscribeNotificaciones
-  }
+  // Clases abiertas en el laboratorio, para poder cerrarlas en una emergencia.
+  const { datos: clasesAbiertas, recargar: recargarClases } = useConsultaPeriodica<Clase[]>(
+    () => (usuario ? API.getClasesAbiertas(laboratorio()) : undefined),
+    5000,
+    [usuario],
+  )
 
-  const setupClasesListeners = () => {
-    const lab = localStorage.getItem("laboratorio") || "programacion"
-    // Listener para clase regular
-    const unsubscribeClaseRegular = onSnapshot(doc(db, "EstadoClase", lab), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data()
-        setClaseActivaRegular(data.iniciada === true)
-      } else {
-        setClaseActivaRegular(false)
-      }
-    })
-
-    // Listener para clase de maestro invitado
-    const unsubscribeClaseInvitado = onSnapshot(doc(db, "EstadoClaseInvitado", lab), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data()
-        setClaseActivaInvitado(data.iniciada === true)
-      } else {
-        setClaseActivaInvitado(false)
-      }
-    })
-
-    return () => {
-      unsubscribeClaseRegular()
-      unsubscribeClaseInvitado()
-    }
-  }
+  useEffect(() => {
+    setClaseActivaRegular(Boolean(clasesAbiertas?.some((c) => c.tipo === "regular")))
+    setClaseActivaInvitado(Boolean(clasesAbiertas?.some((c) => c.tipo === "invitado")))
+  }, [clasesAbiertas])
 
   const handleThemeToggle = () => {
     const newTheme = toggleTheme()
@@ -340,20 +307,9 @@ export default function PanelLaboratorista() {
     applyTheme(newTheme)
   }
 
-  const logAction = async (action: string, details: string) => {
-    try {
-      const lab = localStorage.getItem("laboratorio") || "programacion"
-      await addDoc(collection(db, "logs"), {
-        timestamp: serverTimestamp(),
-        action,
-        user: "Laboratorista",
-        details,
-        laboratorio: lab,
-      })
-    } catch (error) {
-      console.error("Error logging action:", error)
-    }
-  }
+  // La bitácora la llena el servidor con cada acción; las vistas todavía reciben esta
+  // función, pero ya no hace falta que escriban nada.
+  const logAction = async (_action: string, _details: string) => {}
 
   const handleLogout = async () => {
     const result = await Swal.fire({
@@ -368,10 +324,8 @@ export default function PanelLaboratorista() {
     })
 
     if (result.isConfirmed) {
-      const auth = getAuth()
       try {
-        await signOut(auth)
-        await logAction("logout", "Laboratorista cerró sesión")
+        await API.cerrarSesion()
         localStorage.removeItem("labTechId")
         router.push("/")
       } catch (error) {
@@ -389,36 +343,19 @@ export default function PanelLaboratorista() {
     if (!notificacionSeleccionada) return
 
     try {
-      const fechaActual = new Date()
-
-      await updateDoc(doc(db, "NotificacionesAdmin", notificacionSeleccionada.id), {
-        estadoEquipo: nuevoEstado,
-        fechaActualizacionEstado: fechaActual,
-        comentarioEstado: comentarioEstado.trim() || null,
+      // El estado se guarda en el equipo; si queda resuelto, el equipo vuelve a servicio.
+      await API.actualizarEquipo({
+        id: String(notificacionSeleccionada.datos?.equipoId),
+        laboratorio: notificacionSeleccionada.laboratorio || laboratorio(),
+        estadoReparacion: nuevoEstado,
+        comentarioEstado: comentarioEstado.trim(),
+        ...(nuevoEstado === "resuelto" ? { fueraDeServicio: false } : {}),
       })
-
-      // Actualizar estado local
-      setNotificacionesEquipos((prev) =>
-        prev.map((n) =>
-          n.id === notificacionSeleccionada.id
-            ? {
-                ...n,
-                estadoEquipo: nuevoEstado,
-                fechaActualizacionEstado: fechaActual as any,
-                comentarioEstado: comentarioEstado.trim() || undefined,
-              }
-            : n,
-        ),
-      )
+      await recargarAvisos()
 
       setDialogoEstadoAbierto(false)
       setNotificacionSeleccionada(null)
       setComentarioEstado("")
-
-      await logAction(
-        "Actualizar Estado Equipo",
-        `Estado del equipo #${notificacionSeleccionada.datos?.equipoId} cambiado a "${estadosEquipo[nuevoEstado].label}"`,
-      )
 
       Swal.fire({
         title: "¡Estado actualizado!",
@@ -445,8 +382,8 @@ export default function PanelLaboratorista() {
     setDialogoEstadoAbierto(true)
   }
 
-  const formatearFecha = (timestamp: Timestamp) => {
-    const fecha = timestamp.toDate()
+  const formatearFecha = (fecha: Date | null | undefined) => {
+    if (!fecha) return ""
     const ahora = new Date()
     const diferencia = ahora.getTime() - fecha.getTime()
 
@@ -572,34 +509,12 @@ export default function PanelLaboratorista() {
 
   const finalizarClaseEmergencia = async () => {
     try {
-      const lab = localStorage.getItem("laboratorio") || "programacion"
-      let maestroId = null
-
-      if (tipoClaseAFinalizar === "regular") {
-        const estadoRef = doc(db, "EstadoClase", lab)
-        const estadoClaseDoc = await getDoc(estadoRef)
-
-        if (estadoClaseDoc.exists()) {
-          const data = estadoClaseDoc.data()
-          maestroId = data.maestroId
-
-          const horaFin = new Date().toLocaleTimeString()
-          await updateDoc(estadoRef, { iniciada: false, horaFin: horaFin, cerradaPorExterno: true })
-
-          await logAction(
-            "Finalizar Clase de Emergencia",
-            `Clase regular finalizada por laboratorista a las ${horaFin}`,
-          )
-        }
-      } else {
-        const estadoRef = doc(db, "EstadoClaseInvitado", lab)
-        const horaFin = new Date().toLocaleTimeString()
-        await updateDoc(estadoRef, { iniciada: false, horaFin: horaFin, cerradaPorExterno: true })
-
-        await logAction(
-          "Finalizar Clase de Emergencia",
-          `Clase de maestro invitado finalizada por laboratorista a las ${horaFin}`,
-        )
+      // Se cierra como cualquier clase: el servidor registra la salida de todos y libera
+      // los equipos. Si era la clase de un docente, su pantalla se entera y cierra su sesión.
+      const clase = clasesAbiertas?.find((c) => c.tipo === tipoClaseAFinalizar)
+      if (clase) {
+        await API.cerrarClase(clase.id)
+        await recargarClases()
       }
 
       setDialogoFinalizarClase(false)
@@ -615,7 +530,7 @@ export default function PanelLaboratorista() {
       console.error("Error al finalizar clase:", error)
       Swal.fire({
         title: "Error",
-        text: "No se pudo finalizar la clase",
+        text: error instanceof ErrorDeApi ? error.message : "No se pudo finalizar la clase",
         icon: "error",
         confirmButtonColor: theme === "dark" ? "#1d5631" : "#800040",
       })

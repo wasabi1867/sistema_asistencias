@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore"
-import { db } from "../pages/panel-laboratorista"
+import { API } from "../lib/api"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -170,33 +169,13 @@ export default function VistaPracticas({ esModoOscuro, logAction }: VistaPractic
   const obtenerTodasLasPracticas = async (): Promise<void> => {
     try {
       setEstaCargando(true)
-      const refInfoClase = collection(db, "ClassInformation")
-      const consultaInfoClase = query(refInfoClase, orderBy("fecha", "desc"))
-      const snapshotInfoClase = await getDocs(consultaInfoClase)
+      // Las clases ya cerradas del laboratorio, con quiénes asistieron
       const labActual = localStorage.getItem("laboratorio") || "programacion"
-      const datosInfoClase = snapshotInfoClase.docs
-        .filter((doc) => {
-          const data = doc.data()
-          return !data.laboratorio || data.laboratorio === labActual
-        })
-        .map((doc) => {
-        const data = doc.data()
-        let fecha: Date
-        if (data.fecha instanceof Timestamp) {
-          fecha = data.fecha.toDate()
-        } else if (typeof data.fecha === "string") {
-          const parsedDate = parse(data.fecha, "dd/MM/yyyy", new Date())
-          fecha = isValid(parsedDate) ? parsedDate : new Date(data.fecha)
-        } else {
-          fecha = new Date(data.fecha)
-        }
-        return {
-          id: doc.id,
-          ...data,
-          fecha,
-          alumnos: data.alumnos || [],
-        } as InfoClase
-      })
+      const datosInfoClase: InfoClase[] = (await API.getInformacionDeClases({ laboratorio: labActual, estado: "cerradas" })).map((info) => ({
+        ...info,
+        fecha: info.fechaInicio ?? new Date(),
+        alumnosIds: info.alumnos.map((a) => a.id),
+      }))
       // Ordenar por fecha (más recientes primero) y luego por materia
       datosInfoClase.sort((a, b) => {
         const fechaCompare = new Date(b.fecha || 0).getTime() - new Date(a.fecha || 0).getTime()

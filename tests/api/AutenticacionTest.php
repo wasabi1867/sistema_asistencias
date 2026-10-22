@@ -86,6 +86,24 @@ final class AutenticacionTest extends PruebaDeApi
         $this->assertSame(200, $otra->estado);
     }
 
+    public function test_entra_con_la_contrasena_que_cifro_firebase(): void
+    {
+        // Hash de 'clave-de-firebase' hecho con bcryptjs, como los de la versión con Firebase.
+        $deFirebase = '$2b$10$/ZROYJEdcZ8PItQWMOvMteQ.hgU2qNgc6jJRVoe4CrAcM/TO/HEWi';
+        $this->insertar('docentes', ['matricula' => 'D300', 'nombre' => 'De', 'apellido' => 'Firebase', 'password' => $deFirebase]);
+
+        $mala = (new Cliente())->post('auth.php', ['email' => 'D300', 'password' => $deFirebase, 'role' => 'docente']);
+        $buena = (new Cliente())->post('auth.php', ['email' => 'D300', 'password' => 'clave-de-firebase', 'role' => 'docente']);
+
+        // Escribir el hash mismo como contraseña no sirve (no se toma por texto plano).
+        $this->assertSame(401, $mala->estado);
+        $this->assertSame(200, $buena->estado, (string)$buena);
+        // Queda cifrada en el formato de PHP, y sigue sirviendo.
+        $guardada = $this->valor("SELECT password FROM docentes WHERE matricula = 'D300'");
+        $this->assertStringStartsWith('$2y$', $guardada);
+        $this->assertSame(200, (new Cliente())->post('auth.php', ['email' => 'D300', 'password' => 'clave-de-firebase', 'role' => 'docente'])->estado);
+    }
+
     public function test_una_cuenta_sin_contrasena_no_entra(): void
     {
         $this->insertar('laboratoristas', ['matricula' => 'L200', 'nombre' => 'Sin', 'apellido' => 'Contraseña', 'password' => '']);

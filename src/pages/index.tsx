@@ -5,19 +5,8 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react" // Import useRef
 import { useRouter } from "next/navigation"
 import { User, UserCog, Computer, Moon, Sun, ChevronRight, Monitor, Wifi, ArrowLeft, Building2, Server, Loader2 } from "lucide-react"
-import { initializeApp, getApps, getApp } from "firebase/app"
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  collection,
-  serverTimestamp,
-  onSnapshot,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore"
+import { API, ErrorDeApi, horaLegible, type Clase, type Equipo } from "../lib/api"
+import { useConsultaPeriodica } from "../hooks/useConsultaPeriodica"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,22 +21,9 @@ import { getTheme, toggleTheme, applyTheme, type Theme } from "../lib/theme"
 import Image from "next/image"
 import swal from "sweetalert"
 import { motion, AnimatePresence } from "framer-motion"
-import bcrypt from "bcryptjs"
 
 import { Html5QrcodeScanner } from "html5-qrcode"
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCX5WX8tTkWRsIikpV3-pTXIsYUXfF5Eqk",
-  authDomain: "integrador-7b39d.firebaseapp.com",
-  projectId: "integrador-7b39d",
-  storageBucket: "integrador-7b39d.appspot.com",
-  messagingSenderId: "780966021686",
-  appId: "1:780966021686:web:485712fb7509339c6ae697",
-  measurementId: "G-FGB03PFM7Z",
-}
-
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
-const db = typeof window !== 'undefined' ? getFirestore(app) : ({} as any)
 
 type UserType = "estudiante" | "maestro"
 
@@ -237,10 +213,18 @@ export default function InterfazLaboratorio() {
     return () => clearTimeout(timer)
   }, [])
 
-  useEffect(() => {
-    // Obtener el laboratorio actual (de localStorage o del estado)
-    const lab = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
+  // El laboratorio elegido en esta computadora (se recuerda en localStorage).
+  const laboratorioActual = () => laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
 
+  // Qué clases hay abiertas en el laboratorio. Antes llegaba en vivo desde Firebase;
+  // ahora se le pregunta a la API cada pocos segundos.
+  const { datos: clasesAbiertas } = useConsultaPeriodica<Clase[]>(
+    () => (typeof window === "undefined" ? undefined : API.getClasesAbiertas(laboratorioActual())),
+    4000,
+    [laboratorioSeleccionado],
+  )
+
+  useEffect(() => {
     // Resetear estados al cambiar de laboratorio
     setIsClassStarted(false)
     setIsGuestClassStarted(false)
@@ -248,63 +232,65 @@ export default function InterfazLaboratorio() {
     setGuestClassInfo(null)
     setEquipo("")
     setMatricula("")
-
-    // Verificar si hay una clase normal iniciada en este laboratorio
-    const unsubscribeClass = onSnapshot(doc(db, "EstadoClase", lab), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data()
-        const isStarted = data.iniciada === true
-        setIsClassStarted(isStarted)
-        if (isStarted) {
-          setClassInfo(data)
-          console.log("Clase normal actualizada:", data)
-        } else {
-          setClassInfo(null)
-          console.log("Clase normal finalizada")
-        }
-      }
-    })
-
-    // Verificar si hay una clase de invitado iniciada en este laboratorio
-    const unsubscribeGuestClass = onSnapshot(doc(db, "EstadoClaseInvitado", lab), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data()
-        const newStatus = data.iniciada
-        setIsGuestClassStarted(newStatus)
-        console.log("Estado de clase invitado actualizado:", newStatus)
-
-        // Only show alert if status changed
-        if (newStatus !== lastGuestClassStatus) {
-          setLastGuestClassStatus(newStatus)
-          if (newStatus) {
-            swal({
-              title: "Clase iniciada!",
-              text: `Maestro: ${data.MaestroInvitado}
-Materia: ${data.Materia}
-Practica: ${data.Practica}
-Hora de inicio: ${data.HoraInicio}`,
-              icon: "success",
-            })
-          } else {
-            swal({
-              title: "Clase finalizada",
-              text: `La clase con el maestro ${data.MaestroInvitado} ha finalizada.`,
-              icon: "info",
-            })
-
-            // Cuando finaliza la clase, resetear el estado "enUso" de todos los equipos
-            resetEquiposEnUso()
-          }
-        }
-        setGuestClassInfo(data)
-      }
-    })
-
-    return () => {
-      unsubscribeClass()
-      unsubscribeGuestClass()
-    }
   }, [laboratorioSeleccionado])
+
+  useEffect(() => {
+    if (!clasesAbiertas) return
+    const regular = clasesAbiertas.find((c) => c.tipo === "regular")
+    const invitado = clasesAbiertas.find((c) => c.tipo === "invitado")
+
+    setIsClassStarted(Boolean(regular))
+    setClassInfo(
+      regular
+        ? {
+            id: regular.id,
+            materiaId: regular.materiaId,
+            maestroNombre: regular.docente,
+            maestroApellido: "",
+            materiaNombre: regular.materia,
+            practicaTitulo: regular.practica,
+            horaInicio: horaLegible(regular.abiertaEn),
+          }
+        : null,
+    )
+
+    const newStatus = Boolean(invitado)
+    setIsGuestClassStarted(newStatus)
+    const datosInvitado = invitado
+      ? {
+          id: invitado.id,
+          MaestroInvitado: invitado.docente,
+          Materia: invitado.materia,
+          Practica: invitado.practica,
+          Departamento: invitado.departamento,
+          HoraInicio: horaLegible(invitado.abiertaEn),
+        }
+      : null
+
+    // Only show alert if status changed
+    if (newStatus !== lastGuestClassStatus) {
+      setLastGuestClassStatus(newStatus)
+      if (datosInvitado) {
+        swal({
+          title: "Clase iniciada!",
+          text: `Maestro: ${datosInvitado.MaestroInvitado}
+Materia: ${datosInvitado.Materia}
+Practica: ${datosInvitado.Practica}
+Hora de inicio: ${datosInvitado.HoraInicio}`,
+          icon: "success",
+        })
+      } else if (guestClassInfo) {
+        swal({
+          title: "Clase finalizada",
+          text: `La clase con el maestro ${guestClassInfo.MaestroInvitado} ha finalizada.`,
+          icon: "info",
+        })
+      }
+    }
+    if (datosInvitado) {
+      setGuestClassInfo(datosInvitado)
+    }
+  }, [clasesAbiertas])
 
   // Añadir este efecto después del useEffect que verifica las clases
   // Modificar este efecto para prevenir cierre accidental de la ventana del navegador
@@ -332,18 +318,19 @@ Hora de inicio: ${data.HoraInicio}`,
     // pero no afectará a los listeners de Firestore
   }, [lastGuestClassStatus])
 
-  useEffect(() => {
-    const lab = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-    const unsubscribe = onSnapshot(doc(db, "Numero de equipos", lab), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data()
-        const dbEquipment = data.Equipos || []
-        setEquipmentList([{ id: "personal", fueraDeServicio: false }, ...dbEquipment])
-      }
-    })
+  const { datos: equiposDelLaboratorio } = useConsultaPeriodica<Equipo[]>(
+    () => (typeof window === "undefined" ? undefined : API.getEquipos(laboratorioActual())),
+    4000,
+    [laboratorioSeleccionado],
+  )
 
-    return () => unsubscribe()
-  }, [laboratorioSeleccionado])
+  useEffect(() => {
+    if (!equiposDelLaboratorio) return
+    // El equipo propio siempre se puede elegir, aunque el laboratorio no tenga
+    // equipos dados de alta.
+    const tienePersonal = equiposDelLaboratorio.some((e) => e.id === "personal")
+    setEquipmentList(tienePersonal ? equiposDelLaboratorio : [{ id: "personal", fueraDeServicio: false, enUso: false }, ...equiposDelLaboratorio])
+  }, [equiposDelLaboratorio])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -404,25 +391,6 @@ Hora de inicio: ${data.HoraInicio}`,
     applyTheme(newTheme)
   }
 
-  const resetEquiposEnUso = async () => {
-    try {
-      const lab = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-      const equipoRef = doc(db, "Numero de equipos", lab)
-      const equipoDoc = await getDoc(equipoRef)
-
-      if (equipoDoc.exists()) {
-        const equiposData = equipoDoc.data()
-        const equiposActualizados = equiposData.Equipos.map((eq: Equipment) => ({
-          ...eq,
-          enUso: false,
-        }))
-
-        await setDoc(equipoRef, { Equipos: equiposActualizados })
-      }
-    } catch (error) {
-      console.error("Error al restablecer el estado de los equipos:", error)
-    }
-  }
 
   const registrarAsistenciaQR = async (matriculaEscaneada: string) => {
     // Prevenir registros duplicados: si ya hay un registro en proceso, ignorar
@@ -439,86 +407,19 @@ Hora de inicio: ${data.HoraInicio}`,
         return
       }
 
-      const asistenciasCollection = isGuestClassStarted ? "AsistenciasInvitado" : "Asistencias"
+      // Con el código QR se entra con el equipo propio. Que esté inscrito, que no se
+      // haya registrado ya, etc., lo revisa la API.
+      const respuesta = await API.registrarEntrada({
+        AlumnoId: matriculaEscaneada,
+        Equipo: "personal",
+        Laboratorio: laboratorioActual(),
+      })
 
-      const labQR = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-      const asistenciasRef = collection(db, asistenciasCollection)
-      const matriculaQuery = query(asistenciasRef, where("AlumnoId", "==", matriculaEscaneada), where("laboratorio", "==", labQR))
-      const matriculaSnapshot = await getDocs(matriculaQuery)
-
-      if (!matriculaSnapshot.empty) {
-        setScannerMessage("Ya registraste tu asistencia en este laboratorio")
-        setTimeout(() => setScannerMessage(""), 3000)
-        return
-      }
-
-      const alumnoRef = doc(db, "Alumnos", matriculaEscaneada)
-      const alumnoSnap = await getDoc(alumnoRef)
-
-      if (alumnoSnap.exists()) {
-        const alumnoData = alumnoSnap.data()
-
-        if (asistenciasCollection === "Asistencias" && classInfo) {
-          const lab = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-          const estadoRef = doc(db, "EstadoClase", lab)
-          const estadoSnap = await getDoc(estadoRef)
-
-          if (estadoSnap.exists()) {
-            const materiaActualId = estadoSnap.data().materiaId
-            const materiasAlumno = alumnoData.Materias || []
-
-            if (!materiasAlumno.includes(materiaActualId)) {
-              setScannerMessage("❌ No estás inscrito en esta materia")
-              setTimeout(() => setScannerMessage(""), 3000)
-              return
-            }
-          }
-        }
-
-        const asistenciaRef = doc(collection(db, asistenciasCollection))
-
-        const lab = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-        const commonData = {
-          AlumnoId: matriculaEscaneada,
-          Nombre: alumnoData.Nombre ?? "",
-          Apellido: alumnoData.Apellido ?? "",
-          Carrera: alumnoData.Carrera ?? "",
-          Grupo: alumnoData.Grupo ?? "",
-          Semestre: alumnoData.Semestre ?? "",
-          Turno: alumnoData.Turno ?? "",
-          Equipo: "personal",
-          Fecha: serverTimestamp(),
-          laboratorio: lab,
-        }
-
-        if (asistenciasCollection === "Asistencias" && classInfo) {
-          await setDoc(asistenciaRef, {
-            ...commonData,
-            MaestroNombre: classInfo.maestroNombre || "",
-            MaestroApellido: classInfo.maestroApellido || "",
-            Materia: classInfo.materiaNombre || "",
-            Practica: classInfo.practicaTitulo || "",
-          })
-        } else if (asistenciasCollection === "AsistenciasInvitado" && guestClassInfo) {
-          await setDoc(asistenciaRef, {
-            ...commonData,
-            MaestroInvitado: guestClassInfo.MaestroInvitado || "",
-            Materia: guestClassInfo.Materia || "",
-            Practica: guestClassInfo.Practica || "",
-          })
-        } else {
-          await setDoc(asistenciaRef, commonData)
-        }
-
-        setScannerMessage(`✅ Asistencia registrada: ${alumnoData.Nombre} ${alumnoData.Apellido}`)
-        setTimeout(() => setScannerMessage(""), 3000)
-      } else {
-        setScannerMessage("❌ Matrícula no encontrada en la base de datos")
-        setTimeout(() => setScannerMessage(""), 3000)
-      }
+      setScannerMessage(`✅ Asistencia registrada: ${respuesta.nombre}`)
+      setTimeout(() => setScannerMessage(""), 3000)
     } catch (error) {
       console.error("Error al registrar asistencia por QR:", error)
-      setScannerMessage("❌ Error al registrar asistencia")
+      setScannerMessage(error instanceof ErrorDeApi ? `❌ ${error.message}` : "❌ Error al registrar asistencia")
       setTimeout(() => setScannerMessage(""), 3000)
     } finally {
       // Liberar el bloqueo para permitir nuevos registros
@@ -550,8 +451,7 @@ Hora de inicio: ${data.HoraInicio}`,
 
         const selectedClass = isGuestClassStarted ? "invitado" : "normal"
         setClassChoice(selectedClass as "normal" | "invitado")
-
-        const asistenciasCollection = selectedClass === "invitado" ? "AsistenciasInvitado" : "Asistencias"
+        const lab = laboratorioActual()
 
         if (selectedClass === "normal") {
           if (!matricula || !equipo) {
@@ -564,237 +464,85 @@ Hora de inicio: ${data.HoraInicio}`,
           }
 
           try {
-            const labVerif = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-            const asistenciasRef = collection(db, asistenciasCollection)
-            // Obtener información de la clase activa primero
-            const lab = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-            const estadoRef = doc(db, "EstadoClase", lab)
-            const estadoSnap = await getDoc(estadoRef)
+            // Las reglas (clase abierta, inscripción, registro repetido, equipo
+            // ocupado) las revisa la API; aquí solo se muestra su respuesta.
+            await API.registrarEntrada({ AlumnoId: matricula, Equipo: equipo, Laboratorio: lab, ClaseId: classInfo?.id })
 
-            let materiaActualId = ""
-            let materiaNombre = ""
-            let maestroNombre = ""
-            let maestroApellido = ""
+            await swal({
+              title: "Asistencia registrada!",
+              text: "Tu asistencia se ha registrado correctamente.",
+              icon: "success",
+            })
 
-            if (estadoSnap.exists()) {
-              materiaActualId = estadoSnap.data().materiaId || ""
-              materiaNombre = estadoSnap.data().materiaNombre || "Materia no especificada"
-              maestroNombre = estadoSnap.data().maestroNombre || ""
-              maestroApellido = estadoSnap.data().maestroApellido || ""
-            }
+            setMatricula("")
+            setEquipo("")
+          } catch (error) {
+            if (error instanceof ErrorDeApi && error.codigo === "no_inscrito") {
+              // Mostrar opción de solicitar ingreso a clase
+              const solicitar = await swal({
+                title: "No estás inscrito en esta materia",
+                text: "¿Deseas solicitar ingreso a esta clase? Tu solicitud será enviada al administrador.",
+                icon: "warning",
+                buttons: {
+                  cancel: {
+                    text: "Cancelar",
+                    value: false,
+                    visible: true,
+                  },
+                  confirm: {
+                    text: "Solicitar Ingreso",
+                    value: true,
+                  },
+                },
+              })
 
-            // Verificar si el alumno ya está registrado en alguna clase activa (cualquier laboratorio)
-            const laboratorios = ["programacion", "redes", "laboratorio_a", "laboratorio_c"]
-            let yaRegistradoEnOtraClase = false
-            let claseActivaInfo = { nombre: "", laboratorio: "" }
-            
-            for (const labCheck of laboratorios) {
-              const estadoLabRef = doc(db, "EstadoClase", labCheck)
-              const estadoLabSnap = await getDoc(estadoLabRef)
-              
-              if (estadoLabSnap.exists() && estadoLabSnap.data().iniciada) {
-                // Hay una clase activa en este laboratorio, verificar si el alumno está registrado
-                const asistenciasLabRef = collection(db, "Asistencias")
-                const asistenciaEnClaseQuery = query(
-                  asistenciasLabRef,
-                  where("AlumnoId", "==", matricula),
-                  where("laboratorio", "==", labCheck)
-                )
-                const asistenciaEnClaseSnap = await getDocs(asistenciaEnClaseQuery)
-                
-                if (!asistenciaEnClaseSnap.empty) {
-                  // El alumno está registrado en esta clase activa
-                  const labNombre = labCheck === "programacion" ? "Taller de Programación" :
-                                    labCheck === "redes" ? "Laboratorio de Redes" :
-                                    labCheck === "laboratorio_a" ? "Laboratorio A" : "Laboratorio C"
-                  
-                  // Si intenta registrarse en el mismo laboratorio donde ya está
-                  if (labCheck === labVerif) {
-                    await swal({
-                      title: "Ya registraste asistencia",
-                      text: `Ya estás registrado en esta clase.`,
-                      icon: "warning",
-                    })
-                    return
-                  }
-                  
-                  // Si está registrado en otro laboratorio diferente
-                  yaRegistradoEnOtraClase = true
-                  claseActivaInfo = {
-                    nombre: estadoLabSnap.data().materiaNombre || "una clase",
-                    laboratorio: labNombre
-                  }
-                  break
+              if (solicitar) {
+                try {
+                  await API.crearSolicitud({ alumno_id: matricula, laboratorio: lab, equipo, clase_id: error.datos.clase_id })
+
+                  await swal({
+                    title: "Solicitud Enviada",
+                    text: "Tu solicitud de ingreso ha sido enviada al administrador. Te notificaremos cuando sea procesada.",
+                    icon: "success",
+                  })
+
+                  // Limpiar campos después de enviar la solicitud
+                  setMatricula("")
+                  setEquipo("")
+                } catch (errorSolicitud) {
+                  console.error("Error al enviar solicitud:", errorSolicitud)
+                  await swal({
+                    title: "Error",
+                    text: errorSolicitud instanceof ErrorDeApi ? errorSolicitud.message : "No se pudo enviar la solicitud. Intenta de nuevo.",
+                    icon: "error",
+                  })
                 }
               }
+              return
             }
-            
-            // Si está registrado en otra clase activa, no puede registrarse aquí
-            if (yaRegistradoEnOtraClase) {
+
+            if (error instanceof ErrorDeApi && error.codigo === "ya_registrado") {
               await swal({
-                title: "Ya estás en una clase",
-                text: `Ya estás registrado en "${claseActivaInfo.nombre}" en ${claseActivaInfo.laboratorio}. Debes esperar a que esa clase termine para registrarte en otra.`,
+                title: "Ya registraste asistencia",
+                text: error.message,
                 icon: "warning",
               })
               return
             }
 
-            if (equipo !== "personal") {
-              const equipoQuery = query(asistenciasRef, where("Equipo", "==", equipo), where("laboratorio", "==", labVerif))
-              const equipoSnapshot = await getDocs(equipoQuery)
-
-              if (!equipoSnapshot.empty) {
-                await swal({
-                  title: "Atencion",
-                  text: "Este equipo ya ha sido registrado en este laboratorio.",
-                  icon: "warning",
-                })
-                return
-              }
+            if (error instanceof ErrorDeApi && error.codigo === "equipo_ocupado") {
+              await swal({
+                title: "Atencion",
+                text: "Este equipo ya ha sido registrado en este laboratorio.",
+                icon: "warning",
+              })
+              return
             }
 
-            const alumnoRef = doc(db, "Alumnos", matricula)
-            const alumnoSnap = await getDoc(alumnoRef)
-
-            if (alumnoSnap.exists()) {
-              const alumnoData = alumnoSnap.data()
-
-              if (estadoSnap.exists()) {
-                const materiasAlumno = alumnoData.Materias || []
-
-                if (!materiasAlumno.includes(materiaActualId)) {
-                  // Mostrar opción de solicitar ingreso a clase
-                  const solicitar = await swal({
-                    title: "No estás inscrito en esta materia",
-                    text: "¿Deseas solicitar ingreso a esta clase? Tu solicitud será enviada al administrador.",
-                    icon: "warning",
-                    buttons: {
-                      cancel: {
-                        text: "Cancelar",
-                        value: false,
-                        visible: true,
-                      },
-                      confirm: {
-                        text: "Solicitar Ingreso",
-                        value: true,
-                      },
-                    },
-                  })
-
-                  if (solicitar) {
-                    try {
-                      // Crear solicitud de ingreso
-                      const solicitudRef = doc(collection(db, "SolicitudesIngreso"))
-                      await setDoc(solicitudRef, {
-                        alumnoId: matricula,
-                        alumnoNombre: alumnoData.Nombre || "",
-                        alumnoApellido: alumnoData.Apellido || "",
-                        alumnoCarrera: alumnoData.Carrera || "",
-                        alumnoSemestre: alumnoData.Semestre || "",
-                        alumnoGrupo: alumnoData.Grupo || "",
-                        alumnoTurno: alumnoData.Turno || "",
-                        equipo: equipo,
-                        materiaId: materiaActualId,
-                        materiaNombre: materiaNombre,
-                        maestroNombre: `${maestroNombre} ${maestroApellido}`.trim(),
-                        laboratorio: lab,
-                        estado: "pendiente",
-                        fechaSolicitud: serverTimestamp(),
-                        leida: false,
-                      })
-
-                      await swal({
-                        title: "Solicitud Enviada",
-                        text: "Tu solicitud de ingreso ha sido enviada al administrador. Te notificaremos cuando sea procesada.",
-                        icon: "success",
-                      })
-                      
-                      // Limpiar campos después de enviar la solicitud
-                      setMatricula("")
-                      setEquipo("")
-                    } catch (error) {
-                      console.error("Error al enviar solicitud:", error)
-                      await swal({
-                        title: "Error",
-                        text: "No se pudo enviar la solicitud. Intenta de nuevo.",
-                        icon: "error",
-                      })
-                    }
-                  }
-                  return
-                }
-              }
-
-              const asistenciaRef = doc(collection(db, asistenciasCollection))
-
-              const labActual = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-              const commonData = {
-                AlumnoId: matricula,
-                Nombre: alumnoData.Nombre ?? "",
-                Apellido: alumnoData.Apellido ?? "",
-                Carrera: alumnoData.Carrera ?? "",
-                Grupo: alumnoData.Grupo ?? "",
-                Semestre: alumnoData.Semestre ?? "",
-                Turno: alumnoData.Turno ?? "",
-                Equipo: equipo,
-                Fecha: serverTimestamp(),
-                laboratorio: labActual,
-              }
-
-              if (classInfo) {
-                await setDoc(asistenciaRef, {
-                  ...commonData,
-                  MaestroNombre: classInfo.maestroNombre || "",
-                  MaestroApellido: classInfo.maestroApellido || "",
-                  Materia: classInfo.materiaNombre || "",
-                  Practica: classInfo.practicaTitulo || "",
-                })
-              } else {
-                await setDoc(asistenciaRef, commonData)
-              }
-
-              if (equipo !== "personal") {
-                try {
-                  const labEquipo = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-                  const equipoRef = doc(db, "Numero de equipos", labEquipo)
-                  const equipoDoc = await getDoc(equipoRef)
-
-                  if (equipoDoc.exists()) {
-                    const equiposData = equipoDoc.data()
-                    const equiposActualizados = equiposData.Equipos.map((eq: Equipment) => {
-                      if (eq.id === equipo) {
-                        return { ...eq, enUso: true }
-                      }
-                      return eq
-                    })
-
-                    await setDoc(equipoRef, { Equipos: equiposActualizados })
-                  }
-                } catch (error) {
-                  console.error("Error al actualizar el estado del equipo:", error)
-                }
-              }
-
-              await swal({
-                title: "Asistencia registrada!",
-                text: "Tu asistencia se ha registrado correctamente.",
-                icon: "success",
-              })
-
-              setMatricula("")
-              setEquipo("")
-            } else {
-              await swal({
-                title: "Error",
-                text: "Matrícula no encontrada",
-                icon: "error",
-              })
-            }
-          } catch (error) {
             console.error("Error al procesar la asistencia:", error)
             await swal({
               title: "Error",
-              text: `Error al procesar la asistencia: ${error instanceof Error ? error.message : "Error desconocido"}`,
+              text: error instanceof Error ? error.message : "Error desconocido",
               icon: "error",
             })
           }
@@ -809,71 +557,15 @@ Hora de inicio: ${data.HoraInicio}`,
           }
 
           try {
-            if (equipo !== "personal") {
-              const asistenciasRef = collection(db, asistenciasCollection)
-              const equipoQuery = query(asistenciasRef, where("Equipo", "==", equipo))
-              const equipoSnapshot = await getDocs(equipoQuery)
-
-              if (!equipoSnapshot.empty) {
-                await swal({
-                  title: "Atención",
-                  text: "Este equipo ya ha sido registrado.",
-                  icon: "warning",
-                })
-                return
-              }
-            }
-
-            const alumnoId = matriculaInvitado ? matriculaInvitado : `INV-${Date.now()}`
-            const asistenciaRef = doc(collection(db, asistenciasCollection))
-
-            const labInv = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-            const invitadoData = {
-              AlumnoId: alumnoId,
+            await API.registrarEntrada({
+              AlumnoId: matriculaInvitado || undefined,
+              TipoUsuario: "invitado",
               Nombre: nombre,
               Apellido: apellido,
-              Carrera: "Externo",
-              Grupo: "Externo",
-              Semestre: "Externo",
-              Turno: "Externo",
               Equipo: equipo,
-              Fecha: serverTimestamp(),
-              laboratorio: labInv,
-            }
-
-            if (guestClassInfo) {
-              await setDoc(asistenciaRef, {
-                ...invitadoData,
-                MaestroInvitado: guestClassInfo.MaestroInvitado || "",
-                Materia: guestClassInfo.Materia || "",
-                Practica: guestClassInfo.Practica || "",
-                Departamento: guestClassInfo.Departamento || "",
-              })
-            } else {
-              await setDoc(asistenciaRef, invitadoData)
-            }
-
-            if (equipo !== "personal") {
-              try {
-                const labEqInv = laboratorioSeleccionado || localStorage.getItem("laboratorio") || "programacion"
-                const equipoRef = doc(db, "Numero de equipos", labEqInv)
-                const equipoDoc = await getDoc(equipoRef)
-
-                if (equipoDoc.exists()) {
-                  const equiposData = equipoDoc.data()
-                  const equiposActualizados = equiposData.Equipos.map((eq: Equipment) => {
-                    if (eq.id === equipo) {
-                      return { ...eq, enUso: true }
-                    }
-                    return eq
-                  })
-
-                  await setDoc(equipoRef, { Equipos: equiposActualizados })
-                }
-              } catch (error) {
-                console.error("Error al actualizar el estado del equipo:", error)
-              }
-            }
+              Laboratorio: lab,
+              ClaseId: guestClassInfo?.id,
+            })
 
             await swal({
               title: "¡Asistencia registrada!",
@@ -886,6 +578,14 @@ Hora de inicio: ${data.HoraInicio}`,
             setEquipo("")
             setMatriculaInvitado("")
           } catch (error) {
+            if (error instanceof ErrorDeApi && error.codigo === "equipo_ocupado") {
+              await swal({
+                title: "Atención",
+                text: "Este equipo ya ha sido registrado.",
+                icon: "warning",
+              })
+              return
+            }
             console.error("Error al procesar la asistencia de invitado:", error)
             await swal({
               title: "Error",
@@ -904,44 +604,32 @@ Hora de inicio: ${data.HoraInicio}`,
           return
         }
 
-        console.log("Intentando iniciar sesión:", { userType, userMatricula, password })
-
-        const collectionName = userType === "maestro" ? "Docentes" : "Laboratoristas"
-        const userRef = doc(db, collectionName, userMatricula)
-        const userSnap = await getDoc(userRef)
-
-        if (!userSnap.exists()) {
-          console.log("Usuario no encontrado")
+        // La contraseña la revisa el servidor y abre la sesión; antes se comparaba
+        // aquí, en el navegador, contra el hash guardado en Firebase.
+        let respuesta
+        try {
+          respuesta = await API.iniciarSesion(userMatricula, password, userType === "maestro" ? "docente" : "laboratorista")
+        } catch (error) {
           await swal({
             title: "Error",
-            text: "Credenciales incorrectas. Por favor, inténtalo de nuevo.",
+            text:
+              error instanceof ErrorDeApi && error.estado === 401
+                ? "Credenciales incorrectas. Por favor, inténtalo de nuevo."
+                : error instanceof Error
+                  ? error.message
+                  : "Error desconocido",
             icon: "error",
           })
           return
         }
 
-        const userData = userSnap.data()
-        console.log("Datos del usuario:", userData)
-        const passwordMatch = await bcrypt.compare(password, userData.Contraseña)
-
-        if (!passwordMatch) {
-          console.log("Contraseña incorrecta")
-          await swal({
-            title: "Error",
-            text: "Credenciales incorrectas. Por favor, inténtalo de nuevo.",
-            icon: "error",
-          })
-          return
-        }
-
-        console.log("Inicio de sesión exitoso")
         await swal({
           title: "¡Bienvenido!",
           text: "Inicio de sesión exitoso",
           icon: "success",
         })
 
-        localStorage.setItem(userType === "maestro" ? "maestroId" : "labTechId", userMatricula)
+        localStorage.setItem(userType === "maestro" ? "maestroId" : "labTechId", respuesta.user.matricula || userMatricula)
         localStorage.setItem("laboratorio", laboratorioSeleccionado)
 
         router.push(userType === "maestro" ? "/lista-asistencias" : "/panel-laboratorista")
@@ -974,100 +662,31 @@ Hora de inicio: ${data.HoraInicio}`,
         return
       }
 
-      console.log("Intentando iniciar sesión como administrador:", { adminEmail })
-
-      const adminRef = doc(db, "Administrador", adminEmail)
-      const adminSnap = await getDoc(adminRef)
-
-      if (!adminSnap.exists()) {
-        console.log("Administrador no encontrado por matrícula, buscando por email...")
-
-        const adminQuery = query(collection(db, "Administrador"), where("Email", "==", adminEmail))
-        const querySnapshot = await getDocs(adminQuery)
-
-        if (querySnapshot.empty) {
-          console.log("Administrador no encontrado")
+      let respuesta
+      try {
+        respuesta = await API.iniciarSesion(adminEmail, adminPassword, "admin")
+      } catch (error) {
+        if (error instanceof ErrorDeApi && error.estado === 401) {
+          // Un solo mensaje para usuario y contraseña: así no se puede averiguar qué
+          // correos o matrículas existen.
           await swal({
-            title: "Administrador no encontrado",
-            text: "No existe un administrador con esa matrícula o correo electrónico.",
+            title: "Credenciales incorrectas",
+            text: "El correo o matrícula, o la contraseña, no son correctos.",
             icon: "error",
           })
           return
         }
-
-        const adminDoc = querySnapshot.docs[0]
-        const adminData = adminDoc.data()
-
-        if (!adminData || !adminData.Contraseña) {
-          console.log("Error en los datos del administrador")
-          await swal({
-            title: "Error",
-            text: "Error en los datos del administrador. Por favor, contacte al soporte técnico.",
-            icon: "error",
-          })
-          return
-        }
-
-        console.log("Verificando contraseña para administrador encontrado por email")
-        const passwordMatch = await bcrypt.compare(adminPassword, adminData.Contraseña)
-
-        if (!passwordMatch) {
-          console.log("Contraseña incorrecta para administrador")
-          await swal({
-            title: "Contraseña incorrecta",
-            text: "La contraseña ingresada no es correcta. Por favor, inténtalo de nuevo.",
-            icon: "error",
-          })
-          return
-        }
-
-        console.log("Inicio de sesión exitoso como administrador")
-        await swal({
-          title: "¡Bienvenido Administrador!",
-          text: `Inicio de sesión exitoso. Bienvenido ${adminData.Nombre} ${adminData.Apellido}`,
-          icon: "success",
-        })
-
-        localStorage.setItem("adminId", adminDoc.id)
-        localStorage.setItem("laboratorio", laboratorioSeleccionado)
-
-        setIsAdminLoginOpen(false)
-        router.push("/AdminPanel")
-        return
+        throw error
       }
 
-      const adminData = adminSnap.data()
-      if (!adminData || !adminData.Contraseña) {
-        console.log("Error en los datos del administrador")
-        await swal({
-          title: "Error",
-          text: "Error en los datos del administrador. Por favor, contacte al soporte técnico.",
-          icon: "error",
-        })
-        return
-      }
-
-      console.log("Administrador encontrado por matrícula, verificando contraseña")
-      const passwordMatch = await bcrypt.compare(adminPassword, adminData.Contraseña)
-
-      if (!passwordMatch) {
-        console.log("Contraseña incorrecta para administrador")
-        await swal({
-          title: "Contraseña incorrecta",
-          text: "La contraseña ingresada no es correcta. Por favor, inténtalo de nuevo.",
-          icon: "error",
-        })
-        return
-      }
-
-      console.log("Inicio de sesión exitoso como administrador")
+      const admin = respuesta.user
       await swal({
         title: "¡Bienvenido Administrador!",
-        text: `Inicio de sesión exitoso. Bienvenido ${adminData.Nombre} ${adminData.Apellido}`,
+        text: `Inicio de sesión exitoso. Bienvenido ${admin.nombre} ${admin.apellido ?? ""}`.trim(),
         icon: "success",
       })
 
-      localStorage.setItem("adminId", adminEmail)
+      localStorage.setItem("adminId", String(admin.matricula || admin.email))
       localStorage.setItem("laboratorio", laboratorioSeleccionado)
 
       setIsAdminLoginOpen(false)
