@@ -5,6 +5,17 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Las direcciones de antes del rediseño de las pantallas llevan a las nuevas. La carpeta
+  # se toma de la dirección pedida (%1), así sirve igual en la raíz que en una subcarpeta.
+  RewriteCond %{REQUEST_URI} ^(.*/)AdminPanel(\.html)?$
+  RewriteRule ^ %1admin [R=301,L]
+  RewriteCond %{REQUEST_URI} ^(.*/)lista-asistenciasInvitado(\.html)?$
+  RewriteRule ^ %1clase-invitada [R=301,L]
+  RewriteCond %{REQUEST_URI} ^(.*/)lista-asistencias(\.html)?$
+  RewriteRule ^ %1docente [R=301,L]
+  RewriteCond %{REQUEST_URI} ^(.*/)panel-laboratorista(\.html)?$
+  RewriteRule ^ %1laboratorio [R=301,L]
+
   # Permitir acceso directo a archivos y carpetas existentes (incluyendo la API PHP)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
