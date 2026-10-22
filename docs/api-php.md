@@ -1,6 +1,6 @@
 # API en PHP (`public/api/`)
 
-La API corre en el mismo hosting que el frontend (Hostinger) y la publica el mismo build: lo que está en `public/api/` queda en `/laboratorios/api/`.
+La API corre en el mismo hosting que el frontend (Hostinger) y la publica el mismo build: lo que está en `public/api/` queda en la carpeta `api/` junto a las páginas.
 
 ## Configuración
 
@@ -25,7 +25,7 @@ El personal inicia sesión con `POST auth.php` (mismo cuerpo y misma respuesta q
 
 La sesión vence tras 4 horas sin usarse. El alumno no inicia sesión.
 
-**Para el frontend:** si se sirve desde el mismo dominio que la API, `fetch` ya manda la cookie y no hay que cambiar nada. Si se sirve desde otro dominio (por ejemplo `npm run dev` en `localhost:3000` contra la API en otro lado), hay que agregar `credentials: 'include'` en `fetchAPI` y poner ese dominio en `origenes_permitidos` de `config.local.php`.
+**Para el frontend:** `src/lib/api.ts` manda la cookie en cada petición. Si las páginas se sirven desde otro origen que la API (por ejemplo `npm run dev` en `localhost:3000` y la API en `localhost:8000`), ese origen va en `origenes_permitidos` de `config.local.php` y la dirección de la API en `NEXT_PUBLIC_API_URL`.
 
 **Contraseñas:** se guardan cifradas (`password_hash`). Una cuenta que todavía tenga la contraseña en texto plano puede entrar una vez; en ese momento se cifra. Una cuenta nueva necesita contraseña de al menos 8 caracteres, y editar una cuenta sin mandar contraseña conserva la que tenía. Antes se ponía `123456`.
 
