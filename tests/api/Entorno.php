@@ -88,6 +88,19 @@ final class Entorno
             self::$pdo->exec('DROP DATABASE IF EXISTS `' . self::$base . '`');
             self::$pdo = null;
         }
+        self::borrarCarpeta(self::$carpetaTemporal);
+    }
+
+    private static function borrarCarpeta(string $carpeta): void
+    {
+        if ($carpeta === '' || !is_dir($carpeta)) {
+            return;
+        }
+        $contenido = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($carpeta, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($contenido as $archivo) {
+            $archivo->isDir() ? @rmdir($archivo->getPathname()) : @unlink($archivo->getPathname());
+        }
+        @rmdir($carpeta);
     }
 
     /**
@@ -176,7 +189,9 @@ final class Entorno
             [0 => ['pipe', 'r'], 1 => ['file', $bitacora, 'a'], 2 => ['file', $bitacora, 'a']],
             $tuberias,
             self::$raiz,
-            $variables + self::$entorno
+            // Varios procesos, para que las pruebas de peticiones simultáneas lo sean de
+            // verdad. En Windows el servidor de PHP no los admite y atiende de una en una.
+            $variables + ['PHP_CLI_SERVER_WORKERS' => '4'] + self::$entorno
         );
         if (!is_resource($proceso)) {
             throw new RuntimeException('No se pudo iniciar el servidor de PHP');
