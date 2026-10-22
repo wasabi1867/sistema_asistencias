@@ -10,6 +10,8 @@ El sistema lleva además las prácticas por materia, las clases de maestro invit
 
 Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y administrador.
 
+**Estado:** la versión de este repositorio todavía no está publicada; el sitio en Hostinger sigue siendo la versión anterior, con Firebase. Qué funciona, qué se verificó y qué falta: [docs/estado-actual.md](docs/estado-actual.md).
+
 ## Cómo está hecho
 
 | Parte | Tecnología | Carpeta |
@@ -73,13 +75,23 @@ npm run build
 
 Se sube el contenido de `out/` a la carpeta del sitio. **No hay que borrar `api/config.local.php` del servidor.** La primera vez hay que seguir [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md), que también explica cómo copiar los datos que había en Firebase.
 
+## Forma de trabajo
+
+- Ningún cambio va directo a `main`: cada uno va en una rama con su pull request, que se acepta cuando pasan las pruebas de GitHub.
+- Commits en español, en infinitivo, describiendo el cambio: `Detectar traslapes entre clases`.
+- Contraseñas y datos de conexión nunca en archivos del repositorio: van en `api/config.local.php`.
+- Cada cambio actualiza la documentación que le toque, en especial [docs/estado-actual.md](docs/estado-actual.md).
+
+[CLAUDE.md](CLAUDE.md) reúne estas reglas y el contexto que necesita un asistente de programación (Claude Code u otro).
+
 ## Documentación
 
+- [docs/estado-actual.md](docs/estado-actual.md): qué funciona, qué se verificó, qué falta y el historial de cambios.
 - [docs/api.md](docs/api.md):
   - Cómo está organizada la API, configuración y convenciones.
   - Todas las rutas y quién puede usar cada una.
   - Pruebas y cambios a la base.
 - [docs/pantallas.md](docs/pantallas.md): las páginas, dónde está cada cosa en `src/` y las convenciones del frontend.
 - [docs/modelo-de-datos.md](docs/modelo-de-datos.md): las tablas, las reglas que garantiza la base y por qué tiene esta forma.
-- [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md): pasos para publicar esta versión y traer los datos de Firebase.
+- [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md): pasos para publicar esta versión y traer los datos de Firebase, antes o después de publicar.
 - [docs/preguntas-para-el-instituto.md](docs/preguntas-para-el-instituto.md): lo que falta que defina el instituto, con lo que se supone mientras tanto.

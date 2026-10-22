@@ -1,6 +1,29 @@
-# Cambio de Firebase a la API
+# Publicar esta versión y dejar Firebase
 
 Con esta versión, todas las pantallas leen y escriben en la base MySQL o MariaDB de Hostinger a través de la API ([`api/`](../api)), y Firebase deja de usarse. Este documento lista lo que hay que hacer una sola vez para publicarla.
+
+## Primero: decidir qué pasa con los datos de Firebase
+
+El sitio publicado hoy guarda todo en Firebase. En cuanto se publique esta versión, Firebase deja de recibir datos: lo que tenga hasta ese día es lo que se puede traer.
+
+**No hay que descargar nada a mano.** `scripts/importar-de-firebase.php` lee Firebase directamente con la configuración web del proyecto (`projectId` y `apiKey`, las mismas que usaba el sitio anterior) y guarda una copia en una carpeta antes de importar. Lo que sí hace falta es el visto bueno de Andrés, porque son datos personales de los alumnos.
+
+Hay dos formas de publicar:
+
+**A. Traer los datos y luego publicar (recomendada).** Se siguen los pasos 1 a 7 de abajo en orden. Si todavía no se pueden traer, conviene esperar: mientras no se publique, el sitio anterior sigue guardando todo en Firebase y no se pierde nada.
+
+**B. Publicar sin los datos y traerlos después.** Se saltan los pasos 1 y 2. En el paso 3 la base de Hostinger se crea vacía, importando `db/esquema.sql` y luego `db/datos-iniciales.sql`. Después se crea el primer administrador (paso 4) y el sistema se empieza a usar: el periodo, alumnos desde Excel, materias, cursos e inscripciones.
+
+La importación se puede correr después sobre una base en uso: busca lo que ya existe en lugar de duplicarlo. Pero hay que tener en cuenta lo siguiente:
+- **Las materias se buscan por nombre exacto.** Una capturada con otro nombre que en Firebase ("Programación Web" y "Programacion web I") queda dos veces.
+- **Los cursos se buscan por materia, periodo y docente.** Si el docente es otro, se crea un curso más y las inscripciones de Firebase van a ese.
+- **Los alumnos que estaban activos en Firebase se sobrescriben** con los datos de Firebase (nombre, carrera, semestre, grupo, turno) y quedan activos, aunque se hayan corregido o desactivado en el sistema nuevo.
+- **Los equipos de cada laboratorio quedan como estaban en Firebase:** los que no estén allá se retiran, y "fuera de servicio" y las notas vuelven a los de Firebase.
+- **Los periodos se buscan por fecha.** Si ningún periodo cubre la fecha de una clase de Firebase, la importación crea "AGO-DIC" (del 1 de agosto al 31 de diciembre) o "ENE-JUL" (del 1 de enero al 31 de julio) con su año. Si ya existe uno con ese nombre pero con otras fechas, la importación entera falla sin guardar nada; si el creado a mano se llama distinto, quedan dos periodos encimados. Para evitarlo, el periodo actual se crea como **AGO-DIC 2026, del 1 de agosto al 31 de diciembre de 2026**.
+- **Las cuentas del personal se buscan por rol y por matrícula o correo.** Se actualizan sus datos, pero no su contraseña.
+- **Hay que correrla contra la base de Hostinger.** Eso pide terminal (SSH) en el servidor, o que Hostinger permita conectarse a la base desde fuera ("MySQL remoto") para correrla desde la computadora con `api/config.local.php` apuntando allá. **Ninguna de las dos se ha comprobado** con el plan actual.
+
+Siempre se corre primero con `--simular`, que hace todo, muestra el reporte y no guarda nada.
 
 ## Antes de empezar
 

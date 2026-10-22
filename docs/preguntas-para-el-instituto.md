@@ -6,7 +6,7 @@ En cada pregunta decimos qué vamos a suponer si no hay respuesta. Así solo hac
 
 **Estado.** Esta versión sustituye a la que se entregó el 10 de octubre de 2026, que nunca tuvo respuesta. Se conservan las preguntas que siguen abiertas y se agregan las que salieron del sistema actual. Las respuestas se anotan aquí mismo, debajo de cada pregunta, con su fecha.
 
-Última actualización: 21 de octubre de 2026.
+Última actualización: 22 de octubre de 2026.
 
 ## Cómo funciona el sistema
 
@@ -74,6 +74,15 @@ Respuesta:
 
 **9. ¿El número de control siempre tiene 8 dígitos, como 23303080?**
 *Si no hay respuesta:* se aceptará cualquier número de control, sin revisar su formato.
+
+Respuesta:
+
+## Sobre el registro
+
+**10. ¿El sistema debe revisar que el alumno esté inscrito en la materia de la clase?**
+Hoy el alumno solo escribe su número de control. El sistema lo deja entrar si está en la lista del grupo, que el personal carga al inicio del semestre. Si no está, puede pedir permiso y el administrador lo aprueba o lo rechaza. El sistema anterior hacía lo mismo.
+Si no se revisa, cualquier alumno con número de control puede entrar a cualquier clase. Se deja de saber quién faltó: solo quién vino.
+*Si no hay respuesta:* se seguirá revisando la inscripción.
 
 Respuesta:
 

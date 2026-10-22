@@ -7,7 +7,7 @@ declare(strict_types=1);
 //
 //   php scripts/migrar.php
 //
-// Cada cambio a la base va en un archivo nuevo de db/migraciones/ (002-algo.sql, ...)
+// Cada cambio a la base va en un archivo nuevo de db/migraciones/ (001-algo.sql, ...)
 // y, en el mismo commit, también en db/esquema.sql, que siempre describe la base
 // completa. Sin terminal, se pega en phpMyAdmin cada archivo pendiente y se anota en
 // la tabla `migraciones`.
