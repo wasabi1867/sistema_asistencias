@@ -127,6 +127,17 @@ final class Entrada
         return $texto;
     }
 
+    /**
+     * Página pedida (?pagina=2&porPagina=50).
+     * @return array{pagina: int, porPagina: int, desde: int}
+     */
+    public function paginacion(int $porOmision = 50, int $maximo = 200): array
+    {
+        $pagina = $this->entero('pagina', 'la página', 1, null, false) ?? 1;
+        $porPagina = $this->entero('porPagina', 'el tamaño de página', 1, $maximo, false) ?? $porOmision;
+        return ['pagina' => $pagina, 'porPagina' => $porPagina, 'desde' => ($pagina - 1) * $porPagina];
+    }
+
     /** @return list<mixed> */
     public function lista(string $campo, string $etiqueta, int $maximo): array
     {

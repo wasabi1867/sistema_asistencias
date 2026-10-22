@@ -116,6 +116,12 @@ final class BaseDeDatos
         }
     }
 
+    /** Texto para buscar con LIKE '%...%', con % y _ como letras y no como comodines. */
+    public static function patron(string $texto): string
+    {
+        return '%' . addcslashes($texto, '%_\\') . '%';
+    }
+
     public function enTransaccion(): bool
     {
         return $this->pdo !== null && $this->pdo->inTransaction();

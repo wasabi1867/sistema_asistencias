@@ -16,6 +16,11 @@ final class Rutas
         Modulos\Catalogos\Carreras::class,
         Modulos\Catalogos\Periodos::class,
         Modulos\Personas\Usuarios::class,
+        Modulos\Personas\Alumnos::class,
+        Modulos\Academico\Materias::class,
+        Modulos\Academico\Practicas::class,
+        Modulos\Academico\Cursos::class,
+        Modulos\Academico\Horarios::class,
     ];
 
     public static function todas(): Enrutador

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Asistencias\Modulos\Catalogos;
 
 use Asistencias\Contexto;
+use Asistencias\Datos\BaseDeDatos;
 use Asistencias\Http\Enrutador;
+use Asistencias\Http\ErrorHttp;
 use Asistencias\Http\Respuesta;
 use Asistencias\Seguridad\Acceso;
 
@@ -17,6 +19,22 @@ final class Carreras
         $r->post('/carreras', Acceso::Admin, static fn (Contexto $c) => self::crear($c));
         $r->put('/carreras/{id}', Acceso::Admin, static fn (Contexto $c) => self::editar($c));
         $r->delete('/carreras/{id}', Acceso::Admin, static fn (Contexto $c) => self::eliminar($c));
+    }
+
+    /**
+     * El id de la carrera por su clave o por su nombre. La colación de la base no
+     * distingue mayúsculas ni acentos, así que "ingenieria industrial" encuentra
+     * "Ingeniería Industrial". Responde 400 si no está en el catálogo.
+     */
+    public static function idPor(BaseDeDatos $bd, ?string $claveONombre, string $campo = 'carrera'): ?int
+    {
+        if ($claveONombre === null) {
+            return null;
+        }
+        $id = $bd->valor('SELECT id FROM carreras WHERE clave = ? OR nombre = ? ORDER BY clave = ? DESC LIMIT 1', [$claveONombre, $claveONombre, $claveONombre]);
+        return $id === null
+            ? throw ErrorHttp::datosInvalidos("La carrera \"$claveONombre\" no está en el catálogo", $campo)
+            : (int)$id;
     }
 
     private static function formato(array $fila): array

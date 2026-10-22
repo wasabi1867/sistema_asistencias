@@ -118,7 +118,7 @@ abstract class PruebaDeApi extends TestCase
     {
         $periodo ??= ((int)$this->valor('SELECT id FROM periodos WHERE CURDATE() BETWEEN fecha_inicio AND fecha_fin') ?: $this->crearPeriodoActual());
         return $this->insertar('cursos', [
-            'materia_id' => $materia ?? $this->crearMateria(),
+            'materia_id' => $materia ?? ((int)$this->valor("SELECT id FROM materias WHERE nombre = 'Programación Web'") ?: $this->crearMateria()),
             'periodo_id' => $periodo,
             'grupo' => $grupo,
             'docente_id' => $docente ?? ($this->docente ?: null),
