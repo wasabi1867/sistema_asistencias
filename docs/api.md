@@ -64,7 +64,7 @@ El personal inicia sesión con `POST /sesion` `{usuario, contrasena, rol}`, dond
 - Una cuenta desactivada pierde la sesión de inmediato.
 - Después de 10 intentos fallidos desde una dirección hay que esperar 15 minutos.
 
-El alumno no inicia sesión: registra su entrada con su número de control (`POST /registro/entrada`).
+El alumno no inicia sesión ni da otros datos: registra su entrada con su número de control (`POST /registro/entrada`), y su nombre y su curso los busca la API. Después de 30 números de control o códigos de clase equivocados desde una dirección en 10 minutos, hay que esperar. El límite es alto porque todo un laboratorio sale a internet con la misma dirección.
 
 ## Rutas
 
@@ -193,7 +193,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 
 ## Pruebas
 
-Corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
+Son 238 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
 
 ```bash
 composer install
@@ -211,4 +211,4 @@ Para correr la API en una computadora:
 
 [`db/esquema.sql`](../db/esquema.sql) siempre describe la base completa; [docs/modelo-de-datos.md](modelo-de-datos.md) explica cada tabla.
 
-Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` (`002-lo-que-cambia.sql`, el número sigue al último) y, en el mismo commit, también en `db/esquema.sql`. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
+Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: el primero será `001-lo-que-cambia.sql`. Todavía no hay ninguno, porque ninguna base con este esquema se ha instalado en producción; la carpeta se crea con el primero. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.

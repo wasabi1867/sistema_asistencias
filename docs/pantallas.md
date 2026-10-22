@@ -8,7 +8,7 @@ Stack: React 18, TypeScript, Tailwind, componentes de shadcn/ui (sobre Radix), l
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `/` | Alumnos | La computadora del laboratorio (y el teléfono del alumno): la clase abierta y el registro de entrada en dos pasos, número de control y computadora. El laboratorio se elige una vez y se recuerda en el navegador. |
+| `/` | Alumnos | La computadora del laboratorio (y el teléfono del alumno): la clase abierta y el registro de entrada en dos pasos, número de control y computadora. El alumno no escribe ningún otro dato. El laboratorio se elige una vez y se recuerda en el navegador. |
 | `/entrar` | Personal | Inicio de sesión de docentes, laboratoristas y administradores. Se llega con el botón **Personal** de `/`. |
 | `/docente` | Docente | Abre la clase de uno de sus cursos, ve quién entra, la exporta y la cierra. Sus prácticas, sus clases anteriores y la asistencia del curso. |
 | `/laboratorio` | Laboratorista y administrador | Lo que pasa en el laboratorio (con el mapa de equipos), historial, reportes, bitácora, equipos, horario, invitados y eventos. |
@@ -79,4 +79,4 @@ npm run lint
 npm run build   # también revisa los tipos y el lint; falla si hay errores
 ```
 
-No hay pruebas automáticas de las pantallas en el repositorio. Los flujos principales se probaron en Edge contra el sitio compilado en `out/` y la API real con una base de ejemplo; el detalle está en la descripción del pull request.
+No hay pruebas automáticas de las pantallas en el repositorio. Los flujos principales se probaron en Edge contra el sitio compilado en `out/` y la API real con una base de ejemplo: 35 pasos en el pull request #4 y 47 en el #5, cuyo detalle está en la descripción de cada uno. Pasar esa prueba al repositorio está en los pendientes de [estado-actual.md](estado-actual.md).

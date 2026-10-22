@@ -2,7 +2,7 @@
 
 La base se define en [`db/esquema.sql`](../db/esquema.sql). Los catálogos con los que arranca están en [`db/datos-iniciales.sql`](../db/datos-iniciales.sql).
 
-Este esquema sustituye a `schema.sql` y a las migraciones 001 y 002, que se hicieron para seguir la forma de los documentos de Firebase.
+Este esquema sustituye al `schema.sql` del sistema original y a las migraciones 001 y 002 que se le agregaron para seguir la forma de los documentos de Firebase. Esos archivos ya no están en el repositorio.
 
 Funciona igual en **MySQL 8.0** y en **MariaDB 10.6** o más nuevo. Se prueba en los dos porque no sabemos cuál dará Hostinger.
 
@@ -57,6 +57,20 @@ erDiagram
 | | `avisos` | Avisos para el administrador y el laboratorista |
 | | `bitacora` | Quién hizo qué, cuándo y desde dónde |
 | | `migraciones` | Qué cambios posteriores a la base ya se aplicaron |
+
+## Cómo queda un alumno en la lista de una clase
+
+El alumno no se da de alta ni se inscribe: todo lo carga el personal antes de que haya clase.
+
+1. **El administrador o el laboratorista da de alta a los alumnos** (`alumnos`), normalmente desde un Excel al inicio del semestre, con número de control, nombre, carrera, semestre y grupo.
+2. **El administrador crea el curso** (`cursos`): materia, grupo, docente y periodo.
+3. **El personal o el docente del curso lo llena** (`inscripciones`), pegando la lista de números de control.
+4. **El docente abre la clase** (`clases`) en el laboratorio.
+5. **El alumno escribe su número de control** y elige su computadora. La API lo busca en `alumnos`, revisa que esté en `inscripciones` de ese curso y crea su fila en `asistencias`.
+
+Si el alumno no está inscrito, puede pedir permiso (`solicitudes_ingreso`). El administrador lo deja entrar esa vez o lo inscribe en el curso. La inscripción también sirve para saber quién faltó: sin ella solo se sabría quién vino.
+
+El sistema original hacía la misma revisión con la lista de materias guardada en cada alumno de Firebase. Si el instituto prefiere que cualquier alumno entre a cualquier clase, es la pregunta 10 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md).
 
 ## Qué cambia respecto de la base anterior
 
@@ -151,7 +165,7 @@ Se cambió esto, por lo que hace el sistema actual:
 - **Identificadores numéricos.** La matrícula, la clave del laboratorio y la etiqueta del equipo pueden corregirse sin romper las relaciones. Las pantallas siguen usando la matrícula y la clave.
 - **No se copian los datos del alumno en cada asistencia.** Los reportes toman la carrera del alumno y el grupo del curso. La contra es que, si un alumno cambia de carrera, sus asistencias pasadas salen con la carrera nueva.
 - **Prácticas comunes o propias.** El docente ve las comunes de la materia y las suyas. El administrador edita las comunes y cada docente las suyas.
-- **Uso fuera de clase.** Mientras el instituto no responda quién lo autoriza, se supone lo que se propuso en la pregunta 3: el laboratorista lo registra sin pedir permiso a nadie. Las solicitudes fuera de clase quedan listas para cuando se defina.
+- **Uso fuera de clase.** Mientras el instituto no responda quién lo autoriza, se supone lo que se propone en la pregunta 5 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md): el laboratorista lo registra sin pedir permiso a nadie. Las solicitudes fuera de clase quedan listas para cuando se defina.
 - **Código de clase.** La base lo guarda; si el registro lo exige o no se decide en la pantalla de registro.
 
 ## Pendiente de confirmar con el instituto
