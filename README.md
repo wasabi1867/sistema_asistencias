@@ -14,7 +14,7 @@ Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y a
 
 | Parte | Tecnología | Carpeta |
 |---|---|---|
-| Pantallas | Next.js 14 (export estático), React, Tailwind, shadcn/ui | `src/` |
+| Pantallas | Next.js 14 (export estático), React 18, TypeScript, Tailwind, shadcn/ui | `src/` |
 | API | PHP 8.1 o más nuevo, sin framework ni paquetes | `api/` |
 | Base de datos | MySQL 8 o MariaDB 10.6 o más nuevo | `db/` |
 | Pruebas de la API | PHPUnit, contra una base real | `tests/api/` |
@@ -58,7 +58,8 @@ Se necesita:
 ```bash
 composer install
 vendor/bin/phpunit   # API; docs/api.md explica cómo apuntar a otra base
-npm run build        # comprueba que las pantallas compilen
+npm run lint         # pantallas
+npm run build        # compila las pantallas y revisa tipos y lint
 ```
 
 En GitHub corren solas en cada pull request (`.github/workflows/`). Las de la API corren en MariaDB 10.6 y 11.8 y en MySQL 8.0.
@@ -78,6 +79,7 @@ Se sube el contenido de `out/` a la carpeta del sitio. **No hay que borrar `api/
   - Cómo está organizada la API, configuración y convenciones.
   - Todas las rutas y quién puede usar cada una.
   - Pruebas y cambios a la base.
+- [docs/pantallas.md](docs/pantallas.md): las páginas, dónde está cada cosa en `src/` y las convenciones del frontend.
 - [docs/modelo-de-datos.md](docs/modelo-de-datos.md): las tablas, las reglas que garantiza la base y por qué tiene esta forma.
 - [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md): pasos para publicar esta versión y traer los datos de Firebase.
 - [docs/preguntas-para-el-instituto.md](docs/preguntas-para-el-instituto.md): lo que falta que defina el instituto, con lo que se supone mientras tanto.

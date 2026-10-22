@@ -83,6 +83,8 @@ npm run build
 
 Se sube el contenido de `out/` a la carpeta del sitio en Hostinger. Incluye la carpeta `api/` con su `.htaccess`, que deja pasar las peticiones a `api/index.php` y no deja leer ningún otro archivo de la API.
 
+Esta versión ya no trae los archivos de Firebase Hosting (`firebase.json` y su página de bienvenida en `public/index.html`). Si en el servidor quedó esa página, el `index.html` de `out/` la reemplaza al subirlo.
+
 **Al subir no hay que borrar `api/config.local.php` del servidor.** `npm run build` no lo copia a `out/`, para no reemplazar el del servidor con los datos de la computadora.
 
 Si el sitio queda en una subcarpeta y no en la raíz del dominio, hay que compilar con `NEXT_PUBLIC_API_URL=/subcarpeta/api` y configurar `basePath` en `next.config.mjs`.
@@ -107,5 +109,7 @@ Conviene dejarlo unas semanas sin borrar, pero de solo lectura. La aplicación e
 
   Si se activa `exigir_codigo_de_clase`, además escriben el código que se muestra en el aula.
 - **Personal:** la sesión la lleva el servidor. Una cuenta desactivada deja de entrar de inmediato.
+- **Administrador:** un panel nuevo con tablero (clases abiertas, solicitudes y avisos), alumnos con carga desde Excel y cambio de semestre en grupo, cursos con sus inscripciones, materias y prácticas, cuentas del personal, y carreras, periodos y laboratorios.
+- **Lector de credencial:** el lector físico ahora funciona dentro de la ventana "Registrar con credencial" (el botón verde de abajo a la derecha). Antes, un campo oculto de la página principal tenía siempre el foco.
 - **Listas en vivo:** las pantallas consultan la API cada pocos segundos, en lugar de recibir los cambios al instante.
 - **Bitácora:** la llena el servidor (quién, qué, cuándo y desde dónde), en lugar de cada pantalla.
