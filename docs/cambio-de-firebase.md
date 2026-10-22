@@ -85,6 +85,8 @@ Se sube el contenido de `out/` a la carpeta del sitio en Hostinger. Incluye la c
 
 Esta versión ya no trae los archivos de Firebase Hosting (`firebase.json` y su página de bienvenida en `public/index.html`). Si en el servidor quedó esa página, el `index.html` de `out/` la reemplaza al subirlo.
 
+Las páginas cambiaron de dirección: `/AdminPanel` ahora es `/admin`, `/lista-asistencias` es `/docente`, `/lista-asistenciasInvitado` es `/clase-invitada` y `/panel-laboratorista` es `/laboratorio`. El `.htaccess` redirige las direcciones viejas a las nuevas, así que los marcadores guardados siguen sirviendo. Los archivos viejos (`AdminPanel.html` y los demás) que queden en el servidor se pueden borrar; mientras estén, la redirección se aplica antes.
+
 **Al subir no hay que borrar `api/config.local.php` del servidor.** `npm run build` no lo copia a `out/`, para no reemplazar el del servidor con los datos de la computadora.
 
 Si el sitio queda en una subcarpeta y no en la raíz del dominio, hay que compilar con `NEXT_PUBLIC_API_URL=/subcarpeta/api` y configurar `basePath` en `next.config.mjs`.
@@ -101,15 +103,16 @@ Conviene dejarlo unas semanas sin borrar, pero de solo lectura. La aplicación e
 
 ## Qué cambió para cada quien
 
-- **Alumnos:** igual que antes. El servidor revisa:
+- **Alumnos:** el registro va en dos pasos: primero el número de control y luego la computadora, que se elige en una cuadrícula donde las ocupadas no se pueden tocar. La confirmación se queda unos segundos y la pantalla vuelve sola al principio para el siguiente. El servidor revisa:
   - que haya una clase abierta;
   - que esté inscrito en el curso, o que la clase sea de maestro invitado;
   - que la computadora esté libre;
   - que no esté ya registrado.
 
   Si se activa `exigir_codigo_de_clase`, además escriben el código que se muestra en el aula.
-- **Personal:** la sesión la lleva el servidor. Una cuenta desactivada deja de entrar de inmediato.
+- **Personal:** todos entran por el botón **Personal** de la página principal (`/entrar`), eligiendo si son docente, laboratorista o administrador. Antes el administrador entraba desde un menú escondido. La sesión la lleva el servidor: una cuenta desactivada deja de entrar de inmediato. Cambiar la contraseña, el tema y cerrar sesión están en el menú con su nombre, arriba a la derecha.
+- **Paneles:** los tres (docente, laboratorio y administrador) tienen el mismo menú lateral, que en el teléfono se abre con un botón. La sección abierta queda en la dirección, así que recargar o usar "atrás" no la pierde. Lo que se puede hacer con cada renglón de una tabla está en su botón "⋯".
 - **Administrador:** un panel nuevo con tablero (clases abiertas, solicitudes y avisos), alumnos con carga desde Excel y cambio de semestre en grupo, cursos con sus inscripciones, materias y prácticas, cuentas del personal, y carreras, periodos y laboratorios.
-- **Lector de credencial:** el lector físico ahora funciona dentro de la ventana "Registrar con credencial" (el botón verde de abajo a la derecha). Antes, un campo oculto de la página principal tenía siempre el foco.
+- **Lector de credencial:** el lector físico funciona dentro de la ventana que abre **Registrar con mi credencial**, en el formulario de registro. Antes, un campo oculto de la página principal tenía siempre el foco.
 - **Listas en vivo:** las pantallas consultan la API cada pocos segundos, en lugar de recibir los cambios al instante.
 - **Bitácora:** la llena el servidor (quién, qué, cuándo y desde dónde), en lugar de cada pantalla.
