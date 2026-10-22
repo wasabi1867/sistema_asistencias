@@ -36,8 +36,13 @@ final class BaseDeDatos
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     // Consultas preparadas en el servidor: los enteros llegan como enteros.
                     PDO::ATTR_EMULATE_PREPARES => false,
-                ]
+                ] + $this->opcionesDeCifrado()
             );
+            if ($this->config->dbCifrada && ($this->pdo->query("SHOW SESSION STATUS LIKE 'Ssl_cipher'")->fetch(PDO::FETCH_NUM)[1] ?? '') === '') {
+                // Si se pidió cifrar, no se sigue sin cifrado aunque el servidor lo acepte.
+                $this->pdo = null;
+                throw new PDOException('La conexión con la base no quedó cifrada y db_tls lo exige');
+            }
             // Que NOW() y CURRENT_TIMESTAMP den la hora de Puerto Peñasco aunque el
             // servidor esté en otra zona. Con desfase y no con nombre, porque las tablas
             // de zonas horarias de MySQL no siempre están cargadas.
@@ -45,6 +50,27 @@ final class BaseDeDatos
             $this->pdo->exec("SET time_zone = '$desfase'");
         }
         return $this->pdo;
+    }
+
+    /**
+     * Las opciones de PDO para cifrar la conexión (db_tls). Con un archivo de
+     * autoridades se comprueba además el certificado del servidor; sin él basta con
+     * pedir un cifrado cualquiera para que mysqlnd negocie TLS.
+     *
+     * @return array<int, mixed>
+     */
+    private function opcionesDeCifrado(): array
+    {
+        if (!$this->config->dbCifrada) {
+            return [];
+        }
+        if ($this->config->dbAutoridades === '') {
+            return [PDO::MYSQL_ATTR_SSL_CIPHER => 'DEFAULT', PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false];
+        }
+        if (!is_file($this->config->dbAutoridades)) {
+            throw new PDOException("No existe el archivo de autoridades de db_tls_ca: {$this->config->dbAutoridades}");
+        }
+        return [PDO::MYSQL_ATTR_SSL_CA => $this->config->dbAutoridades, PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => true];
     }
 
     /** @return list<array<string, mixed>> */

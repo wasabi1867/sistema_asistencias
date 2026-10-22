@@ -5,6 +5,13 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # El sitio va en el subdominio laboratorios.soycorrecaminos.xyz, que en Hostinger es la
+  # carpeta laboratorios/ del dominio principal; por eso también contesta en
+  # soycorrecaminos.xyz/laboratorios/. Ahí no funcionaría: las páginas piden /api y
+  # /_next desde la raíz, que es el sitio de la carrera. Quien entre así va al subdominio.
+  RewriteCond %{HTTP_HOST} ^(www\.)?soycorrecaminos\.xyz$ [NC]
+  RewriteRule ^(.*)$ https://laboratorios.soycorrecaminos.xyz/$1 [R=301,L]
+
   # Las direcciones de antes del rediseño de las pantallas llevan a las nuevas. La carpeta
   # se toma de la dirección pedida (%1), así sirve igual en la raíz que en una subcarpeta.
   RewriteCond %{REQUEST_URI} ^(.*/)AdminPanel(\.html)?$

@@ -4,7 +4,7 @@ La base se define en [`db/esquema.sql`](../db/esquema.sql). Los catálogos con l
 
 Este esquema sustituye al `schema.sql` del sistema original y a las migraciones 001 y 002 que se le agregaron para seguir la forma de los documentos de Firebase. Esos archivos ya no están en el repositorio.
 
-Funciona igual en **MySQL 8.0** y en **MariaDB 10.6** o más nuevo. Se prueba en los dos porque no sabemos cuál dará Hostinger.
+En producción corre en **MariaDB 11.8**, que es lo que da Hostinger. Funciona igual en **MySQL 8.0** y en MariaDB 10.6 o más nuevo, y se prueba en los dos: si el sistema cambia de hospedaje, lo más común en otros es MySQL. Por eso no se usa nada que solo exista en uno de los dos, como `RETURNING` de MariaDB.
 
 ## Las tablas
 

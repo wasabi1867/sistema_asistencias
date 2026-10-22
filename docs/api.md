@@ -30,6 +30,8 @@ Los datos reales no van en git. `api/config.local.php` (copia de [`config.ejempl
 |---|---|---|
 | `db_host`, `db_port`, `db_name`, `db_user`, `db_pass` | `ASISTENCIAS_DB_HOST`... | Conexión a la base |
 | `origenes_permitidos` | `ASISTENCIAS_ORIGENES_PERMITIDOS` | Sitios de otro dominio que pueden llamar a la API, separados por comas. Solo para desarrollo (`http://localhost:3000`) |
+| `db_tls` | `ASISTENCIAS_DB_TLS` | Cifrar la conexión con la base. Hace falta al conectarse a la de Hostinger desde otra computadora (MySQL remoto); en el servidor, con `localhost`, no. Si se pide y la conexión no queda cifrada, no se conecta |
+| `db_tls_ca` | `ASISTENCIAS_DB_TLS_CA` | Archivo de autoridades de certificados (por ejemplo, el `ca-bundle.crt` de Git) para comprobar el certificado del servidor. Sin él, la conexión va cifrada pero sin esa comprobación |
 | `zona_horaria` | `ASISTENCIAS_ZONA_HORARIA` | Por omisión `America/Hermosillo` |
 | `exigir_codigo_de_clase` | `ASISTENCIAS_EXIGIR_CODIGO_DE_CLASE` | Si el alumno tiene que escribir el código que se muestra en el aula al registrar su entrada. Por omisión, no |
 
@@ -193,7 +195,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 
 ## Pruebas
 
-Son 238 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
+Son 242 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
 
 ```bash
 composer install

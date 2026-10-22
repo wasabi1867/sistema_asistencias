@@ -23,6 +23,8 @@ final class Configuracion
         public readonly array $origenesPermitidos = [],
         public readonly string $zonaHoraria = 'America/Hermosillo',
         public readonly bool $exigirCodigoDeClase = false,
+        public readonly bool $dbCifrada = false,
+        public readonly string $dbAutoridades = '',
     ) {
     }
 
@@ -55,6 +57,15 @@ final class Configuracion
                 $leer('exigir_codigo_de_clase', 'ASISTENCIAS_EXIGIR_CODIGO_DE_CLASE', false),
                 FILTER_VALIDATE_BOOLEAN
             ),
+            // Cifrar la conexión con la base. Hace falta al conectarse a la de Hostinger
+            // desde otra computadora (los scripts): sin esto, los datos viajan por
+            // internet tal cual. La API en el servidor se conecta a 'localhost' y no
+            // lo necesita.
+            dbCifrada: filter_var($leer('db_tls', 'ASISTENCIAS_DB_TLS', false), FILTER_VALIDATE_BOOLEAN),
+            // Archivo con las autoridades de certificados (por ejemplo, el ca-bundle.crt
+            // de Git). Con él se comprueba que el servidor es quien dice ser; sin él, la
+            // conexión va cifrada pero sin esa comprobación.
+            dbAutoridades: (string)$leer('db_tls_ca', 'ASISTENCIAS_DB_TLS_CA', ''),
         );
     }
 }
