@@ -1,0 +1,26 @@
+# ==============================================================
+# CONFIGURACIÓN HTACCESS PARA HOSTINGER (LITESPEED / APACHE)
+# ==============================================================
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Permitir acceso directo a archivos y carpetas existentes (incluyendo la API PHP)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Soporte para páginas Next.js exportadas con extensión .html
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteRule ^(.*)$ $1.html [L]
+
+  # Si ninguna regla coincide, redirigir a index.html (SPA fallback)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Forzar HTTPS y cabeceras de seguridad
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-XSS-Protection "1; mode=block"
+</IfModule>

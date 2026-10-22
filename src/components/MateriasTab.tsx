@@ -1,0 +1,988 @@
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Pencil,
+  Trash2,
+  BookOpen,
+  UserSquare2,
+  GraduationCap,
+  Search,
+  RefreshCw,
+  X,
+  Plus,
+  Save,
+  Ban,
+  Calendar,
+  ArrowLeft,
+  List,
+  Monitor,
+  Wifi,
+  Building2,
+  Server,
+} from "lucide-react"
+import {
+  collection,
+  setDoc,
+  doc,
+  getDocs,
+  query,
+  deleteDoc,
+  updateDoc,
+  type Firestore,
+  where,
+} from "firebase/firestore"
+import Swal from "sweetalert2"
+import type React from "react"
+
+  interface Materia {
+  ID: string
+  NombreMateria: string
+  MaestroID: string
+  Semestre: string
+  CicloEscolar: string
+  Laboratorio: string
+  [key: string]: any
+  }
+
+interface DocenteSimple {
+  ID: string
+  NombreCompleto: string
+}
+
+interface CicloEscolar {
+  valor: string
+  etiqueta: string
+  activo: boolean
+}
+
+type Vista = "menu" | "agregar" | "lista"
+
+export function MateriasTab({
+  db,
+  isDarkMode,
+  currentColors,
+}: { db: Firestore; isDarkMode: boolean; currentColors: any }) {
+  const [vistaActual, setVistaActual] = useState<Vista>("menu")
+  const [materias, setMaterias] = useState<Materia[]>([])
+  const [seleccionados, setSeleccionados] = useState<string[]>([])
+  const [docentes, setDocentes] = useState<DocenteSimple[]>([])
+  const [datosMateria, setDatosMateria] = useState<Materia>({
+    ID: "",
+    NombreMateria: "",
+    MaestroID: "",
+    Semestre: "",
+    CicloEscolar: "",
+    Laboratorio: "",
+  })
+  const [editando, setEditando] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [semestreFilter, setSemestreFilter] = useState("todos")
+  const [añoFilter, setAñoFilter] = useState("todos")
+  const [periodoFilter, setPeriodoFilter] = useState("todos")
+
+  const generarCiclosEscolares = (): CicloEscolar[] => {
+    const fechaActual = new Date()
+    const añoActual = fechaActual.getFullYear()
+    const mesActual = fechaActual.getMonth() + 1 // getMonth() devuelve 0-11
+
+    const ciclos: CicloEscolar[] = []
+
+    // Determinar el año escolar actual
+    const añoEscolarActual = mesActual >= 8 ? añoActual : añoActual - 1
+
+    // Generar ciclos para el año actual y 3 años futuros
+    for (let i = 0; i <= 3; i++) {
+      const añoInicio = añoEscolarActual + i
+      const añoFin = añoInicio + 1
+
+      // Si estamos en el año actual, solo mostrar ciclos que no hayan terminado
+      if (i === 0) {
+        // Primer semestre (agosto-diciembre) - solo mostrar si no ha terminado
+        if (mesActual <= 12 && mesActual >= 8) {
+          ciclos.push({
+            valor: `${añoInicio}-${añoFin}-1`,
+            etiqueta: `${añoInicio}-${añoFin} (Ago-Dic)`,
+            activo: true,
+          })
+        }
+        // Segundo semestre (enero-julio) - solo mostrar si no ha terminado
+        if (mesActual <= 7) {
+          ciclos.push({
+            valor: `${añoInicio}-${añoFin}-2`,
+            etiqueta: `${añoInicio}-${añoFin} (Ene-Jul)`,
+            activo: mesActual >= 1 && mesActual <= 7,
+          })
+        }
+      } else {
+        // Años futuros - mostrar ambos semestres
+        ciclos.push({
+          valor: `${añoInicio}-${añoFin}-1`,
+          etiqueta: `${añoInicio}-${añoFin} (Ago-Dic)`,
+          activo: false,
+        })
+        ciclos.push({
+          valor: `${añoInicio}-${añoFin}-2`,
+          etiqueta: `${añoInicio}-${añoFin} (Ene-Jul)`,
+          activo: false,
+        })
+      }
+    }
+
+    return ciclos
+  }
+
+  // Función para obtener años únicos de las materias existentes
+  const obtenerAñosDisponibles = (): string[] => {
+    const años = new Set<string>()
+
+    // Agregar años de materias existentes
+    materias.forEach((materia) => {
+      if (materia.CicloEscolar) {
+        const match = materia.CicloEscolar.match(/(\d{4})-(\d{4})/)
+        if (match) {
+          años.add(`${match[1]}-${match[2]}`)
+        }
+      }
+    })
+
+    // Agregar año actual
+    const fechaActual = new Date()
+    const añoActual = fechaActual.getFullYear()
+    const mesActual = fechaActual.getMonth() + 1
+    const añoEscolarInicio = mesActual >= 8 ? añoActual : añoActual - 1
+    const añoEscolarFin = añoEscolarInicio + 1
+    años.add(`${añoEscolarInicio}-${añoEscolarFin}`)
+
+    return Array.from(años).sort((a, b) => b.localeCompare(a)) // Más reciente primero
+  }
+
+  const ciclosEscolares = generarCiclosEscolares()
+  const cicloActual = ciclosEscolares.find((ciclo) => ciclo.activo)?.valor || ciclosEscolares[0]?.valor || ""
+  const añosDisponibles = obtenerAñosDisponibles()
+
+  useEffect(() => {
+    cargarMaterias()
+    cargarDocentes()
+    // Establecer el ciclo escolar actual por defecto
+    if (!datosMateria.CicloEscolar && cicloActual) {
+      setDatosMateria((prev) => ({ ...prev, CicloEscolar: cicloActual }))
+    }
+  }, [cicloActual])
+
+  const cargarMaterias = async () => {
+    setIsLoading(true)
+    try {
+      const materiasRef = collection(db, "Materias")
+      const materiasSnapshot = await getDocs(query(materiasRef))
+      const materiasData = materiasSnapshot.docs.map((doc) => ({
+        ID: doc.id,
+        NombreMateria: doc.data().NombreMateria || "",
+        MaestroID: doc.data().MaestroID || "",
+        Semestre: doc.data().Semestre || "",
+        CicloEscolar: doc.data().CicloEscolar || "",
+        Laboratorio: doc.data().Laboratorio || "",
+        ...doc.data(),
+      })) as Materia[]
+      // Ordenar alfabéticamente por NombreMateria
+      materiasData.sort((a, b) => a.NombreMateria.localeCompare(b.NombreMateria, 'es', { sensitivity: 'base' }))
+      setMaterias(materiasData)
+    } catch (error) {
+      console.error("Error al cargar materias:", error)
+      await Swal.fire({
+        title: "Error",
+        text: "No se pudieron cargar las materias. Por favor, intenta de nuevo.",
+        icon: "error",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const cargarDocentes = async () => {
+    try {
+      const docentesRef = collection(db, "Docentes")
+      const docentesSnapshot = await getDocs(query(docentesRef))
+      const docentesData = docentesSnapshot.docs.map((doc) => ({
+        ID: doc.id,
+        NombreCompleto: `${doc.data().Nombre} ${doc.data().Apellido}`,
+      }))
+      // Ordenar alfabéticamente por NombreCompleto
+      docentesData.sort((a, b) => a.NombreCompleto.localeCompare(b.NombreCompleto, 'es', { sensitivity: 'base' }))
+      setDocentes(docentesData)
+    } catch (error) {
+      console.error("Error al cargar docentes:", error)
+      await Swal.fire({
+        title: "Error",
+        text: "No se pudieron cargar los docentes. Por favor, intenta de nuevo.",
+        icon: "error",
+      })
+    }
+  }
+
+  const manejarEnvio = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    try {
+      const { ID, NombreMateria, CicloEscolar, ...restoDatosMateria } = datosMateria
+
+      if (!editando) {
+        // Check if the subject name already exists in the same school cycle when adding a new subject
+        const materiasRef = collection(db, "Materias")
+        const nombreMateriaQuery = query(
+          materiasRef,
+          where("NombreMateria", "==", NombreMateria),
+          where("CicloEscolar", "==", CicloEscolar),
+        )
+        const nombreMateriaQuerySnapshot = await getDocs(nombreMateriaQuery)
+
+        if (!nombreMateriaQuerySnapshot.empty) {
+          await Swal.fire({
+            title: "Error",
+            text: "Ya existe una materia con este nombre en el mismo ciclo escolar. Por favor, use un nombre diferente.",
+            icon: "error",
+          })
+          return
+        }
+
+        const nuevoID = doc(collection(db, "Materias")).id
+        await setDoc(doc(db, "Materias", nuevoID), { NombreMateria, CicloEscolar, ...restoDatosMateria })
+        await Swal.fire({
+          title: "¡Éxito!",
+          text: "Materia agregada correctamente",
+          icon: "success",
+        })
+      } else {
+        await updateDoc(doc(db, "Materias", ID), { NombreMateria, CicloEscolar, ...restoDatosMateria })
+        await Swal.fire({
+          title: "¡Éxito!",
+          text: "Materia actualizada correctamente",
+          icon: "success",
+        })
+        setEditando(false)
+      }
+      setDatosMateria({ ID: "", NombreMateria: "", MaestroID: "", Semestre: "", CicloEscolar: cicloActual, Laboratorio: "" })
+      cargarMaterias()
+      // Redirigir a la lista despues de guardar
+      setVistaActual("lista")
+    } catch (error) {
+      console.error("Error al agregar/actualizar materia:", error)
+      await Swal.fire({
+        title: "Error",
+        text: "Ha ocurrido un error al agregar/actualizar la materia. Por favor, intenta de nuevo.",
+        icon: "error",
+      })
+    }
+  }
+
+  const eliminarMateria = async (id: string) => {
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: "No podrás revertir esta acción!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Sí, eliminar!",
+      cancelButtonText: "Cancelar",
+    })
+
+    if (result.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, "Materias", id))
+        Swal.fire("Eliminada!", "La materia ha sido eliminada.", "success")
+        cargarMaterias()
+      } catch (error) {
+        console.error("Error al eliminar materia:", error)
+        Swal.fire("Error!", "Ha ocurrido un error al eliminar la materia.", "error")
+      }
+    }
+  }
+
+  const modificarMateria = (materia: Materia) => {
+    setDatosMateria(materia)
+    setEditando(true)
+    setVistaActual("agregar")
+  }
+
+  const cancelarEdicion = () => {
+    setDatosMateria({ ID: "", NombreMateria: "", MaestroID: "", Semestre: "", CicloEscolar: cicloActual, Laboratorio: "" })
+    setEditando(false)
+  }
+
+  const materiasFiltradas = useMemo(() => {
+    return materias.filter((materia) => {
+      const matchesSearch =
+        materia.NombreMateria.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (docentes.find((d) => d.ID === materia.MaestroID)?.NombreCompleto || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        materia.Semestre.includes(searchTerm) ||
+        materia.CicloEscolar.includes(searchTerm)
+
+      const matchesSemestre = semestreFilter === "todos" || materia.Semestre === semestreFilter
+
+      // Filtro por año
+      let matchesAño = true
+      if (añoFilter !== "todos") {
+        matchesAño = materia.CicloEscolar.includes(añoFilter)
+      }
+
+      // Filtro por período
+      let matchesPeriodo = true
+      if (periodoFilter !== "todos") {
+        if (periodoFilter === "agosto-diciembre") {
+          matchesPeriodo = materia.CicloEscolar.endsWith("-1")
+        } else if (periodoFilter === "enero-julio") {
+          matchesPeriodo = materia.CicloEscolar.endsWith("-2")
+        }
+      }
+
+      return matchesSearch && matchesSemestre && matchesAño && matchesPeriodo
+    })
+  }, [materias, searchTerm, semestreFilter, añoFilter, periodoFilter, docentes])
+
+  const headerBgClass = isDarkMode
+    ? "bg-gradient-to-r from-[#1d5631] to-[#2a7a45]"
+    : "bg-gradient-to-r from-[#800040] to-[#a30050]"
+
+  const toggleSeleccionarTodos = () => {
+    if (seleccionados.length === materiasFiltradas.length) {
+      setSeleccionados([])
+    } else {
+      setSeleccionados(materiasFiltradas.map((m) => m.ID))
+    }
+  }
+
+  const toggleSeleccionarMateria = (id: string) => {
+    setSeleccionados((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+  }
+
+  const eliminarSeleccionados = async () => {
+    if (seleccionados.length === 0) {
+      Swal.fire("Advertencia", "No has seleccionado ninguna materia", "warning")
+      return
+    }
+
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: `Se eliminarán ${seleccionados.length} materia(s). No podrás revertir esta acción!`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Sí, eliminar!",
+      cancelButtonText: "Cancelar",
+    })
+
+    if (result.isConfirmed) {
+      try {
+        await Promise.all(seleccionados.map((id) => deleteDoc(doc(db, "Materias", id))))
+        Swal.fire("Eliminadas!", `${seleccionados.length} materia(s) eliminada(s).`, "success")
+        setSeleccionados([])
+        cargarMaterias()
+      } catch (error) {
+        console.error("Error al eliminar materias:", error)
+        Swal.fire("Error!", "Ha ocurrido un error al eliminar las materias.", "error")
+      }
+    }
+  }
+
+  if (vistaActual === "menu") {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto p-4">
+        <Card
+          className={`${isDarkMode ? "bg-gray-800 hover:bg-gray-750" : "bg-white hover:bg-gray-50"} shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border-0 cursor-pointer transform hover:scale-[1.02]`}
+          onClick={() => setVistaActual("agregar")}
+        >
+          <CardHeader className="bg-gradient-to-br from-[#952952] to-[#7a1f42] text-white p-10">
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="bg-white/20 backdrop-blur-sm p-6 rounded-full shadow-lg">
+                <Plus className="h-16 w-16" />
+              </div>
+              <CardTitle className="text-3xl font-bold">Agregar Materia</CardTitle>
+              <CardDescription className="text-white/90 text-base">
+                Registra una nueva materia en el sistema
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="p-10 bg-gradient-to-b from-white to-gray-50">
+            <ul className="space-y-4 text-gray-700">
+              <li className="flex items-center gap-3 text-base">
+                <BookOpen className="h-5 w-5 text-[#952952]" />
+                <span>Asignar nombre de la materia</span>
+              </li>
+              <li className="flex items-center gap-3 text-base">
+                <UserSquare2 className="h-5 w-5 text-[#952952]" />
+                <span>Seleccionar maestro</span>
+              </li>
+              <li className="flex items-center gap-3 text-base">
+                <GraduationCap className="h-5 w-5 text-[#952952]" />
+                <span>Definir semestre y ciclo escolar</span>
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`${isDarkMode ? "bg-gray-800 hover:bg-gray-750" : "bg-white hover:bg-gray-50"} shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border-0 cursor-pointer transform hover:scale-[1.02]`}
+          onClick={() => setVistaActual("lista")}
+        >
+          <CardHeader className="bg-gradient-to-br from-[#952952] to-[#7a1f42] text-white p-10">
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="bg-white/20 backdrop-blur-sm p-6 rounded-full shadow-lg">
+                <List className="h-16 w-16" />
+              </div>
+              <CardTitle className="text-3xl font-bold">Ver Lista de Materias</CardTitle>
+              <CardDescription className="text-white/90 text-base">
+                Consulta, edita o elimina materias existentes
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="p-10 bg-gradient-to-b from-white to-gray-50">
+            <ul className="space-y-4 text-gray-700">
+              <li className="flex items-center gap-3 text-base">
+                <Search className="h-5 w-5 text-[#952952]" />
+                <span>Buscar y filtrar materias</span>
+              </li>
+              <li className="flex items-center gap-3 text-base">
+                <Pencil className="h-5 w-5 text-[#952952]" />
+                <span>Editar información</span>
+              </li>
+              <li className="flex items-center gap-3 text-base">
+                <Trash2 className="h-5 w-5 text-[#952952]" />
+                <span>Eliminar registros</span>
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (vistaActual === "agregar") {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card
+          className={`${isDarkMode ? "bg-gray-800" : "bg-white"} shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 overflow-hidden`}
+        >
+          <CardHeader className="bg-gradient-to-br from-[#952952] to-[#7a1f42] text-white p-6 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+                  {editando ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-bold">
+                    {editando ? "Editar Materia" : "Agregar Materia"}
+                  </CardTitle>
+                  <CardDescription className="text-white/80 mt-1">
+                    {editando
+                      ? "Modifica los datos de la materia seleccionada"
+                      : "Completa el formulario para agregar una nueva materia"}
+                  </CardDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setVistaActual("menu")
+                  cancelarEdicion()
+                }}
+                className="text-white hover:bg-white/20"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver al Menú
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <form onSubmit={manejarEnvio} className="space-y-4">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="nombreMateria"
+                  className={`${isDarkMode ? "text-white" : "text-gray-700"} flex items-center gap-2`}
+                >
+                  <BookOpen className="h-4 w-4" /> Nombre de la Materia
+                </Label>
+                <div className="relative">
+                  <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Input
+                    id="nombreMateria"
+                    value={datosMateria.NombreMateria}
+                    onChange={(e) => setDatosMateria({ ...datosMateria, NombreMateria: e.target.value })}
+                    required
+                    placeholder="Ej: Programación Orientada a Objetos"
+                    className={`pl-10 ${isDarkMode ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="cicloEscolar"
+                  className={`${isDarkMode ? "text-white" : "text-gray-700"} flex items-center gap-2`}
+                >
+                  <Calendar className="h-4 w-4" /> Ciclo Escolar
+                </Label>
+                <Select
+                  value={datosMateria.CicloEscolar}
+                  onValueChange={(value) => setDatosMateria({ ...datosMateria, CicloEscolar: value })}
+                >
+                  <SelectTrigger
+                    id="cicloEscolar"
+                    className={`${isDarkMode ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"} pl-10`}
+                  >
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                    </div>
+                    <SelectValue placeholder="Selecciona un ciclo escolar" />
+                  </SelectTrigger>
+                  <SelectContent className={isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>
+                    {ciclosEscolares.map((ciclo) => (
+                      <SelectItem key={ciclo.valor} value={ciclo.valor}>
+                        <div className="flex items-center gap-2">
+                          {ciclo.etiqueta}
+                          {ciclo.activo && (
+                            <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full">Actual</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="maestroMateria"
+                  className={`${isDarkMode ? "text-white" : "text-gray-700"} flex items-center gap-2`}
+                >
+                  <UserSquare2 className="h-4 w-4" /> Maestro
+                </Label>
+                <Select
+                  value={datosMateria.MaestroID}
+                  onValueChange={(value) => setDatosMateria({ ...datosMateria, MaestroID: value })}
+                >
+                  <SelectTrigger
+                    id="maestroMateria"
+                    className={`${isDarkMode ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"} pl-10`}
+                  >
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <UserSquare2 className="h-4 w-4 text-gray-500" />
+                    </div>
+                    <SelectValue placeholder="Selecciona un maestro" />
+                  </SelectTrigger>
+                  <SelectContent className={isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>
+                    {docentes.map((docente) => (
+                      <SelectItem key={docente.ID} value={docente.ID}>
+                        {docente.NombreCompleto}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="semestreMateria"
+                  className={`${isDarkMode ? "text-white" : "text-gray-700"} flex items-center gap-2`}
+                >
+                  <GraduationCap className="h-4 w-4" /> Semestre
+                </Label>
+                <Select
+                  value={datosMateria.Semestre}
+                  onValueChange={(value) => setDatosMateria({ ...datosMateria, Semestre: value })}
+                >
+                  <SelectTrigger
+                    id="semestreMateria"
+                    className={`${isDarkMode ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"} pl-10`}
+                  >
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <GraduationCap className="h-4 w-4 text-gray-500" />
+                    </div>
+                    <SelectValue placeholder="Selecciona un semestre" />
+                  </SelectTrigger>
+                  <SelectContent className={isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((semestre) => (
+                      <SelectItem key={semestre} value={semestre.toString()}>
+                        {semestre}º Semestre
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="laboratorioMateria"
+                  className={`${isDarkMode ? "text-white" : "text-gray-700"} flex items-center gap-2`}
+                >
+                  <Monitor className="h-4 w-4" /> Laboratorio
+                </Label>
+                <Select
+                  value={datosMateria.Laboratorio}
+                  onValueChange={(value) => setDatosMateria({ ...datosMateria, Laboratorio: value })}
+                >
+                  <SelectTrigger
+                    id="laboratorioMateria"
+                    className={`${isDarkMode ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"} pl-10`}
+                  >
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <Monitor className="h-4 w-4 text-gray-500" />
+                    </div>
+                    <SelectValue placeholder="Selecciona un laboratorio" />
+                  </SelectTrigger>
+                  <SelectContent className={isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>
+                    <SelectItem value="programacion">
+                      <div className="flex items-center gap-2">
+                        <Monitor className="h-4 w-4" />
+                        Lab. Programacion
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="redes">
+                      <div className="flex items-center gap-2">
+                        <Wifi className="h-4 w-4" />
+                        Lab. Redes
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="laboratorio_a">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Laboratorio A
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="laboratorio_c">
+                      <div className="flex items-center gap-2">
+                        <Server className="h-4 w-4" />
+                        Laboratorio C
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="todos">
+                      <div className="flex items-center gap-2">
+                        <Monitor className="h-4 w-4" />
+                        Todos los laboratorios
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="submit"
+                  className={`flex-1 gap-2 ${
+                    isDarkMode
+                      ? "bg-[#1d5631] hover:bg-[#153d23] text-white"
+                      : "bg-[#800040] hover:bg-[#5c002e] text-white"
+                  } transition-all duration-200`}
+                >
+                  {editando ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {editando ? "Actualizar Materia" : "Agregar Materia"}
+                </Button>
+
+                {editando && (
+                  <Button type="button" onClick={cancelarEdicion} variant="outline" className="gap-2 bg-transparent">
+                    <Ban className="h-4 w-4" />
+                    Cancelar
+                  </Button>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      <Card
+        className={`${isDarkMode ? "bg-gray-800" : "bg-white"} shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 overflow-hidden`}
+      >
+        <CardHeader className="bg-gradient-to-br from-[#952952] to-[#7a1f42] text-white p-6">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVistaActual("menu")}
+                className="text-white hover:bg-white/20"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver al Menú
+              </Button>
+              <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold">Lista de Materias</CardTitle>
+                <span className="text-white/80 text-sm">
+                  {materiasFiltradas.length} {materiasFiltradas.length === 1 ? "materia" : "materias"}
+                </span>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={cargarMaterias} className="text-white hover:bg-white/20">
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Actualizar</span>
+            </Button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {/* Primera fila de filtros */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar materias..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-white/10 text-white border-white/20 placeholder:text-gray-300"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Select value={semestreFilter} onValueChange={setSemestreFilter}>
+                <SelectTrigger className="w-[180px] bg-white/10 text-white border-white/20">
+                  <SelectValue placeholder="Filtrar por semestre" />
+                </SelectTrigger>
+                <SelectContent className={isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>
+                  <SelectItem value="todos">Todos los semestres</SelectItem>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((semestre) => (
+                    <SelectItem key={semestre} value={semestre.toString()}>
+                      {semestre}º Semestre
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Segunda fila de filtros - Año y Período */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Select
+                value={añoFilter}
+                onValueChange={(value) => {
+                  setAñoFilter(value)
+                  if (value === "todos") {
+                    setPeriodoFilter("todos")
+                  }
+                }}
+              >
+                <SelectTrigger className="flex-1 bg-white/10 text-white border-white/20">
+                  <SelectValue placeholder="Filtrar por año escolar" />
+                </SelectTrigger>
+                <SelectContent className={isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>
+                  <SelectItem value="todos">Todos los años</SelectItem>
+                  {añosDisponibles.map((año) => (
+                    <SelectItem key={año} value={año}>
+                      {año}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={periodoFilter} onValueChange={setPeriodoFilter} disabled={añoFilter === "todos"}>
+                <SelectTrigger className="flex-1 bg-white/10 text-white border-white/20 disabled:opacity-50">
+                  <SelectValue placeholder="Filtrar por período" />
+                </SelectTrigger>
+                <SelectContent className={isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>
+                  <SelectItem value="todos">Todos los períodos</SelectItem>
+                  <SelectItem value="agosto-diciembre">Agosto - Diciembre</SelectItem>
+                  <SelectItem value="enero-julio">Enero - Julio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <div
+                className={`animate-spin rounded-full h-8 w-8 border-b-2 ${
+                  isDarkMode ? "border-[#1d5631]" : "border-[#800040]"
+                }`}
+              ></div>
+            </div>
+          ) : materiasFiltradas.length > 0 ? (
+            <div className="max-h-[600px] overflow-auto">
+              {seleccionados.length > 0 && (
+                <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 p-3 border-b flex items-center justify-between">
+                  <span className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-gray-700"}`}>
+                    {seleccionados.length} materia(s) seleccionada(s)
+                  </span>
+                  <Button onClick={eliminarSeleccionados} size="sm" variant="destructive" className="gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar seleccionadas
+                  </Button>
+                </div>
+              )}
+              <Table>
+                <TableHeader className="sticky top-0 z-10">
+                  <TableRow className={isDarkMode ? "bg-gray-900" : "bg-gray-50"}>
+                    <TableHead className={isDarkMode ? "text-white" : "text-gray-700"}>
+                      <input
+                        type="checkbox"
+                        checked={seleccionados.length === materiasFiltradas.length && materiasFiltradas.length > 0}
+                        onChange={toggleSeleccionarTodos}
+                        className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                      />
+                    </TableHead>
+                    <TableHead className={isDarkMode ? "text-white" : "text-gray-700"}>Nombre</TableHead>
+                    <TableHead className={isDarkMode ? "text-white" : "text-gray-700"}>Maestro</TableHead>
+                    <TableHead className={isDarkMode ? "text-white" : "text-gray-700"}>Semestre</TableHead>
+                    <TableHead className={isDarkMode ? "text-white" : "text-gray-700"}>Ciclo Escolar</TableHead>
+                    <TableHead className={isDarkMode ? "text-white" : "text-gray-700"}>Laboratorio</TableHead>
+                    <TableHead className={isDarkMode ? "text-white" : "text-gray-700"}>Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {materiasFiltradas.map((materia) => (
+                    <TableRow
+                      key={materia.ID}
+                      className={`group ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"} transition-colors`}
+                    >
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={seleccionados.includes(materia.ID)}
+                          onChange={() => toggleSeleccionarMateria(materia.ID)}
+                          className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                        />
+                      </TableCell>
+                      <TableCell className={isDarkMode ? "text-white" : "text-gray-700"}>
+                        <div className="font-medium">{materia.NombreMateria}</div>
+                      </TableCell>
+                      <TableCell className={isDarkMode ? "text-white" : "text-gray-700"}>
+                        {docentes.find((d) => d.ID === materia.MaestroID)?.NombreCompleto || "No asignado"}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            isDarkMode ? "bg-[#1d5631]/20 text-[#2a7a45]" : "bg-[#800040]/20 text-[#800040]"
+                          }`}
+                        >
+                          {materia.Semestre}º Semestre
+                        </span>
+                      </TableCell>
+                      <TableCell className={isDarkMode ? "text-white" : "text-gray-700"}>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">
+                            {ciclosEscolares.find((c) => c.valor === materia.CicloEscolar)?.etiqueta ||
+                              materia.CicloEscolar}
+                          </span>
+                          {ciclosEscolares.find((c) => c.valor === materia.CicloEscolar)?.activo && (
+                            <span className="text-xs text-green-500 font-medium">Actual</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            materia.Laboratorio === "programacion"
+                              ? isDarkMode ? "bg-blue-900/30 text-blue-400" : "bg-blue-100 text-blue-700"
+                              : materia.Laboratorio === "redes"
+                                ? isDarkMode ? "bg-purple-900/30 text-purple-400" : "bg-purple-100 text-purple-700"
+                                : materia.Laboratorio === "laboratorio_a"
+                                  ? isDarkMode ? "bg-green-900/30 text-green-400" : "bg-green-100 text-green-700"
+                                  : materia.Laboratorio === "laboratorio_c"
+                                    ? isDarkMode ? "bg-orange-900/30 text-orange-400" : "bg-orange-100 text-orange-700"
+                                    : materia.Laboratorio === "todos"
+                                      ? isDarkMode ? "bg-cyan-900/30 text-cyan-400" : "bg-cyan-100 text-cyan-700"
+                                      : isDarkMode ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {materia.Laboratorio === "programacion" && <Monitor className="h-3 w-3" />}
+                          {materia.Laboratorio === "redes" && <Wifi className="h-3 w-3" />}
+                          {materia.Laboratorio === "laboratorio_a" && <Building2 className="h-3 w-3" />}
+                          {materia.Laboratorio === "laboratorio_c" && <Server className="h-3 w-3" />}
+                          {materia.Laboratorio === "todos" && <Monitor className="h-3 w-3" />}
+                          {materia.Laboratorio === "programacion"
+                            ? "Programacion"
+                            : materia.Laboratorio === "redes"
+                              ? "Redes"
+                              : materia.Laboratorio === "laboratorio_a"
+                                ? "Lab. A"
+                                : materia.Laboratorio === "laboratorio_c"
+                                  ? "Lab. C"
+                                  : materia.Laboratorio === "todos"
+                                    ? "Todos"
+                                    : "Sin asignar"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            onClick={() => modificarMateria(materia)}
+                            size="sm"
+                            variant="outline"
+                            className={`h-8 w-8 p-0 ${
+                              isDarkMode
+                                ? "text-blue-400 border-blue-400 hover:bg-blue-400/10"
+                                : "text-blue-600 border-blue-600 hover:bg-blue-600/10"
+                            }`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Editar materia</span>
+                          </Button>
+                          <Button
+                            onClick={() => eliminarMateria(materia.ID)}
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0 text-red-600 border-red-600 hover:bg-red-600/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Eliminar materia</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div
+              className={`flex flex-col items-center justify-center p-8 text-center ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              <BookOpen className="h-12 w-12 mb-2 opacity-20" />
+              <h3 className="text-lg font-medium mb-1">No hay materias</h3>
+              <p className="text-sm max-w-md">
+                {searchTerm || semestreFilter !== "todos" || añoFilter !== "todos" || periodoFilter !== "todos"
+                  ? "No se encontraron materias con los filtros aplicados. Intenta con otros criterios de búsqueda."
+                  : "No hay materias registradas. Agrega una nueva materia usando el formulario."}
+              </p>
+              {(searchTerm || semestreFilter !== "todos" || añoFilter !== "todos" || periodoFilter !== "todos") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 bg-transparent"
+                  onClick={() => {
+                    setSearchTerm("")
+                    setSemestreFilter("todos")
+                    setAñoFilter("todos")
+                    setPeriodoFilter("todos")
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Limpiar filtros
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
