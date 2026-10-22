@@ -1,0 +1,40 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/NotificacionesAdmin/n1",
+    "fields": {
+      "tipo": {
+        "stringValue": "equipo"
+      },
+      "titulo": {
+        "stringValue": "EQUIPO #2 FUERA DE SERVICIO"
+      },
+      "mensaje": {
+        "stringValue": "No enciende"
+      },
+      "fecha": {
+        "timestampValue": "2026-10-21T03:00:00Z"
+      },
+      "leida": {
+        "booleanValue": false
+      },
+      "prioridad": {
+        "stringValue": "alta"
+      },
+      "laboratorio": {
+        "stringValue": "programacion"
+      },
+      "datos": {
+        "mapValue": {
+          "fields": {
+            "equipoId": {
+              "stringValue": "2"
+            },
+            "razon": {
+              "stringValue": "No enciende"
+            }
+          }
+        }
+      }
+    }
+  }
+]

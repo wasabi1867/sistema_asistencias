@@ -1,0 +1,14 @@
+# Toda petición a esta carpeta la atiende index.php. Ningún otro archivo se sirve: ni
+# el código (src/) ni la configuración (config.local.php).
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^index\.php$ - [L]
+  RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# Por si el servidor no tuviera mod_rewrite: aun así, solo index.php.
+<FilesMatch "^(?!index\.php$).*$">
+  Require all denied
+</FilesMatch>

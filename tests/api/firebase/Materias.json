@@ -1,0 +1,22 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/Materias/kM3xQe9TzP0aB1cD2eF3",
+    "fields": {
+      "NombreMateria": {
+        "stringValue": "Programación Web"
+      },
+      "MaestroID": {
+        "stringValue": "D100"
+      },
+      "Semestre": {
+        "stringValue": "5"
+      },
+      "CicloEscolar": {
+        "stringValue": "2026-2027-1"
+      },
+      "Laboratorio": {
+        "stringValue": "programacion"
+      }
+    }
+  }
+]

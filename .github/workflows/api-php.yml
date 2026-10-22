@@ -1,0 +1,50 @@
+# Pruebas de la API en PHP (api/) contra una base real. Corren en MariaDB y en MySQL
+# porque no sabemos cuál dará Hostinger: el esquema tiene que funcionar en los dos.
+name: API PHP
+
+on:
+  push:
+    branches: [main]
+    paths: ['api/**', 'tests/api/**', 'scripts/**', 'db/**', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
+  pull_request:
+    paths: ['api/**', 'tests/api/**', 'scripts/**', 'db/**', 'composer.*', 'phpunit.xml.dist', '.github/workflows/api-php.yml']
+  workflow_dispatch:
+
+jobs:
+  pruebas:
+    name: Pruebas en ${{ matrix.base }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - base: mariadb:10.6
+            salud: healthcheck.sh --connect --innodb_initialized
+          - base: mariadb:11.8
+            salud: healthcheck.sh --connect --innodb_initialized
+          - base: mysql:8.0
+            salud: mysqladmin ping -h 127.0.0.1 -uroot -ppruebas
+    services:
+      base:
+        image: ${{ matrix.base }}
+        env:
+          MYSQL_ROOT_PASSWORD: pruebas
+          MARIADB_ROOT_PASSWORD: pruebas
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="${{ matrix.salud }}"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, curl, mbstring
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpunit
+        env:
+          ASISTENCIAS_PRUEBAS_DB_HOST: 127.0.0.1
+          ASISTENCIAS_PRUEBAS_DB_PORT: 3306
+          ASISTENCIAS_PRUEBAS_DB_USER: root
+          ASISTENCIAS_PRUEBAS_DB_PASS: pruebas

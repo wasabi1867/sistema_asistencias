@@ -1,0 +1,40 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/EventosLaboratorio/e1",
+    "fields": {
+      "nombre": {
+        "stringValue": "Hackatón"
+      },
+      "tipo": {
+        "stringValue": "Hackathon"
+      },
+      "organizador": {
+        "stringValue": "Diego"
+      },
+      "participantes": {
+        "integerValue": "30"
+      },
+      "fecha": {
+        "stringValue": "2026-11-20"
+      },
+      "hora": {
+        "stringValue": "09:00"
+      },
+      "duracion": {
+        "stringValue": "8 horas"
+      },
+      "descripcion": {
+        "stringValue": ""
+      },
+      "resultados": {
+        "stringValue": ""
+      },
+      "laboratorio": {
+        "stringValue": "programacion"
+      },
+      "createdAt": {
+        "timestampValue": "2026-10-01T17:00:00Z"
+      }
+    }
+  }
+]

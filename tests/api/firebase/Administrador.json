@@ -1,0 +1,19 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/Administrador/ADM01",
+    "fields": {
+      "Nombre": {
+        "stringValue": "Ada"
+      },
+      "Apellido": {
+        "stringValue": "Admin"
+      },
+      "Email": {
+        "stringValue": "ada@itspp.test"
+      },
+      "Contraseña": {
+        "stringValue": "$2b$10$/ZROYJEdcZ8PItQWMOvMteQ.hgU2qNgc6jJRVoe4CrAcM/TO/HEWi"
+      }
+    }
+  }
+]

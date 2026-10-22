@@ -1,0 +1,19 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/Materias/kM3xQe9TzP0aB1cD2eF3/Practicas/p1",
+    "fields": {
+      "Titulo": {
+        "stringValue": "Formularios"
+      },
+      "Descripcion": {
+        "stringValue": "Usar <form> y \\ diagonales"
+      },
+      "Duracion": {
+        "stringValue": "2 horas"
+      },
+      "fecha": {
+        "stringValue": "2026-10-20"
+      }
+    }
+  }
+]

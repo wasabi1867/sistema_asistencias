@@ -1,0 +1,19 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/logs/l1",
+    "fields": {
+      "timestamp": {
+        "timestampValue": "2026-10-21T04:46:22Z"
+      },
+      "action": {
+        "stringValue": "Iniciar Clase"
+      },
+      "details": {
+        "stringValue": "Clase iniciada para Formularios"
+      },
+      "laboratorio": {
+        "stringValue": "programacion"
+      }
+    }
+  }
+]

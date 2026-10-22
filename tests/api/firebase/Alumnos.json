@@ -1,0 +1,57 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/Alumnos/23303001",
+    "fields": {
+      "Nombre": {
+        "stringValue": "Ana"
+      },
+      "Apellido": {
+        "stringValue": "Álvarez"
+      },
+      "Carrera": {
+        "stringValue": "Sistemas"
+      },
+      "Semestre": {
+        "stringValue": "5"
+      },
+      "Turno": {
+        "stringValue": "Matutino"
+      },
+      "Grupo": {
+        "stringValue": "A"
+      },
+      "Materias": {
+        "arrayValue": {
+          "values": [
+            {
+              "stringValue": "kM3xQe9TzP0aB1cD2eF3"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/Alumnos/23303002",
+    "fields": {
+      "Nombre": {
+        "stringValue": "Beto"
+      },
+      "Apellido": {
+        "stringValue": "D'Angelo"
+      },
+      "Carrera": {
+        "stringValue": "Sistemas"
+      },
+      "Semestre": {
+        "stringValue": "5"
+      },
+      "Turno": {
+        "stringValue": "Matutino"
+      },
+      "Grupo": {
+        "stringValue": "A"
+      }
+    }
+  }
+]

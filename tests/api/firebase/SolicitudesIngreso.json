@@ -1,0 +1,40 @@
+[
+  {
+    "name": "projects/integrador-7b39d/databases/(default)/documents/SolicitudesIngreso/s1",
+    "fields": {
+      "alumnoId": {
+        "stringValue": "23303002"
+      },
+      "alumnoNombre": {
+        "stringValue": "Beto"
+      },
+      "alumnoApellido": {
+        "stringValue": "D'Angelo"
+      },
+      "alumnoCarrera": {
+        "stringValue": "Sistemas"
+      },
+      "equipo": {
+        "stringValue": "3"
+      },
+      "materiaId": {
+        "stringValue": "kM3xQe9TzP0aB1cD2eF3"
+      },
+      "materiaNombre": {
+        "stringValue": "Programación Web"
+      },
+      "laboratorio": {
+        "stringValue": "programacion"
+      },
+      "estado": {
+        "stringValue": "rechazado"
+      },
+      "fechaSolicitud": {
+        "timestampValue": "2026-10-21T04:50:00Z"
+      },
+      "leida": {
+        "booleanValue": true
+      }
+    }
+  }
+]
