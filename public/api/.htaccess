@@ -1,5 +1,0 @@
-# Los archivos de configuración y de apoyo solo se incluyen desde las rutas;
-# nadie debe poder pedirlos directamente desde el navegador.
-<FilesMatch "^(config|config\.local|config\.ejemplo|db|sesion|reglas)\.php$">
-  Require all denied
-</FilesMatch>

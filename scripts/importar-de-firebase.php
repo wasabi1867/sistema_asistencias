@@ -1,11 +1,14 @@
 <?php
+
+declare(strict_types=1);
+
 // ==============================================================
-// IMPORTAR LOS DATOS DE FIREBASE A LA BASE DE LA API
+// IMPORTAR LOS DATOS DE FIREBASE
 // ==============================================================
-// Se corre una vez, al cambiar el sistema de Firebase a la API, en una terminal y con
-// la base ya migrada (php scripts/migrar.php):
+// Se corre una vez, al dejar Firebase, sobre una base ya instalada
+// (php scripts/instalar.php):
 //
-//   php scripts/importar-de-firebase.php --proyecto=integrador-7b39d --respaldo=respaldo-firebase
+//   php scripts/importar-de-firebase.php --proyecto=integrador-7b39d --respaldo=CARPETA
 //
 // Opciones:
 //   --proyecto=ID      Proyecto de Firebase (el projectId de la configuración web).
@@ -13,355 +16,834 @@
 //   --respaldo=CARPETA Guarda cada colección tal como venía de Firebase (JSON) antes
 //                      de importar. Conviene siempre: es la copia de seguridad.
 //   --desde=CARPETA    Lee un respaldo hecho antes en lugar de descargar de Firebase.
-//   --sql=ARCHIVO      No toca la base: escribe las instrucciones en un archivo para
-//                      pegarlo en phpMyAdmin (cuando el servidor no da terminal).
+//   --simular          Hace todo y al final lo deshace: sirve para revisar el reporte
+//                      con los datos reales sin guardar nada.
 //
-// Lee con la API REST de Firestore, la misma a la que llegaba el navegador: no hacen
-// falta contraseñas de Google. Se puede repetir: cada registro se agrega o se
-// actualiza, sin duplicarse. Las contraseñas se copian tal cual (ya estaban cifradas
-// con bcrypt) y cada quien entra con la suya de siempre.
+// Todo va en una transacción: si algo falla no se guarda nada. Se puede repetir: lo
+// que ya estaba se actualiza o se salta, sin duplicarse.
 //
-// No se copian las asistencias en curso (Asistencias, AsistenciasInvitado) ni el estado
-// de las clases (EstadoClase): el cambio se hace sin clases abiertas. Tampoco
-// HistoricalAttendance, que repite lo que ya está en ClassInformation.
+// Firebase guardaba la información con otra forma; así se convierte:
+// - Cada "materia" de Firebase (que era materia, docente y ciclo a la vez) se separa
+//   en la materia del catálogo y su curso; el ciclo "2026-2027-1" es el periodo
+//   AGO-DIC 2026 y "2026-2027-2", ENE-JUL 2027.
+// - Las materias de cada alumno se vuelven inscripciones a esos cursos.
+// - Las prácticas quedan como propias del docente de esa materia.
+// - Las clases cerradas (ClassInformation) y sus asistentes, con su hora.
+// - Las contraseñas cifradas (bcrypt) se copian tal cual; las que estuvieran en texto
+//   se cifran aquí. Cada quien entra con la suya de siempre.
+// Lo que no se puede convertir sin adivinar (una carrera que no está en el catálogo,
+// un semestre que no es número) queda vacío, y el reporte del final lo dice.
+//
+// No se copian: las asistencias en curso ni el estado de las clases (el cambio se hace
+// sin clases abiertas), HistoricalAttendance (repite lo de ClassInformation) ni los
+// avisos viejos (NotificacionesAdmin): las solicitudes y las fallas de equipo sí.
 
-if (PHP_SAPI !== 'cli') {
-    exit(1);
-}
+require __DIR__ . '/comun.php';
 
-$opciones = getopt('', ['proyecto:', 'clave:', 'respaldo:', 'desde:', 'sql:']);
+$opciones = getopt('', ['proyecto:', 'clave:', 'respaldo:', 'desde:', 'simular']);
 if (empty($opciones['proyecto']) && empty($opciones['desde'])) {
-    fwrite(STDERR, "Uso: php scripts/importar-de-firebase.php --proyecto=ID [--respaldo=CARPETA] [--sql=ARCHIVO]\n");
-    fwrite(STDERR, "  o: php scripts/importar-de-firebase.php --desde=CARPETA [--sql=ARCHIVO]\n");
+    fwrite(STDERR, "Uso: php scripts/importar-de-firebase.php --proyecto=ID [--respaldo=CARPETA] [--simular]\n");
+    fwrite(STDERR, "  o: php scripts/importar-de-firebase.php --desde=CARPETA [--simular]\n");
     exit(1);
 }
 
-require __DIR__ . '/../public/api/config.php';
-date_default_timezone_set(ZONA_HORARIA);
+$pdo = conexion();
+$importacion = new Importacion($pdo, new Firestore($opciones));
+$pdo->beginTransaction();
+try {
+    $importacion->todo();
+    isset($opciones['simular']) ? $pdo->rollBack() : $pdo->commit();
+} catch (Throwable $e) {
+    $pdo->rollBack();
+    fwrite(STDERR, 'La importación falló y no se guardó nada: ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
+echo isset($opciones['simular']) ? "Simulación: no se guardó nada.\n\n" : "Importación terminada.\n\n";
+foreach ($importacion->cuentas as $que => $cuantos) {
+    // str_pad cuenta bytes: con acentos desalinearía la columna.
+    echo $que . str_repeat(' ', max(1, 44 - mb_strlen($que))) . $cuantos . "\n";
+}
+if ($importacion->avisos !== []) {
+    echo "\nRevisar:\n";
+    foreach (array_count_values($importacion->avisos) as $aviso => $veces) {
+        echo "- $aviso" . ($veces > 1 ? " ($veces veces)" : '') . "\n";
+    }
+}
 
 // --------------------------------------------------------------------------
 // Lectura de Firestore
 // --------------------------------------------------------------------------
 
-/** Una colección: lista de documentos crudos de la API REST ({name, fields}). */
-function leerColeccion(string $ruta, array $opciones): array {
-    $archivo = isset($opciones['desde']) || isset($opciones['respaldo'])
-        ? rtrim($opciones['desde'] ?? $opciones['respaldo'], '/\\') . '/' . str_replace('/', '__', $ruta) . '.json'
-        : null;
-
-    if (isset($opciones['desde'])) {
-        return is_file($archivo) ? json_decode(file_get_contents($archivo), true) : [];
+/** Las colecciones de Firestore, de su API REST o de un respaldo en JSON. */
+final class Firestore
+{
+    public function __construct(private readonly array $opciones)
+    {
     }
 
-    $documentos = [];
-    $pagina = null;
-    do {
-        $url = "https://firestore.googleapis.com/v1/projects/" . rawurlencode($opciones['proyecto'])
-            . "/databases/(default)/documents/" . implode('/', array_map('rawurlencode', explode('/', $ruta)))
-            . "?pageSize=300" . ($pagina ? "&pageToken=" . urlencode($pagina) : "")
-            . (isset($opciones['clave']) ? "&key=" . urlencode($opciones['clave']) : "");
-        $curl = curl_init($url);
-        curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60]);
-        $respuesta = curl_exec($curl);
-        $estado = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-        curl_close($curl);
-        if ($estado !== 200) {
-            fwrite(STDERR, "No se pudo leer $ruta de Firebase (HTTP $estado): " . substr((string)$respuesta, 0, 300) . "\n");
-            exit(1);
+    /**
+     * Los documentos de una colección como [id, campos].
+     * @return list<array{0: string, 1: array<string, mixed>}>
+     */
+    public function coleccion(string $ruta): array
+    {
+        return array_map(static function (array $crudo) {
+            $partes = explode('/', $crudo['name']);
+            return [urldecode(end($partes)), array_map([self::class, 'valor'], $crudo['fields'] ?? [])];
+        }, $this->crudos($ruta));
+    }
+
+    /** Un valor de la API REST ({stringValue: ...}) como valor de PHP. */
+    public static function valor(array $valor): mixed
+    {
+        return match (true) {
+            array_key_exists('stringValue', $valor) => $valor['stringValue'],
+            array_key_exists('integerValue', $valor) => (int)$valor['integerValue'],
+            array_key_exists('doubleValue', $valor) => (float)$valor['doubleValue'],
+            array_key_exists('booleanValue', $valor) => (bool)$valor['booleanValue'],
+            array_key_exists('nullValue', $valor) => null,
+            array_key_exists('timestampValue', $valor) => (new DateTimeImmutable($valor['timestampValue']))->setTimezone(new DateTimeZone(date_default_timezone_get())),
+            array_key_exists('arrayValue', $valor) => array_map([self::class, 'valor'], $valor['arrayValue']['values'] ?? []),
+            array_key_exists('mapValue', $valor) => array_map([self::class, 'valor'], $valor['mapValue']['fields'] ?? []),
+            default => $valor['referenceValue'] ?? null,
+        };
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function crudos(string $ruta): array
+    {
+        $carpeta = $this->opciones['desde'] ?? $this->opciones['respaldo'] ?? null;
+        $archivo = $carpeta === null ? null : rtrim($carpeta, '/\\') . '/' . str_replace('/', '__', $ruta) . '.json';
+        if (isset($this->opciones['desde'])) {
+            return is_file($archivo) ? json_decode((string)file_get_contents($archivo), true) : [];
         }
-        $datos = json_decode($respuesta, true);
-        array_push($documentos, ...($datos['documents'] ?? []));
-        $pagina = $datos['nextPageToken'] ?? null;
-    } while ($pagina);
 
-    if (isset($opciones['respaldo'])) {
-        if (!is_dir(dirname($archivo))) {
-            mkdir(dirname($archivo), 0777, true);
+        $documentos = [];
+        $pagina = null;
+        do {
+            $url = 'https://firestore.googleapis.com/v1/projects/' . rawurlencode($this->opciones['proyecto'])
+                . '/databases/(default)/documents/' . implode('/', array_map('rawurlencode', explode('/', $ruta)))
+                . '?pageSize=300' . ($pagina ? '&pageToken=' . urlencode($pagina) : '')
+                . (isset($this->opciones['clave']) ? '&key=' . urlencode($this->opciones['clave']) : '');
+            $curl = curl_init($url);
+            curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60]);
+            $respuesta = curl_exec($curl);
+            $estado = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+            curl_close($curl);
+            if ($estado !== 200) {
+                throw new RuntimeException("No se pudo leer $ruta de Firebase (HTTP $estado): " . substr((string)$respuesta, 0, 300));
+            }
+            $datos = json_decode((string)$respuesta, true);
+            array_push($documentos, ...($datos['documents'] ?? []));
+            $pagina = $datos['nextPageToken'] ?? null;
+        } while ($pagina);
+
+        if ($archivo !== null) {
+            if (!is_dir(dirname($archivo))) {
+                mkdir(dirname($archivo), 0777, true);
+            }
+            file_put_contents($archivo, json_encode($documentos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         }
-        file_put_contents($archivo, json_encode($documentos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return $documentos;
     }
-    return $documentos;
-}
-
-/** Convierte un valor de la API REST de Firestore ({stringValue: ...}) a PHP. */
-function valorDeFirestore(array $valor) {
-    if (array_key_exists('stringValue', $valor)) return $valor['stringValue'];
-    if (array_key_exists('integerValue', $valor)) return (int)$valor['integerValue'];
-    if (array_key_exists('doubleValue', $valor)) return (float)$valor['doubleValue'];
-    if (array_key_exists('booleanValue', $valor)) return (bool)$valor['booleanValue'];
-    if (array_key_exists('nullValue', $valor)) return null;
-    if (array_key_exists('timestampValue', $valor)) {
-        return (new DateTime($valor['timestampValue']))->setTimezone(new DateTimeZone(ZONA_HORARIA));
-    }
-    if (array_key_exists('arrayValue', $valor)) return array_map('valorDeFirestore', $valor['arrayValue']['values'] ?? []);
-    if (array_key_exists('mapValue', $valor)) return array_map('valorDeFirestore', $valor['mapValue']['fields'] ?? []);
-    return $valor['referenceValue'] ?? null;
-}
-
-/** [id, campos] de un documento crudo. */
-function documento(array $crudo): array {
-    $partes = explode('/', $crudo['name']);
-    return [urldecode(end($partes)), array_map('valorDeFirestore', $crudo['fields'] ?? [])];
 }
 
 // --------------------------------------------------------------------------
-// Conversión de fechas y horas como las guardaba el navegador
+// Conversión de los datos
 // --------------------------------------------------------------------------
 
-function textoDe($valor): string {
-    if ($valor instanceof DateTime) return $valor->format('Y-m-d H:i:s');
-    if (is_array($valor)) return json_encode($valor, JSON_UNESCAPED_UNICODE);
-    return trim((string)($valor ?? ''));
+/** Texto sin espacios en los extremos; vacío si no es texto. */
+function texto(mixed $valor): string
+{
+    return match (true) {
+        $valor instanceof DateTimeInterface => $valor->format('Y-m-d H:i:s'),
+        is_scalar($valor) => trim((string)$valor),
+        default => '',
+    };
 }
 
-function fechaHoraDe($valor): ?string {
-    return $valor instanceof DateTime ? $valor->format('Y-m-d H:i:s') : null;
+function textoONulo(mixed $valor, int $maximo = 255): ?string
+{
+    $texto = texto($valor);
+    return $texto === '' ? null : mb_substr($texto, 0, $maximo);
 }
 
-/** "21/10/2026" (como lo escribía toLocaleDateString en español) → "2026-10-21". */
-function fechaDeTexto($valor): ?string {
-    if ($valor instanceof DateTime) return $valor->format('Y-m-d');
-    if (preg_match('#^(\d{1,2})/(\d{1,2})/(\d{4})$#', trim((string)$valor), $m)) {
-        [$d, $mes] = [(int)$m[1], (int)$m[2]];
+/** "21/10/2026" (como lo escribía toLocaleDateString), "2026-10-21" o una fecha de Firestore → "2026-10-21". */
+function fechaDe(mixed $valor): ?string
+{
+    if ($valor instanceof DateTimeInterface) {
+        return $valor->format('Y-m-d');
+    }
+    $texto = texto($valor);
+    if (preg_match('#^(\d{1,2})/(\d{1,2})/(\d{4})$#', $texto, $m)) {
+        [$dia, $mes] = [(int)$m[1], (int)$m[2]];
         if ($mes > 12) {
-            [$d, $mes] = [$mes, $d]; // venía en formato mes/día
+            [$dia, $mes] = [$mes, $dia]; // venía como mes/día
         }
-        return checkdate($mes, $d, (int)$m[3]) ? sprintf('%04d-%02d-%02d', $m[3], $mes, $d) : null;
+        return checkdate($mes, $dia, (int)$m[3]) ? sprintf('%04d-%02d-%02d', $m[3], $mes, $dia) : null;
     }
-    return preg_match('#^\d{4}-\d{2}-\d{2}$#', trim((string)$valor)) ? trim($valor) : null;
+    return preg_match('#^\d{4}-\d{2}-\d{2}$#', $texto) && checkdate((int)substr($texto, 5, 2), (int)substr($texto, 8, 2), (int)substr($texto, 0, 4))
+        ? $texto : null;
+}
+
+function fechaHoraDe(mixed $valor): ?string
+{
+    return $valor instanceof DateTimeInterface ? $valor->format('Y-m-d H:i:s') : null;
 }
 
 /** "9:46:22 p. m.", "9:46:22 PM" o "21:46:22" (toLocaleTimeString) → "21:46:22". */
-function horaDeTexto($valor): ?string {
-    if (!preg_match('/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])?/i', (string)$valor, $m)) {
+function horaDe(mixed $valor): ?string
+{
+    if (!preg_match('/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])?/i', texto($valor), $m)) {
         return null;
     }
-    $h = (int)$m[1];
+    $hora = (int)$m[1];
     $tarde = strtolower($m[4] ?? '');
-    if ($tarde === 'p' && $h < 12) $h += 12;
-    if ($tarde === 'a' && $h === 12) $h = 0;
-    return sprintf('%02d:%02d:%02d', $h, $m[2], $m[3] ?? 0);
+    if ($tarde === 'p' && $hora < 12) {
+        $hora += 12;
+    }
+    if ($tarde === 'a' && $hora === 12) {
+        $hora = 0;
+    }
+    return $hora > 23 ? null : sprintf('%02d:%02d:%02d', $hora, $m[2], $m[3] ?? 0);
 }
 
-// --------------------------------------------------------------------------
-// Instrucciones SQL (las mismas se ejecutan o se escriben al archivo)
-// --------------------------------------------------------------------------
-
-/** Un valor como literal de SQL, para MySQL y MariaDB. */
-function sqlValor($v): string {
-    if ($v === null) return 'NULL';
-    if (is_bool($v)) return $v ? '1' : '0';
-    if (is_int($v) || is_float($v)) return (string)$v;
-    return "'" . strtr((string)$v, ["\\" => "\\\\", "'" => "\\'", "\0" => "\\0", "\n" => "\\n", "\r" => "\\r", "\x1a" => "\\Z"]) . "'";
-}
-
-function sqlFila(array $valores): string {
-    return '(' . implode(', ', array_map('sqlValor', $valores)) . ')';
-}
-
-$instrucciones = ["SET NAMES utf8mb4", "SET SESSION sql_mode = REPLACE(@@sql_mode, 'NO_BACKSLASH_ESCAPES', '')"];
-$cuenta = [];
-$sql = function (string $instruccion) use (&$instrucciones) { $instrucciones[] = $instruccion; };
-$contar = function (string $que) use (&$cuenta) { $cuenta[$que] = ($cuenta[$que] ?? 0) + 1; };
-
-// Cuentas del personal. Las contraseñas vienen ya cifradas con bcrypt.
-foreach (leerColeccion('Administrador', $opciones) as $crudo) {
-    [$id, $a] = documento($crudo);
-    $email = textoDe($a['Email'] ?? '');
-    if ($email === '' || textoDe($a['Contraseña'] ?? '') === '') continue;
-    $sql("INSERT INTO administradores (matricula, nombre, apellido, email, password, rol) VALUES "
-        . sqlFila([$id, textoDe($a['Nombre'] ?? 'Administrador'), textoDe($a['Apellido'] ?? ''), $email, textoDe($a['Contraseña']), 'admin'])
-        . " ON DUPLICATE KEY UPDATE matricula = VALUES(matricula), nombre = VALUES(nombre), apellido = VALUES(apellido), password = VALUES(password)");
-    $contar('administradores');
-}
-
-foreach (['Docentes' => 'docentes', 'Laboratoristas' => 'laboratoristas'] as $coleccion => $tabla) {
-    foreach (leerColeccion($coleccion, $opciones) as $crudo) {
-        [$id, $p] = documento($crudo);
-        $columnas = ['matricula', 'nombre', 'apellido', 'email', 'password'];
-        $valores = [$id, textoDe($p['Nombre'] ?? ''), textoDe($p['Apellido'] ?? ''), textoDe($p['Email'] ?? ''), textoDe($p['Contraseña'] ?? '')];
-        if ($tabla === 'docentes') {
-            $columnas[] = 'departamento';
-            $valores[] = textoDe($p['Departamento'] ?? '');
+/** "5", "5to", "Quinto" → 5. */
+function semestreDe(mixed $valor): ?int
+{
+    $texto = mb_strtolower(texto($valor));
+    $ordinales = ['primer' => 1, 'segund' => 2, 'tercer' => 3, 'cuart' => 4, 'quint' => 5, 'sext' => 6, 'septim' => 7, 'séptim' => 7,
+        'octav' => 8, 'noven' => 9, 'decim' => 10, 'décim' => 10];
+    if (preg_match('/\d+/', $texto, $m)) {
+        $numero = (int)$m[0];
+    } else {
+        $numero = null;
+        foreach ($ordinales as $raiz => $valorOrdinal) {
+            if (str_starts_with($texto, $raiz)) {
+                $numero = $valorOrdinal;
+            }
         }
-        $actualizar = implode(', ', array_map(fn ($c) => "$c = VALUES($c)", array_slice($columnas, 1)));
-        $sql("INSERT INTO $tabla (" . implode(', ', $columnas) . ") VALUES " . sqlFila($valores) . " ON DUPLICATE KEY UPDATE $actualizar");
-        $contar($tabla);
     }
+    return $numero !== null && $numero >= 1 && $numero <= 15 ? $numero : null;
 }
 
-// Materias y sus prácticas
-foreach (leerColeccion('Materias', $opciones) as $crudo) {
-    [$id, $m] = documento($crudo);
-    $sql("INSERT INTO materias (id, nombre_materia, docente_id, semestre, turno, ciclo_escolar, laboratorio) VALUES "
-        . sqlFila([$id, textoDe($m['NombreMateria'] ?? ''), textoDe($m['MaestroID'] ?? $m['DocenteId'] ?? '') ?: null,
-            textoDe($m['Semestre'] ?? ''), textoDe($m['Turno'] ?? ''), textoDe($m['CicloEscolar'] ?? ''), textoDe($m['Laboratorio'] ?? '')])
-        . " ON DUPLICATE KEY UPDATE nombre_materia = VALUES(nombre_materia), docente_id = VALUES(docente_id), semestre = VALUES(semestre),"
-        . " turno = VALUES(turno), ciclo_escolar = VALUES(ciclo_escolar), laboratorio = VALUES(laboratorio)");
-    $contar('materias');
-
-    foreach (leerColeccion("Materias/$id/Practicas", $opciones) as $crudoPractica) {
-        [, $p] = documento($crudoPractica);
-        $titulo = textoDe($p['Titulo'] ?? '');
-        if ($titulo === '') continue;
-        $sql("INSERT INTO practicas (materia_id, numero_practica, titulo, descripcion, duracion, fecha) SELECT "
-            . implode(', ', array_map('sqlValor', [$id, textoDe($p['Numero'] ?? ''), $titulo, textoDe($p['Descripcion'] ?? ''), textoDe($p['Duracion'] ?? ''), fechaDeTexto($p['fecha'] ?? null)]))
-            . " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM practicas WHERE materia_id = " . sqlValor($id) . " AND titulo = " . sqlValor($titulo) . ")");
-        $contar('practicas');
-    }
+function turnoDe(mixed $valor): ?string
+{
+    $texto = mb_strtolower(texto($valor));
+    return match (true) {
+        str_starts_with($texto, 'mat') => 'matutino',
+        str_starts_with($texto, 'ves') => 'vespertino',
+        default => null,
+    };
 }
 
-// Alumnos, con las materias en que están inscritos
-foreach (leerColeccion('Alumnos', $opciones) as $crudo) {
-    [$id, $a] = documento($crudo);
-    $materias = array_values(array_map('strval', is_array($a['Materias'] ?? null) ? $a['Materias'] : []));
-    $sql("INSERT INTO alumnos (matricula, nombre, apellido, carrera, semestre, turno, grupo, materias) VALUES "
-        . sqlFila([$id, textoDe($a['Nombre'] ?? ''), textoDe($a['Apellido'] ?? ''), textoDe($a['Carrera'] ?? ''), textoDe($a['Semestre'] ?? ''),
-            textoDe($a['Turno'] ?? ''), textoDe($a['Grupo'] ?? ''), json_encode($materias)])
-        . " ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), apellido = VALUES(apellido), carrera = VALUES(carrera), semestre = VALUES(semestre),"
-        . " turno = VALUES(turno), grupo = VALUES(grupo), materias = VALUES(materias)");
-    $contar('alumnos');
-}
-
-// Equipos: los de Firebase reemplazan a los que hubiera en ese laboratorio
-$estadosDeReparacion = ['reportado', 'en_proceso', 'resuelto'];
-foreach (leerColeccion('Numero de equipos', $opciones) as $crudo) {
-    [$laboratorio, $datos] = documento($crudo);
-    $sql("DELETE FROM equipos WHERE laboratorio = " . sqlValor($laboratorio) . " AND en_uso = 0");
-    $sql("INSERT IGNORE INTO equipos (id, laboratorio) VALUES " . sqlFila(['personal', $laboratorio]));
-    foreach (($datos['Equipos'] ?? []) as $e) {
-        if (!is_array($e) || textoDe($e['id'] ?? '') === '') continue;
-        $estado = in_array($e['estadoReparacion'] ?? '', $estadosDeReparacion, true) ? $e['estadoReparacion'] : 'ninguno';
-        $sql("INSERT INTO equipos (id, laboratorio, fuera_de_servicio, en_uso, notas, estado_reparacion, comentario_estado) VALUES "
-            . sqlFila([textoDe($e['id']), $laboratorio, (bool)($e['fueraDeServicio'] ?? false), false, textoDe($e['notas'] ?? ''), $estado, textoDe($e['comentarioEstado'] ?? '')])
-            . " ON DUPLICATE KEY UPDATE fuera_de_servicio = VALUES(fuera_de_servicio), notas = VALUES(notas),"
-            . " estado_reparacion = VALUES(estado_reparacion), comentario_estado = VALUES(comentario_estado)");
-        $contar('equipos');
-    }
-}
-
-// Historial de clases (ClassInformation): cada una pasa a `clases`, ya cerrada, y
-// quienes asistieron a `asistencias_historico`. Se marcan con su id de Firebase en
-// abierta_por para no importarlas dos veces.
-foreach (leerColeccion('ClassInformation', $opciones) as $crudo) {
-    [$id, $c] = documento($crudo);
-    $fecha = fechaDeTexto($c['fecha'] ?? null);
-    if (!$fecha) continue;
-    $inicio = "$fecha " . (horaDeTexto($c['horaInicio'] ?? '') ?? '00:00:00');
-    $fin = isset($c['horaFin']) && horaDeTexto($c['horaFin']) ? "$fecha " . horaDeTexto($c['horaFin']) : $inicio;
-    $esDeInvitado = ($c['tipoClase'] ?? '') === 'invitado' || !empty($c['departamento']);
-    $docente = trim(textoDe($c['maestroNombre'] ?? '') . ' ' . textoDe($c['maestroApellido'] ?? ''));
-    $alumnos = is_array($c['alumnos'] ?? null) ? $c['alumnos'] : [];
-    $laboratorio = textoDe($c['laboratorio'] ?? '') ?: 'programacion';
-    $marca = "Firebase $id";
-
-    $sql("SET @clase_previa := (SELECT id FROM clases WHERE abierta_por = " . sqlValor($marca) . " LIMIT 1)");
-    $sql("INSERT INTO clases (laboratorio, tipo, materia, practica, docente_id, docente, departamento, grupo, abierta_por, abierta_en, cerrada_en, cierre, total_asistencias) SELECT "
-        . implode(', ', array_map('sqlValor', [$laboratorio, $esDeInvitado ? 'invitado' : 'regular', textoDe($c['materia'] ?? ''), textoDe($c['practica'] ?? ''),
-            textoDe($c['maestroId'] ?? '') ?: null, $docente, textoDe($c['departamento'] ?? ''), textoDe($c['grupo'] ?? ''), $marca, $inicio, $fin,
-            !empty($c['finalizadaAutomaticamente']) ? 'automatico' : 'normal', (int)($c['totalAsistencias'] ?? count($alumnos))]))
-        . " FROM DUAL WHERE @clase_previa IS NULL");
-    $sql("SET @clase_nueva := IF(@clase_previa IS NULL, LAST_INSERT_ID(), NULL)");
-    $contar('clases');
-
-    foreach ($alumnos as $a) {
-        if (!is_array($a)) continue;
-        $nombre = textoDe($a['nombre'] ?? $a['Nombre'] ?? '');
-        $apellido = textoDe($a['apellido'] ?? $a['Apellido'] ?? '');
-        $sql("INSERT INTO asistencias_historico (clase_id, alumno_id, nombre_completo, nombre, apellido, carrera, semestre, turno, grupo, materia, docente, equipo_id, laboratorio, tipo_usuario, hora_entrada, hora_salida, fecha) SELECT @clase_nueva, "
-            . implode(', ', array_map('sqlValor', [textoDe($a['id'] ?? ''), trim("$nombre $apellido"), $nombre, $apellido, textoDe($a['carrera'] ?? ''),
-                textoDe($a['semestre'] ?? ''), textoDe($a['turno'] ?? ''), textoDe($a['grupo'] ?? ''), textoDe($c['materia'] ?? ''), $docente,
-                textoDe($a['equipo'] ?? ''), $laboratorio, $esDeInvitado && str_starts_with(textoDe($a['id'] ?? ''), 'INV-') ? 'invitado' : 'estudiante', $inicio, $fin, $fecha]))
-            . " FROM DUAL WHERE @clase_nueva IS NOT NULL");
-        $contar('asistencias_historico');
-    }
-}
-
-// Solicitudes de ingreso
-$estadosDeSolicitud = ['pendiente' => 'pendiente', 'aprobado_temporal' => 'aprobado_temporal', 'aprobado_permanente' => 'aprobado_permanente',
-    'rechazado' => 'rechazada', 'rechazada' => 'rechazada', 'aprobada' => 'aprobado_temporal'];
-foreach (leerColeccion('SolicitudesIngreso', $opciones) as $crudo) {
-    [, $s] = documento($crudo);
-    $fecha = fechaHoraDe($s['fechaSolicitud'] ?? null) ?? date('Y-m-d H:i:s');
-    $alumno = textoDe($s['alumnoId'] ?? '');
-    if ($alumno === '') continue;
-    $materia = textoDe($s['materiaNombre'] ?? '');
-    $sql("INSERT INTO solicitudes_ingreso (alumno_id, nombre, carrera, motivo, laboratorio, materia_id, equipo_id, estado, leida, fecha_solicitud) SELECT "
-        . implode(', ', array_map('sqlValor', [$alumno, trim(textoDe($s['alumnoNombre'] ?? '') . ' ' . textoDe($s['alumnoApellido'] ?? '')),
-            textoDe($s['alumnoCarrera'] ?? ''), $materia ? "Solicita ingreso a la clase de $materia" : 'Solicita ingreso a la clase',
-            textoDe($s['laboratorio'] ?? '') ?: 'programacion', textoDe($s['materiaId'] ?? '') ?: null, textoDe($s['equipo'] ?? ''),
-            $estadosDeSolicitud[$s['estado'] ?? ''] ?? 'pendiente', (bool)($s['leida'] ?? false), $fecha]))
-        . " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM solicitudes_ingreso WHERE alumno_id = " . sqlValor($alumno) . " AND fecha_solicitud = " . sqlValor($fecha) . ")");
-    $contar('solicitudes_ingreso');
-}
-
-// Avisos para el administrador
-foreach (leerColeccion('NotificacionesAdmin', $opciones) as $crudo) {
-    [, $n] = documento($crudo);
-    $fecha = fechaHoraDe($n['fecha'] ?? null) ?? date('Y-m-d H:i:s');
-    $titulo = mb_substr(textoDe($n['titulo'] ?? ''), 0, 150);
-    $sql("INSERT INTO notificaciones_admin (tipo, titulo, mensaje, laboratorio, prioridad, leida, datos, fecha) SELECT "
-        . implode(', ', array_map('sqlValor', [textoDe($n['tipo'] ?? 'general'), $titulo, textoDe($n['mensaje'] ?? ''), textoDe($n['laboratorio'] ?? '') ?: null,
-            textoDe($n['prioridad'] ?? 'media'), (bool)($n['leida'] ?? false), isset($n['datos']) ? json_encode($n['datos'], JSON_UNESCAPED_UNICODE) : null, $fecha]))
-        . " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM notificaciones_admin WHERE titulo = " . sqlValor($titulo) . " AND fecha = " . sqlValor($fecha) . ")");
-    $contar('notificaciones_admin');
-}
-
-// Bitácora
-foreach (leerColeccion('logs', $opciones) as $crudo) {
-    [, $l] = documento($crudo);
-    $fecha = fechaHoraDe($l['timestamp'] ?? null);
-    if (!$fecha) continue;
-    $accion = mb_substr(textoDe($l['action'] ?? ''), 0, 100);
-    $detalles = textoDe($l['details'] ?? '');
-    $sql("INSERT INTO logs (accion, usuario, detalles, laboratorio, fecha) SELECT "
-        . implode(', ', array_map('sqlValor', [$accion, mb_substr(textoDe($l['user'] ?? '') ?: 'Firebase', 0, 100), $detalles, textoDe($l['laboratorio'] ?? '') ?: null, $fecha]))
-        . " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM logs WHERE accion = " . sqlValor($accion) . " AND fecha = " . sqlValor($fecha) . " AND detalles = " . sqlValor($detalles) . ")");
-    $contar('logs');
-}
-
-// Eventos del laboratorio
-foreach (leerColeccion('EventosLaboratorio', $opciones) as $crudo) {
-    [, $e] = documento($crudo);
-    $nombre = textoDe($e['nombre'] ?? '');
-    if ($nombre === '') continue;
-    $laboratorio = textoDe($e['laboratorio'] ?? '') ?: 'programacion';
-    $fecha = fechaDeTexto($e['fecha'] ?? null);
-    $sql("INSERT INTO eventos_laboratorio (nombre, tipo, organizador, participantes, fecha, hora, duracion, descripcion, resultados, laboratorio, creado_en) SELECT "
-        . implode(', ', array_map('sqlValor', [$nombre, textoDe($e['tipo'] ?? ''), textoDe($e['organizador'] ?? ''), (int)($e['participantes'] ?? 0), $fecha,
-            textoDe($e['hora'] ?? ''), textoDe($e['duracion'] ?? ''), textoDe($e['descripcion'] ?? ''), textoDe($e['resultados'] ?? ''), $laboratorio,
-            fechaHoraDe($e['createdAt'] ?? null) ?? date('Y-m-d H:i:s')]))
-        . " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM eventos_laboratorio WHERE nombre = " . sqlValor($nombre) . " AND laboratorio = " . sqlValor($laboratorio)
-        . " AND fecha <=> " . sqlValor($fecha) . ")");
-    $contar('eventos_laboratorio');
+/** "2 horas", "90 minutos", "1.5 hrs", "1:30" → minutos. Un número solo es ambiguo: null. */
+function minutosDe(mixed $valor): ?int
+{
+    $texto = mb_strtolower(str_replace(',', '.', texto($valor)));
+    $minutos = match (true) {
+        (bool)preg_match('/^(\d+):(\d{2})/', $texto, $m) => (int)$m[1] * 60 + (int)$m[2],
+        (bool)preg_match('/(\d+(?:\.\d+)?)\s*(h|hr|hrs|hora|horas)\b/', $texto, $m) => (int)round((float)$m[1] * 60)
+            + (preg_match('/(\d+)\s*(m|min|mins|minutos?)\b/', $texto, $n) ? (int)$n[1] : 0),
+        (bool)preg_match('/(\d+)\s*(m|min|mins|minutos?)\b/', $texto, $m) => (int)$m[1],
+        default => null,
+    };
+    return $minutos !== null && $minutos >= 1 && $minutos <= 1440 ? $minutos : null;
 }
 
 // --------------------------------------------------------------------------
-// Aplicar o escribir
+// La importación
 // --------------------------------------------------------------------------
 
-if (isset($opciones['sql'])) {
-    file_put_contents($opciones['sql'], "-- Importación de Firebase generada el " . date('Y-m-d H:i') . "\n" . implode(";\n", $instrucciones) . ";\n");
-    echo "Instrucciones escritas en {$opciones['sql']}.\n";
-} else {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    ]);
-    $pdo->exec("SET time_zone = '" . (new DateTime())->format('P') . "'");
-    $pdo->beginTransaction();
-    try {
-        foreach ($instrucciones as $instruccion) {
-            $pdo->exec($instruccion);
+final class Importacion
+{
+    /** @var array<string, int> cuántos registros de cada cosa */
+    public array $cuentas = [];
+    /** @var list<string> lo que hay que revisar a mano */
+    public array $avisos = [];
+
+    /** @var array<string, int> "rol:matrícula de Firebase" => id */
+    private array $usuarios = [];
+    /** @var array<string, int> id de la materia en Firebase => id del curso */
+    private array $cursosDeFirebase = [];
+    /** @var array<string, array{0: int, 1: int}> id de la materia en Firebase => [materia, docente] */
+    private array $materiasDeFirebase = [];
+    /** @var array<string, int> */
+    private array $laboratorios = [];
+    /** @var array<string, ?int> texto de la carrera en Firebase => id en el catálogo */
+    private array $carreras = [];
+    private ?int $cuentaDeImportacion = null;
+    /** @var list<array{0: string, 1: array<string, mixed>}> */
+    private array $alumnosDeFirebase = [];
+
+    public function __construct(private readonly PDO $pdo, private readonly Firestore $firestore)
+    {
+    }
+
+    public function todo(): void
+    {
+        foreach ($this->pdo->query('SELECT clave, id FROM laboratorios') as $fila) {
+            $this->laboratorios[$fila['clave']] = (int)$fila['id'];
         }
-        $pdo->commit();
-    } catch (Throwable $e) {
-        $pdo->rollBack();
-        fwrite(STDERR, "La importación falló y no se guardó nada: " . $e->getMessage() . "\n");
-        exit(1);
-    }
-    echo "Importación terminada.\n";
-}
+        $this->alumnosDeFirebase = $this->firestore->coleccion('Alumnos');
 
-foreach ($cuenta as $que => $cuantos) {
-    echo str_pad($que, 24) . $cuantos . "\n";
+        $this->cuentasDelPersonal();
+        $this->materiasYCursos();
+        $this->alumnos();
+        $this->equipos();
+        $this->clases();
+        $this->solicitudes();
+        $this->bitacora();
+        $this->eventos();
+    }
+
+    private function cuentasDelPersonal(): void
+    {
+        foreach (['Administrador' => 'admin', 'Docentes' => 'docente', 'Laboratoristas' => 'laboratorista'] as $coleccion => $rol) {
+            foreach ($this->firestore->coleccion($coleccion) as [$id, $d]) {
+                $contrasena = texto($d['Contraseña'] ?? '');
+                if ($contrasena === '') {
+                    $this->avisos[] = "La cuenta de $rol $id no tiene contraseña en Firebase y no se importó";
+                    continue;
+                }
+                $email = mb_strtolower(texto($d['Email'] ?? ''));
+                if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                    $this->avisos[] = "El correo de la cuenta de $rol $id no es válido y se dejó vacío";
+                    $email = '';
+                }
+                $datos = [
+                    'nombre' => textoONulo($d['Nombre'] ?? null, 100) ?? $id,
+                    'apellido' => textoONulo($d['Apellido'] ?? null, 100) ?? '',
+                    'email' => $email === '' ? null : $email,
+                    'departamento' => textoONulo($d['Departamento'] ?? null, 150),
+                ];
+                $existente = $this->valor(
+                    'SELECT id FROM usuarios WHERE rol = ? AND (matricula = ? OR (email IS NOT NULL AND email = ?)) LIMIT 1',
+                    [$rol, $id, $datos['email']]
+                );
+                if ($existente !== null) {
+                    // Al repetir la importación no se toca la contraseña: pudo cambiarse después.
+                    $this->actualizar('usuarios', (int)$existente, $datos);
+                    $this->usuarios["$rol:$id"] = (int)$existente;
+                    continue;
+                }
+                // Las de bcryptjs ($2a$, $2b$) se copian; en texto, se cifran ya.
+                $hash = str_starts_with($contrasena, '$') ? $contrasena : password_hash($contrasena, PASSWORD_DEFAULT);
+                $this->usuarios["$rol:$id"] = $this->insertar('usuarios', ['rol' => $rol, 'matricula' => mb_substr($id, 0, 30), 'password_hash' => $hash] + $datos);
+                $this->contar("cuentas ($rol)");
+            }
+        }
+    }
+
+    private function materiasYCursos(): void
+    {
+        // El grupo del curso no estaba en Firebase: se toma el de la mayoría de sus alumnos.
+        $grupos = [];
+        foreach ($this->alumnosDeFirebase as [, $a]) {
+            $grupo = mb_strtoupper(texto($a['Semestre'] ?? '') . texto($a['Grupo'] ?? ''));
+            foreach ((array)($a['Materias'] ?? []) as $materia) {
+                if ($grupo !== '' && is_string($materia)) {
+                    $grupos[$materia][$grupo] = ($grupos[$materia][$grupo] ?? 0) + 1;
+                }
+            }
+        }
+
+        foreach ($this->firestore->coleccion('Materias') as [$id, $m]) {
+            $nombre = textoONulo($m['NombreMateria'] ?? null, 150);
+            if ($nombre === null) {
+                $this->avisos[] = "La materia $id de Firebase no tiene nombre y no se importó";
+                continue;
+            }
+            $materia = $this->materiaPorNombre($nombre, semestreDe($m['Semestre'] ?? null));
+            $docente = $this->usuarioDeFirebase('docente', texto($m['MaestroID'] ?? $m['DocenteId'] ?? ''), "la materia $nombre");
+            $periodo = $this->periodoDeCiclo(texto($m['CicloEscolar'] ?? ''));
+            if ($periodo === null) {
+                $this->avisos[] = "La materia $nombre no tiene un ciclo escolar reconocible; quedó en el periodo actual";
+                $periodo = $this->periodoPara(date('Y-m-d'));
+            }
+            if (isset($grupos[$id])) {
+                arsort($grupos[$id]);
+            }
+            $grupo = mb_substr((string)(array_key_first($grupos[$id] ?? []) ?? 'G1'), 0, 20);
+            $laboratorio = $this->laboratorios[texto($m['Laboratorio'] ?? '')] ?? null;
+
+            $curso = $this->cursoPara($materia, $periodo, $docente, $grupo, $laboratorio, turnoDe($m['Turno'] ?? null));
+            $this->cursosDeFirebase[$id] = $curso;
+            $this->materiasDeFirebase[$id] = [$materia, $docente];
+            $this->practicas($id, $materia, $docente);
+        }
+    }
+
+    private function practicas(string $materiaDeFirebase, int $materia, ?int $docente): void
+    {
+        foreach ($this->firestore->coleccion("Materias/$materiaDeFirebase/Practicas") as [$id, $p]) {
+            $titulo = textoONulo($p['Titulo'] ?? null, 150);
+            if ($titulo === null) {
+                continue;
+            }
+            if ($this->valor('SELECT 1 FROM practicas WHERE materia_id = ? AND docente_id <=> ? AND titulo = ?', [$materia, $docente, $titulo]) !== null) {
+                continue;
+            }
+            $numero = (int)texto($p['Numero'] ?? '') ?: null;
+            $ocupado = $numero !== null && $this->valor('SELECT 1 FROM practicas WHERE materia_id = ? AND docente_id <=> ? AND numero = ? AND activa', [$materia, $docente, $numero]) !== null;
+            if ($numero === null || $ocupado) {
+                if ($ocupado) {
+                    $this->avisos[] = "Dos prácticas de la misma materia tenían el número $numero; se renumeró \"$titulo\"";
+                }
+                $numero = 1 + (int)$this->valor('SELECT MAX(numero) FROM practicas WHERE materia_id = ? AND docente_id <=> ? AND activa', [$materia, $docente]);
+            }
+            $duracion = texto($p['Duracion'] ?? '');
+            $minutos = minutosDe($duracion);
+            if ($duracion !== '' && $minutos === null) {
+                $this->avisos[] = "No se entendió la duración \"$duracion\" de una práctica; quedó vacía";
+            }
+            $this->insertar('practicas', [
+                'materia_id' => $materia,
+                'docente_id' => $docente,
+                'numero' => $numero,
+                'titulo' => $titulo,
+                'descripcion' => textoONulo($p['Descripcion'] ?? null, 5000),
+                'duracion_minutos' => $minutos,
+                'fecha' => fechaDe($p['fecha'] ?? null),
+            ]);
+            $this->contar('prácticas');
+        }
+    }
+
+    private function alumnos(): void
+    {
+        foreach ($this->alumnosDeFirebase as [$matricula, $a]) {
+            if (!preg_match('/^[A-Za-z0-9-]{1,20}$/', $matricula)) {
+                $this->avisos[] = "La matrícula \"$matricula\" no es válida y ese alumno no se importó";
+                continue;
+            }
+            $alumno = $this->alumnoPorMatricula($matricula, $a, activo: true);
+            foreach ((array)($a['Materias'] ?? []) as $materia) {
+                $curso = is_string($materia) ? ($this->cursosDeFirebase[$materia] ?? null) : null;
+                if ($curso === null) {
+                    $this->avisos[] = 'Un alumno estaba inscrito en una materia que ya no existe en Firebase';
+                    continue;
+                }
+                // Sin la fecha real, cuenta desde el inicio del periodo del curso.
+                $nueva = $this->ejecutar(
+                    'INSERT IGNORE INTO inscripciones (curso_id, alumno_id, inscrito_en)
+                     SELECT ?, ?, p.fecha_inicio FROM cursos cu JOIN periodos p ON p.id = cu.periodo_id WHERE cu.id = ?',
+                    [$curso, $alumno, $curso]
+                );
+                if ($nueva > 0) {
+                    $this->contar('inscripciones');
+                }
+            }
+        }
+    }
+
+    /** Los equipos de Firebase reemplazan a los del laboratorio (los de los datos iniciales). */
+    private function equipos(): void
+    {
+        foreach ($this->firestore->coleccion('Numero de equipos') as [$clave, $datos]) {
+            $laboratorio = $this->laboratorios[$clave] ?? null;
+            if ($laboratorio === null) {
+                $this->avisos[] = "Hay equipos del laboratorio \"$clave\", que no está en el catálogo; no se importaron";
+                continue;
+            }
+            $equipos = array_filter((array)($datos['Equipos'] ?? []), static fn ($e) => is_array($e) && !in_array(texto($e['id'] ?? ''), ['', 'personal'], true));
+            if ($equipos === []) {
+                continue;
+            }
+            $etiquetas = array_map(static fn (array $e) => mb_substr(texto($e['id']), 0, 30), $equipos);
+
+            foreach ($this->filas('SELECT id, etiqueta FROM equipos WHERE laboratorio_id = ? AND activo', [$laboratorio]) as $actual) {
+                if (!in_array($actual['etiqueta'], $etiquetas, true)) {
+                    $usado = $this->valor('SELECT 1 FROM asistencias WHERE equipo_id = ? UNION SELECT 1 FROM reportes_de_equipo WHERE equipo_id = ? LIMIT 1', [$actual['id'], $actual['id']]);
+                    $usado === null
+                        ? $this->ejecutar('DELETE FROM equipos WHERE id = ?', [$actual['id']])
+                        : $this->ejecutar('UPDATE equipos SET activo = FALSE WHERE id = ?', [$actual['id']]);
+                }
+            }
+            foreach ($equipos as $e) {
+                $etiqueta = mb_substr(texto($e['id']), 0, 30);
+                $valores = ['fuera_de_servicio' => (bool)($e['fueraDeServicio'] ?? false), 'notas' => textoONulo($e['notas'] ?? null, 2000)];
+                $id = $this->valor('SELECT id FROM equipos WHERE laboratorio_id = ? AND etiqueta = ? AND activo', [$laboratorio, $etiqueta]);
+                if ($id === null) {
+                    $id = $this->insertar('equipos', ['laboratorio_id' => $laboratorio, 'etiqueta' => $etiqueta] + $valores);
+                    $this->contar('equipos');
+                } else {
+                    $this->actualizar('equipos', (int)$id, $valores);
+                }
+                // El estado de reparación pasa a ser un reporte de falla, con su historial.
+                $estado = texto($e['estadoReparacion'] ?? '');
+                if (in_array($estado, ['reportado', 'en_proceso', 'resuelto'], true)
+                    && $this->valor('SELECT 1 FROM reportes_de_equipo WHERE equipo_id = ?', [$id]) === null) {
+                    $this->insertar('reportes_de_equipo', [
+                        'equipo_id' => $id,
+                        'descripcion' => $valores['notas'] ?? 'Falla registrada en el sistema anterior',
+                        'estado' => $estado,
+                        'comentario' => textoONulo($e['comentarioEstado'] ?? null, 2000),
+                        'resuelto_en' => $estado === 'resuelto' ? date('Y-m-d H:i:s') : null,
+                    ]);
+                    $this->contar('reportes de equipo');
+                }
+            }
+        }
+    }
+
+    /** Las clases ya cerradas (ClassInformation), con quiénes asistieron. */
+    private function clases(): void
+    {
+        foreach ($this->firestore->coleccion('ClassInformation') as [$id, $c]) {
+            $fecha = fechaDe($c['fecha'] ?? null) ?? (isset($c['fechaInicio']) ? fechaDe($c['fechaInicio']) : null);
+            $laboratorio = $this->laboratorios[texto($c['laboratorio'] ?? '') ?: 'programacion'] ?? null;
+            if ($fecha === null || $laboratorio === null) {
+                $this->avisos[] = 'Una clase de Firebase no tiene fecha o laboratorio reconocible y no se importó';
+                continue;
+            }
+            $inicio = $fecha . ' ' . (horaDe($c['horaInicio'] ?? null) ?? '00:00:00');
+            $fin = $fecha . ' ' . (horaDe($c['horaFin'] ?? null) ?? substr($inicio, 11));
+            if ($fin < $inicio) {
+                $fin = $inicio;
+            }
+            $deInvitado = texto($c['tipoClase'] ?? '') === 'invitado' || texto($c['departamento'] ?? '') !== '';
+            $tipo = $deInvitado ? 'invitado' : 'regular';
+            // Una clase es la misma si empezó a la misma hora en el mismo laboratorio:
+            // así repetir la importación no la duplica.
+            if ($this->valor('SELECT 1 FROM clases WHERE laboratorio_id = ? AND abierta_en = ? AND tipo = ?', [$laboratorio, $inicio, $tipo]) !== null) {
+                continue;
+            }
+            $materia = textoONulo($c['materia'] ?? null, 150);
+            $practica = textoONulo($c['practica'] ?? null, 150);
+            $docenteNombre = textoONulo(texto($c['maestroNombre'] ?? '') . ' ' . texto($c['maestroApellido'] ?? ''), 200);
+            $grupo = textoONulo($c['grupo'] ?? null, 20);
+
+            $clase = ['laboratorio_id' => $laboratorio, 'tipo' => $tipo, 'abierta_en' => $inicio, 'cerrada_en' => $fin,
+                'cierre' => !empty($c['finalizadaAutomaticamente']) ? 'automatico' : 'normal'];
+            if ($deInvitado) {
+                $clase += ['materia_invitado' => $materia ?? 'Clase de maestro invitado', 'practica_invitado' => $practica,
+                    'docente_invitado' => $docenteNombre, 'departamento' => textoONulo($c['departamento'] ?? null, 150),
+                    'grupo_invitado' => $grupo, 'abierta_por' => $this->cuentaDeImportacion()];
+            } else {
+                $docente = $this->usuarioDeFirebase('docente', texto($c['maestroId'] ?? ''), "una clase de $materia");
+                $materiaId = $this->materiaPorNombre($materia ?? 'Sin materia', null);
+                $curso = $this->cursoPara($materiaId, $this->periodoPara($fecha), $docente, mb_strtoupper($grupo ?? 'G1'), $laboratorio, null);
+                // La práctica, si es una de las de la materia; si no, su título tal cual.
+                $practicaId = $practica === null ? null : $this->valor(
+                    'SELECT id FROM practicas WHERE materia_id = ? AND (docente_id IS NULL OR docente_id <=> ?) AND titulo = ? LIMIT 1',
+                    [$materiaId, $docente, $practica]
+                );
+                $clase += ['curso_id' => $curso, 'practica_id' => $practicaId, 'practica_invitado' => $practicaId === null ? $practica : null,
+                    'abierta_por' => $docente ?? $this->cuentaDeImportacion()];
+            }
+            $claseId = $this->insertar('clases', $clase);
+            $this->contar('clases');
+            $this->asistentes($claseId, $laboratorio, $deInvitado, (array)($c['alumnos'] ?? []), $inicio, $fin);
+        }
+    }
+
+    private function asistentes(int $clase, int $laboratorio, bool $deInvitado, array $alumnos, string $entrada, string $salida): void
+    {
+        $vistos = [];
+        foreach ($alumnos as $a) {
+            if (!is_array($a)) {
+                continue;
+            }
+            $matricula = texto($a['id'] ?? '');
+            $persona = ['tipo_persona' => 'alumno'];
+            $docente = $matricula === '' ? null
+                : $this->valor("SELECT u.id FROM usuarios u WHERE u.rol = 'docente' AND u.matricula = ? AND NOT EXISTS (SELECT 1 FROM alumnos WHERE matricula = ?)", [$matricula, $matricula]);
+            if ($docente !== null) {
+                $persona = ['tipo_persona' => 'docente', 'usuario_id' => $docente];
+            } elseif ($matricula !== '' && !str_starts_with($matricula, 'INV-') && preg_match('/^[A-Za-z0-9-]{1,20}$/', $matricula)) {
+                // Si ya no estaba en Firebase, se crea desactivado para no perder su historial.
+                $persona['alumno_id'] = $this->alumnoPorMatricula($matricula, [
+                    'Nombre' => $a['nombre'] ?? $a['Nombre'] ?? '', 'Apellido' => $a['apellido'] ?? $a['Apellido'] ?? '',
+                    'Carrera' => $a['carrera'] ?? '', 'Semestre' => $a['semestre'] ?? '', 'Turno' => $a['turno'] ?? '', 'Grupo' => $a['grupo'] ?? '',
+                ], activo: false);
+            } elseif ($deInvitado) {
+                $persona = ['tipo_persona' => 'invitado', 'invitado_nombre' => textoONulo($a['nombre'] ?? null, 100) ?? 'Invitado',
+                    'invitado_apellido' => textoONulo($a['apellido'] ?? null, 100)];
+            } else {
+                continue;
+            }
+            $clave = json_encode($persona);
+            if (isset($vistos[$clave])) {
+                continue;
+            }
+            $vistos[$clave] = true;
+            $etiqueta = texto($a['equipo'] ?? '');
+            $equipo = $etiqueta === '' || $etiqueta === 'personal' ? null
+                : $this->valor('SELECT id FROM equipos WHERE laboratorio_id = ? AND etiqueta = ? ORDER BY activo DESC, id DESC LIMIT 1', [$laboratorio, $etiqueta]);
+            if ($etiqueta !== '' && $etiqueta !== 'personal' && $equipo === null) {
+                $this->avisos[] = "Una asistencia era del equipo \"$etiqueta\", que no existe; quedó como equipo propio";
+            }
+            $this->insertar('asistencias', $persona + [
+                'laboratorio_id' => $laboratorio, 'clase_id' => $clase, 'equipo_id' => $equipo, 'hora_entrada' => $entrada, 'hora_salida' => $salida,
+            ]);
+            $this->contar('asistencias');
+        }
+    }
+
+    private function solicitudes(): void
+    {
+        $estados = ['aprobado_temporal' => 'aprobada_temporal', 'aprobada_temporal' => 'aprobada_temporal', 'aprobada' => 'aprobada_temporal',
+            'aprobado_permanente' => 'aprobada_permanente', 'aprobada_permanente' => 'aprobada_permanente',
+            'rechazado' => 'rechazada', 'rechazada' => 'rechazada'];
+        foreach ($this->firestore->coleccion('SolicitudesIngreso') as [, $s]) {
+            $alumno = $this->valor('SELECT id FROM alumnos WHERE matricula = ?', [texto($s['alumnoId'] ?? '')]);
+            $laboratorio = $this->laboratorios[texto($s['laboratorio'] ?? '') ?: 'programacion'] ?? null;
+            $fecha = fechaHoraDe($s['fechaSolicitud'] ?? null);
+            if ($alumno === null || $laboratorio === null || $fecha === null) {
+                $this->avisos[] = 'Una solicitud de ingreso no tiene alumno, laboratorio o fecha reconocible y no se importó';
+                continue;
+            }
+            if ($this->valor('SELECT 1 FROM solicitudes_ingreso WHERE alumno_id = ? AND laboratorio_id = ? AND creada_en = ?', [$alumno, $laboratorio, $fecha]) !== null) {
+                continue;
+            }
+            // La clase a la que pidió entrar: la de esa materia que estaba abierta a esa hora.
+            [$materia, $docente] = $this->materiasDeFirebase[texto($s['materiaId'] ?? '')] ?? [null, null];
+            $clase = $materia === null ? null : $this->valor(
+                'SELECT cl.id FROM clases cl JOIN cursos cu ON cu.id = cl.curso_id
+                 WHERE cl.laboratorio_id = ? AND cu.materia_id = ? AND cu.docente_id <=> ? AND ? BETWEEN cl.abierta_en AND cl.cerrada_en LIMIT 1',
+                [$laboratorio, $materia, $docente, $fecha]
+            );
+            $original = texto($s['estado'] ?? '');
+            // Las que quedaron sin resolver eran de clases que ya terminaron.
+            $estado = $estados[$original] ?? 'rechazada';
+            $comentario = isset($estados[$original]) ? null : 'Quedó sin resolver en el sistema anterior';
+            if ($estado === 'aprobada_permanente' && $clase === null) {
+                $estado = 'aprobada_temporal';
+                $comentario = 'En el sistema anterior se aprobó inscribiéndolo en la materia';
+            }
+            $equipo = $this->valor('SELECT id FROM equipos WHERE laboratorio_id = ? AND etiqueta = ? ORDER BY activo DESC LIMIT 1', [$laboratorio, texto($s['equipo'] ?? '')]);
+            $this->insertar('solicitudes_ingreso', [
+                'laboratorio_id' => $laboratorio, 'clase_id' => $clase, 'alumno_id' => $alumno, 'equipo_id' => $equipo,
+                'motivo' => textoONulo($s['motivo'] ?? null, 1000), 'estado' => $estado, 'leida' => (bool)($s['leida'] ?? true),
+                'creada_en' => $fecha, 'resuelta_en' => $fecha, 'comentario' => $comentario,
+            ]);
+            $this->contar('solicitudes');
+        }
+    }
+
+    private function bitacora(): void
+    {
+        foreach ($this->firestore->coleccion('logs') as [, $l]) {
+            $fecha = fechaHoraDe($l['timestamp'] ?? null);
+            $accion = textoONulo($l['action'] ?? null, 60);
+            if ($fecha === null || $accion === null) {
+                continue;
+            }
+            $detalles = textoONulo($l['details'] ?? null, 65000);
+            if ($this->valor('SELECT 1 FROM bitacora WHERE accion = ? AND fecha = ? AND detalles <=> ?', [$accion, $fecha, $detalles]) !== null) {
+                continue;
+            }
+            $this->insertar('bitacora', [
+                'fecha' => $fecha, 'accion' => $accion, 'detalles' => $detalles,
+                'usuario' => textoONulo($l['user'] ?? null, 150) ?? 'Sistema anterior',
+                'laboratorio_id' => $this->laboratorios[texto($l['laboratorio'] ?? '')] ?? null,
+            ]);
+            $this->contar('bitácora');
+        }
+    }
+
+    private function eventos(): void
+    {
+        foreach ($this->firestore->coleccion('EventosLaboratorio') as [, $e]) {
+            $nombre = textoONulo($e['nombre'] ?? null, 150);
+            $laboratorio = $this->laboratorios[texto($e['laboratorio'] ?? '') ?: 'programacion'] ?? null;
+            if ($nombre === null || $laboratorio === null) {
+                continue;
+            }
+            $fecha = fechaDe($e['fecha'] ?? null);
+            if ($this->valor('SELECT 1 FROM eventos WHERE laboratorio_id = ? AND nombre = ? AND fecha <=> ?', [$laboratorio, $nombre, $fecha]) !== null) {
+                continue;
+            }
+            $participantes = (int)texto($e['participantes'] ?? '');
+            $this->insertar('eventos', [
+                'laboratorio_id' => $laboratorio, 'nombre' => $nombre, 'tipo' => textoONulo($e['tipo'] ?? null, 50),
+                'organizador' => textoONulo($e['organizador'] ?? null, 150), 'participantes' => $participantes > 0 ? min($participantes, 10000) : null,
+                'fecha' => $fecha, 'hora' => horaDe($e['hora'] ?? null), 'duracion' => textoONulo($e['duracion'] ?? null, 50),
+                'descripcion' => textoONulo($e['descripcion'] ?? null, 5000), 'resultados' => textoONulo($e['resultados'] ?? null, 5000),
+                'creado_en' => fechaHoraDe($e['createdAt'] ?? null) ?? date('Y-m-d H:i:s'),
+            ]);
+            $this->contar('eventos');
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Buscar o crear
+    // ---------------------------------------------------------------
+
+    private function usuarioDeFirebase(string $rol, string $matricula, string $donde): ?int
+    {
+        if ($matricula === '') {
+            return null;
+        }
+        $id = $this->usuarios["$rol:$matricula"] ?? $this->valor('SELECT id FROM usuarios WHERE rol = ? AND matricula = ?', [$rol, $matricula]);
+        if ($id === null) {
+            $this->avisos[] = "El $rol $matricula de $donde no existe; quedó sin $rol";
+        }
+        return $id === null ? null : (int)$id;
+    }
+
+    /**
+     * Las clases de maestro invitado no dicen quién las abrió: se atribuyen a esta cuenta,
+     * desactivada, para que el historial diga de dónde vienen.
+     */
+    private function cuentaDeImportacion(): int
+    {
+        return $this->cuentaDeImportacion ??= (int)($this->valor("SELECT id FROM usuarios WHERE rol = 'admin' AND matricula = 'FIREBASE'")
+            ?? $this->insertar('usuarios', [
+                'rol' => 'admin', 'matricula' => 'FIREBASE', 'nombre' => 'Importación de Firebase', 'apellido' => '',
+                'password_hash' => password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), 'activo' => false,
+            ]));
+    }
+
+    private function materiaPorNombre(string $nombre, ?int $semestre): int
+    {
+        $id = $this->valor('SELECT id FROM materias WHERE nombre = ? ORDER BY carrera_id IS NULL DESC LIMIT 1', [$nombre]);
+        if ($id !== null) {
+            return (int)$id;
+        }
+        $this->contar('materias');
+        return $this->insertar('materias', ['nombre' => $nombre, 'semestre' => $semestre]);
+    }
+
+    /** "2026-2027-1" es agosto–diciembre de 2026; "2026-2027-2", enero–julio de 2027. */
+    private function periodoDeCiclo(string $ciclo): ?int
+    {
+        if (!preg_match('/^(\d{4})-(\d{4})-([12])$/', $ciclo, $m)) {
+            return null;
+        }
+        return $this->periodoPara($m[3] === '1' ? "$m[1]-09-01" : "$m[2]-03-01");
+    }
+
+    /** El periodo que contiene la fecha; si no hay, se crea el semestre (ENE-JUL o AGO-DIC) de esa fecha. */
+    private function periodoPara(string $fecha): int
+    {
+        $id = $this->valor('SELECT id FROM periodos WHERE ? BETWEEN fecha_inicio AND fecha_fin LIMIT 1', [$fecha]);
+        if ($id !== null) {
+            return (int)$id;
+        }
+        $anio = substr($fecha, 0, 4);
+        [$nombre, $inicio, $fin] = (int)substr($fecha, 5, 2) >= 8
+            ? ["AGO-DIC $anio", "$anio-08-01", "$anio-12-31"]
+            : ["ENE-JUL $anio", "$anio-01-01", "$anio-07-31"];
+        $this->contar('periodos');
+        return $this->insertar('periodos', ['nombre' => $nombre, 'fecha_inicio' => $inicio, 'fecha_fin' => $fin]);
+    }
+
+    /**
+     * El curso de esa materia, periodo y docente. Si el grupo ya lo tiene otro docente
+     * (dos materias de Firebase con el mismo nombre), se le agrega un número.
+     */
+    private function cursoPara(int $materia, int $periodo, ?int $docente, string $grupo, ?int $laboratorio, ?string $turno): int
+    {
+        $suyo = $this->valor('SELECT id FROM cursos WHERE materia_id = ? AND periodo_id = ? AND docente_id <=> ? ORDER BY grupo = ? DESC LIMIT 1', [$materia, $periodo, $docente, $grupo]);
+        if ($suyo !== null) {
+            return (int)$suyo;
+        }
+        $base = $grupo;
+        for ($n = 2; $this->valor('SELECT 1 FROM cursos WHERE materia_id = ? AND periodo_id = ? AND grupo = ?', [$materia, $periodo, $grupo]) !== null; $n++) {
+            $grupo = mb_substr($base, 0, 16) . "-$n";
+        }
+        $this->contar('cursos');
+        return $this->insertar('cursos', ['materia_id' => $materia, 'periodo_id' => $periodo, 'grupo' => $grupo, 'docente_id' => $docente,
+            'laboratorio_id' => $laboratorio, 'turno' => $turno]);
+    }
+
+    /** El alumno con esa matrícula; si no existe se crea con los datos de Firebase. */
+    private function alumnoPorMatricula(string $matricula, array $a, bool $activo): int
+    {
+        $id = $this->valor('SELECT id FROM alumnos WHERE matricula = ?', [$matricula]);
+        // Lo que diga el historial de una clase no cambia a un alumno que ya existe.
+        if ($id !== null && !$activo) {
+            return (int)$id;
+        }
+        $carreraTexto = texto($a['Carrera'] ?? '');
+        $carrera = $carreraTexto === '' ? null : $this->carreraPara($carreraTexto);
+        $semestre = semestreDe($a['Semestre'] ?? null);
+        if (texto($a['Semestre'] ?? '') !== '' && $semestre === null) {
+            $this->avisos[] = 'No se entendió el semestre "' . texto($a['Semestre']) . '" de un alumno; quedó vacío';
+        }
+        $datos = [
+            'nombre' => textoONulo($a['Nombre'] ?? null, 100) ?? $matricula,
+            'apellido' => textoONulo($a['Apellido'] ?? null, 100) ?? '',
+            'carrera_id' => $carrera,
+            'semestre' => $semestre,
+            'turno' => turnoDe($a['Turno'] ?? null),
+            'grupo' => textoONulo($a['Grupo'] ?? null, 20),
+        ];
+        if ($id !== null) {
+            $this->actualizar('alumnos', (int)$id, $datos + ['activo' => true]);
+            return (int)$id;
+        }
+        if (!$activo) {
+            $this->avisos[] = 'Había asistencias de alumnos que ya no están en Firebase; se crearon desactivados';
+        }
+        $this->contar($activo ? 'alumnos' : 'alumnos desactivados (solo en el historial)');
+        return $this->insertar('alumnos', ['matricula' => $matricula, 'activo' => $activo] + $datos);
+    }
+
+    /**
+     * La carrera por su clave o su nombre (la colación no distingue mayúsculas ni
+     * acentos), o una del catálogo cuyo nombre sea el principio del texto
+     * ("Licenciatura en Administración de Empresas" → "Licenciatura en Administración").
+     */
+    private function carreraPara(string $texto): ?int
+    {
+        if (array_key_exists($texto, $this->carreras)) {
+            return $this->carreras[$texto];
+        }
+        $id = $this->valor('SELECT id FROM carreras WHERE clave = ? OR nombre = ? LIMIT 1', [$texto, $texto])
+            ?? $this->valor("SELECT id FROM carreras WHERE ? LIKE CONCAT(nombre, '%') ORDER BY CHAR_LENGTH(nombre) DESC LIMIT 1", [$texto]);
+        if ($id === null) {
+            $this->avisos[] = "La carrera \"$texto\" no está en el catálogo: sus alumnos quedaron sin carrera (agrégala y vuelve a importar)";
+        }
+        return $this->carreras[$texto] = $id === null ? null : (int)$id;
+    }
+
+    // ---------------------------------------------------------------
+    // SQL
+    // ---------------------------------------------------------------
+
+    private function valor(string $sql, array $parametros = []): mixed
+    {
+        $sentencia = $this->pdo->prepare($sql);
+        $sentencia->execute($parametros);
+        $valor = $sentencia->fetchColumn();
+        return $valor === false ? null : $valor;
+    }
+
+    private function filas(string $sql, array $parametros = []): array
+    {
+        $sentencia = $this->pdo->prepare($sql);
+        $sentencia->execute($parametros);
+        return $sentencia->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** @return int cuántos renglones cambió */
+    private function ejecutar(string $sql, array $parametros = []): int
+    {
+        $sentencia = $this->pdo->prepare($sql);
+        $sentencia->execute(array_map(static fn ($v) => is_bool($v) ? (int)$v : $v, $parametros));
+        return $sentencia->rowCount();
+    }
+
+    private function insertar(string $tabla, array $valores): int
+    {
+        $columnas = implode(', ', array_map(static fn (string $c) => "`$c`", array_keys($valores)));
+        $this->ejecutar("INSERT INTO `$tabla` ($columnas) VALUES (" . implode(', ', array_fill(0, count($valores), '?')) . ')', array_values($valores));
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    private function actualizar(string $tabla, int $id, array $valores): void
+    {
+        $asignaciones = implode(', ', array_map(static fn (string $c) => "`$c` = ?", array_keys($valores)));
+        $this->ejecutar("UPDATE `$tabla` SET $asignaciones WHERE id = ?", [...array_values($valores), $id]);
+    }
+
+    private function contar(string $que): bool
+    {
+        $this->cuentas[$que] = ($this->cuentas[$que] ?? 0) + 1;
+        return true;
+    }
 }

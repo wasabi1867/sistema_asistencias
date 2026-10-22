@@ -122,15 +122,16 @@ final class Entorno
     /**
      * Corre un script de scripts/ contra la base de pruebas. Devuelve [código de salida, lo que imprimió].
      * @param list<string> $argumentos
+     * @param array<string, string> $variables para cambiar la conexión, como ASISTENCIAS_DB_NAME
      */
-    public static function correrScript(string $script, array $argumentos = [], string $entrada = ''): array
+    public static function correrScript(string $script, array $argumentos = [], string $entrada = '', array $variables = []): array
     {
         $proceso = proc_open(
             [PHP_BINARY, '-d', 'xdebug.mode=off', self::$raiz . "/scripts/$script", ...$argumentos],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $tuberias,
             self::$raiz,
-            self::$entorno
+            $variables + self::$entorno
         );
         fwrite($tuberias[0], $entrada);
         fclose($tuberias[0]);

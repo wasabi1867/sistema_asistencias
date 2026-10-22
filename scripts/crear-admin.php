@@ -1,49 +1,62 @@
 <?php
-// Crea un administrador, o le pone contraseña nueva si ya existe. Se corre en una
-// terminal, nunca desde el navegador (por eso vive fuera de public/):
+
+declare(strict_types=1);
+
+// Crea un administrador, o le pone contraseña nueva si ya existe (y lo reactiva). Se
+// corre en una terminal, con la conexión de api/config.local.php; la contraseña se
+// escribe al correrlo, para que no quede en el historial de la terminal:
 //
-//   php scripts/crear-admin.php admin@puertopenasco.tecnm.mx "Administrador General"
+//   php scripts/crear-admin.php admin@puertopenasco.tecnm.mx "Nombre" "Apellido"
 //
-// Usa la misma conexión que la API (config.local.php o variables de entorno).
-// Si el servidor no da terminal, con --solo-hash imprime la contraseña cifrada para
-// pegarla en la columna `password` desde phpMyAdmin:
+// Si el servidor no da terminal, con --solo-hash imprime la contraseña cifrada, para
+// crear la cuenta desde phpMyAdmin (ver docs/cambio-de-firebase.md):
 //
 //   php scripts/crear-admin.php --solo-hash
 
-if (PHP_SAPI !== 'cli') {
-    exit(1);
-}
+require __DIR__ . '/comun.php';
 
-function pedirContrasena(): string {
-    fwrite(STDOUT, 'Contraseña nueva (mínimo 8 caracteres): ');
-    $password = trim((string)fgets(STDIN));
-    if (mb_strlen($password) < 8) {
-        fwrite(STDERR, "La contraseña debe tener al menos 8 caracteres.\n");
+use Asistencias\Http\ErrorHttp;
+use Asistencias\Seguridad\Contrasenas;
+
+function contrasenaNueva(): string
+{
+    fwrite(STDOUT, 'Contraseña nueva (mínimo ' . Contrasenas::LONGITUD_MINIMA . ' caracteres): ');
+    try {
+        return Contrasenas::cifrarNueva(trim((string)fgets(STDIN)));
+    } catch (ErrorHttp $e) {
+        fwrite(STDERR, $e->getMessage() . ".\n");
         exit(1);
     }
-    return $password;
 }
 
 if (($argv[1] ?? '') === '--solo-hash') {
-    echo password_hash(pedirContrasena(), PASSWORD_DEFAULT), PHP_EOL;
+    echo contrasenaNueva(), PHP_EOL;
     exit(0);
 }
 
-$email = trim($argv[1] ?? '');
+$email = mb_strtolower(trim($argv[1] ?? ''));
 $nombre = trim($argv[2] ?? 'Administrador');
+$apellido = trim($argv[3] ?? '');
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    fwrite(STDERR, "Uso: php scripts/crear-admin.php correo@dominio [\"Nombre\"]\n");
+    fwrite(STDERR, "Uso: php scripts/crear-admin.php correo@dominio [\"Nombre\"] [\"Apellido\"]\n");
     exit(1);
 }
 
-require __DIR__ . '/../public/api/config.php';
+$hash = contrasenaNueva();
+$pdo = conexion();
+$existente = $pdo->prepare("SELECT id FROM usuarios WHERE rol = 'admin' AND email = ?");
+$existente->execute([$email]);
+$id = $existente->fetchColumn();
 
-$hash = password_hash(pedirContrasena(), PASSWORD_DEFAULT);
-$pdo = new PDO("mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-]);
-$stmt = $pdo->prepare("INSERT INTO administradores (email, nombre, password, rol) VALUES (?, ?, ?, 'admin')
-    ON DUPLICATE KEY UPDATE password = VALUES(password)");
-$stmt->execute([$email, $nombre, $hash]);
-
-echo $stmt->rowCount() === 1 ? "Administrador $email creado.\n" : "Contraseña de $email cambiada.\n";
+if ($id === false) {
+    $pdo->prepare("INSERT INTO usuarios (rol, email, nombre, apellido, password_hash) VALUES ('admin', ?, ?, ?, ?)")
+        ->execute([$email, $nombre, $apellido, $hash]);
+    $pdo->prepare("INSERT INTO bitacora (accion, entidad, entidad_id, usuario, detalles) VALUES ('crear', 'usuarios', ?, 'Terminal del servidor', ?)")
+        ->execute([$pdo->lastInsertId(), "Admin $email"]);
+    echo "Administrador $email creado.\n";
+} else {
+    $pdo->prepare('UPDATE usuarios SET password_hash = ?, activo = TRUE WHERE id = ?')->execute([$hash, $id]);
+    $pdo->prepare("INSERT INTO bitacora (accion, entidad, entidad_id, usuario, detalles) VALUES ('restablecer_contrasena', 'usuarios', ?, 'Terminal del servidor', ?)")
+        ->execute([$id, "Admin $email"]);
+    echo "Contraseña de $email cambiada.\n";
+}

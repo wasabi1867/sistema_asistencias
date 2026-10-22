@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node -e \"require('fs').rmSync('out/api/config.local.php', { force: true })\"",
+    "build": "next build && node scripts/publicar-api.mjs",
     "start": "next start",
     "lint": "next lint"
   },
