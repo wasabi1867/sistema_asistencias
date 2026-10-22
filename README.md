@@ -15,10 +15,10 @@ Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y a
 | Parte | Tecnología | Carpeta |
 |---|---|---|
 | Pantallas | Next.js 14 (export estático), React, Tailwind, shadcn/ui | `src/` |
-| API | PHP con PDO, sin framework | `public/api/` |
-| Base de datos | MySQL o MariaDB | `schema.sql` y `db/migraciones/` |
+| API | PHP 8.1 o más nuevo, sin framework ni paquetes | `api/` |
+| Base de datos | MySQL 8 o MariaDB 10.6 o más nuevo | `db/` |
 | Pruebas de la API | PHPUnit, contra una base real | `tests/api/` |
-| Scripts | Migraciones, primer administrador, importación desde Firebase | `scripts/` |
+| Scripts | Instalar la base, aplicar cambios, primer administrador, importar de Firebase, exportar datos | `scripts/` |
 
 Todo se publica junto en Hostinger: `npm run build` deja en `out/` las páginas y la carpeta `api/`.
 
@@ -30,24 +30,19 @@ Se necesita:
 - Composer.
 - MySQL o MariaDB.
 
-1. **Base de datos.** Crear una base vacía, cargar `schema.sql` y aplicar las migraciones:
+1. **Configuración de la API.** Copiar `api/config.ejemplo.php` como `api/config.local.php` y llenar los datos de una base vacía. Git ignora este archivo. Para usar la API desde `npm run dev`, poner `http://localhost:3000` en `origenes_permitidos`.
+
+2. **Base de datos y primer administrador.** El segundo script pide la contraseña:
 
    ```bash
-   php scripts/migrar.php
+   php scripts/instalar.php
+   php scripts/crear-admin.php admin@puertopenasco.tecnm.mx "Nombre" "Apellido"
    ```
 
-2. **Configuración de la API.** Copiar `public/api/config.ejemplo.php` como `public/api/config.local.php` y llenar los datos de la base. Git ignora este archivo. Para usar la API desde `npm run dev`, poner `http://localhost:3000` en `origenes_permitidos`.
-
-3. **Primer administrador.** El script pide la contraseña:
+3. **API y pantallas.** Cada una corre en su propia terminal:
 
    ```bash
-   php scripts/crear-admin.php admin@puertopenasco.tecnm.mx "Administrador General"
-   ```
-
-4. **API y pantallas.** Cada una corre en su propia terminal:
-
-   ```bash
-   php -S localhost:8000 -t public
+   php -S localhost:8000 api/index.php
    ```
 
    ```bash
@@ -62,11 +57,11 @@ Se necesita:
 
 ```bash
 composer install
-vendor/bin/phpunit   # API; docs/api-php.md explica cómo apuntar a otra base
+vendor/bin/phpunit   # API; docs/api.md explica cómo apuntar a otra base
 npm run build        # comprueba que las pantallas compilen
 ```
 
-En GitHub corren solas en cada pull request (`.github/workflows/`).
+En GitHub corren solas en cada pull request (`.github/workflows/`). Las de la API corren en MariaDB 10.6 y 11.8 y en MySQL 8.0.
 
 ## Publicar en Hostinger
 
@@ -79,8 +74,10 @@ Se sube el contenido de `out/` a la carpeta del sitio. **No hay que borrar `api/
 
 ## Documentación
 
-- [docs/api-php.md](docs/api-php.md):
-  - Configuración y sesiones.
-  - Quién puede usar cada ruta y las reglas del registro.
-  - Pruebas y migraciones.
+- [docs/api.md](docs/api.md):
+  - Cómo está organizada la API, configuración y convenciones.
+  - Todas las rutas y quién puede usar cada una.
+  - Pruebas y cambios a la base.
+- [docs/modelo-de-datos.md](docs/modelo-de-datos.md): las tablas, las reglas que garantiza la base y por qué tiene esta forma.
 - [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md): pasos para publicar esta versión y traer los datos de Firebase.
+- [docs/preguntas-para-el-instituto.md](docs/preguntas-para-el-instituto.md): lo que falta que defina el instituto, con lo que se supone mientras tanto.

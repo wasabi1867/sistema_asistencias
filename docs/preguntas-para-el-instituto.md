@@ -56,7 +56,7 @@ Respuesta:
 ## Sobre quién hace qué
 
 **7. ¿Qué debe poder hacer cada tipo de usuario?**
-El reparto que usamos mientras tanto está en [api-php.md](api-php.md#quién-puede-usar-cada-ruta). Es el más restrictivo que deja trabajar:
+El reparto que usamos mientras tanto está en [api.md](api.md#rutas). Es el más restrictivo que deja trabajar:
 - Todos consultan.
 - El laboratorista además da de alta alumnos y atiende los equipos.
 - El docente abre y cierra sus clases y lleva sus prácticas.

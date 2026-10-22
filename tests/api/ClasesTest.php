@@ -59,7 +59,7 @@ final class ClasesTest extends PruebaDeApi
 
         $respuesta = $this->con('docente')->post('clases', ['cursoId' => $this->curso]);
 
-        $this->assertSame([409, 'Ya hay una clase abierta en el Taller de Programación'], [$respuesta->estado, $respuesta->json()['error']]);
+        $this->assertSame([409, 'Ya hay una clase abierta en el Taller de Programación', 'laboratorio_ocupado'], [$respuesta->estado, $respuesta->json()['error'], $respuesta->json()['codigo']]);
         // En otro laboratorio sí puede.
         $this->ok($this->con('docente')->post('clases', ['cursoId' => $this->curso, 'laboratorio' => 'redes']), 201);
     }

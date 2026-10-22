@@ -46,6 +46,32 @@ final class ScriptsTest extends PruebaDeApi
         $this->assertSame(0, (int)$this->valor('SELECT COUNT(*) FROM usuarios'));
     }
 
+    public function test_los_datos_exportados_cargan_sobre_una_base_creada_con_el_esquema(): void
+    {
+        [$codigo, $salida] = Entorno::correrScript('importar-de-firebase.php', ['--desde=' . __DIR__ . '/firebase']);
+        $this->assertSame(0, $codigo, $salida);
+        $archivo = sys_get_temp_dir() . '/exportacion-' . bin2hex(random_bytes(4)) . '.sql';
+        $base = 'asistencias_exportada_' . bin2hex(random_bytes(3));
+        $deLasPruebas = $this->valor('SELECT DATABASE()');
+        try {
+            [$codigo, $salida] = Entorno::correrScript('exportar-datos.php', [$archivo]);
+            $this->assertSame(0, $codigo, $salida);
+
+            $this->pdo()->exec("CREATE DATABASE `$base` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            $this->pdo()->exec("USE `$base`");
+            $this->pdo()->exec(file_get_contents(dirname(__DIR__, 2) . '/db/esquema.sql'));
+            $this->pdo()->exec(file_get_contents($archivo));
+            $copia = $this->pdo()->query('SELECT COUNT(*) FROM asistencias')->fetchColumn() . ' ' . $this->pdo()->query("SELECT GROUP_CONCAT(apellido ORDER BY apellido) FROM alumnos")->fetchColumn();
+        } finally {
+            $this->pdo()->exec("USE `$deLasPruebas`");
+            $this->pdo()->exec("DROP DATABASE IF EXISTS `$base`");
+            @unlink($archivo);
+        }
+        $original = $this->valor('SELECT COUNT(*) FROM asistencias') . ' ' . $this->valor("SELECT GROUP_CONCAT(apellido ORDER BY apellido) FROM alumnos");
+        $this->assertSame("2 Álvarez,D'Angelo", $copia);
+        $this->assertSame($original, $copia);
+    }
+
     public function test_migrar_no_corre_sobre_una_base_sin_instalar(): void
     {
         $base = 'asistencias_vacia_' . bin2hex(random_bytes(3));

@@ -236,19 +236,22 @@ final class Clases
             $descripcion = "Maestro invitado: {$valores['materia_invitado']}";
         }
 
-        $id = ErrorDeIntegridad::explicar(
-            [
-                'uq_clases_laboratorio_abierto' => "Ya hay una clase abierta en el {$laboratorio['nombre']}",
-                'uq_clases_curso_abierto' => 'Ese curso ya tiene una clase abierta',
-            ],
-            static fn () => $c->bd->insertar('clases', $valores + [
+        try {
+            $id = $c->bd->insertar('clases', $valores + [
                 'laboratorio_id' => $laboratorio['id'],
                 'tipo' => $tipo,
                 // El código que se muestra en el aula, por si el registro lo pide.
                 'codigo' => str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT),
                 'abierta_por' => $usuario->id,
-            ])
-        );
+            ]);
+        } catch (ErrorDeIntegridad $e) {
+            // Dos clases abiertas a la vez: la base lo impide aunque las abran al mismo tiempo.
+            throw match ($e->restriccion) {
+                'uq_clases_laboratorio_abierto' => ErrorHttp::conflicto("Ya hay una clase abierta en el {$laboratorio['nombre']}", 'laboratorio_ocupado'),
+                'uq_clases_curso_abierto' => ErrorHttp::conflicto('Ese curso ya tiene una clase abierta', 'curso_abierto'),
+                default => $e,
+            };
+        }
         $c->bitacora->registrar('abrir_clase', 'clases', $id, $descripcion, $laboratorio['id']);
         if ($tipo === 'invitado') {
             Avisos::crear($c->bd, 'clase', "Clase de maestro invitado en el {$laboratorio['nombre']}",

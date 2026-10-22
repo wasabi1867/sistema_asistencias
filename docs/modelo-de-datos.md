@@ -164,11 +164,21 @@ Están en [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md):
 
 ## De Firebase a esta base
 
-`scripts/importar-de-firebase.php` se reescribirá para hacer esta conversión; todavía importa a la base anterior.
+[`scripts/importar-de-firebase.php`](../scripts/importar-de-firebase.php) hace la conversión. Los pasos para correrla están en [cambio-de-firebase.md](cambio-de-firebase.md).
 
-- **Carreras:** se buscan en el catálogo sin importar acentos ni mayúsculas. Las que no estén se reportan para darlas de alta.
-- **Materias y cursos:** cada materia de Firebase se separa en materia y curso, y el periodo sale de su ciclo escolar.
-- **Prácticas:** quedan como propias del docente de esa materia.
-- **Inscripciones:** la lista de materias de cada alumno se convierte en filas de `inscripciones`.
-- **Clases y asistencias:** `ClassInformation` se convierte en clases y asistencias cerradas.
+- **Cuentas:** las de `Administrador`, `Docentes` y `Laboratoristas` pasan a `usuarios`, con su matrícula (el id del documento) y su contraseña.
+- **Carreras:** se buscan en el catálogo sin importar acentos ni mayúsculas, o como el principio del texto ("Licenciatura en Administración de Empresas" encuentra "Licenciatura en Administración"). Las que no estén se reportan para darlas de alta.
+- **Materias y cursos:**
+  - Cada materia de Firebase se separa en la materia del catálogo y su curso.
+  - El periodo sale de su ciclo escolar: "2026-2027-1" es AGO-DIC 2026 y "2026-2027-2", ENE-JUL 2027.
+  - Como Firebase no guardaba el grupo, se toma el de la mayoría de los alumnos del curso.
+- **Prácticas:** quedan como propias del docente de esa materia, con la duración en minutos ("2 horas" son 120).
+- **Inscripciones:** la lista de materias de cada alumno se convierte en filas de `inscripciones`, desde el inicio del periodo.
+- **Equipos:** los de Firebase reemplazan a los de los datos iniciales de ese laboratorio. Su estado de reparación se vuelve un reporte de falla.
+- **Clases y asistencias:**
+  - `ClassInformation` se convierte en clases y asistencias ya cerradas, con su hora.
+  - Las clases de maestro invitado se atribuyen a una cuenta desactivada, "Importación de Firebase", porque Firebase no guardaba quién las abrió.
+  - Un alumno que aparece en el historial pero ya no estaba en Firebase se crea desactivado.
+- **Solicitudes:** quedan ligadas a la clase que estaba abierta a esa hora. Las que quedaron sin resolver se marcan como rechazadas, con un comentario.
+- **No se copian:** las asistencias en curso, el estado de las clases abiertas y los avisos viejos.
 - **Lo que no se puede convertir sin adivinar**, como una carrera desconocida, un semestre que no es número o una duración ilegible, queda vacío, y el script lo lista al terminar.
