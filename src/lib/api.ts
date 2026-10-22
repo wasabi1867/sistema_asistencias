@@ -1,38 +1,51 @@
 /**
- * Cliente de la API en PHP (public/api). Sustituye a Firebase en todas las pantallas.
- *
- * Las funciones devuelven los datos con los mismos nombres de campo que tenían los
- * documentos de Firestore (Nombre, Apellido, Materias, NombreMateria...), para que
- * las pantallas no tengan que cambiar más que la forma de pedirlos.
+ * Cliente de la API (carpeta api/ del repositorio). Los tipos son los de sus
+ * respuestas; las rutas y quién puede usar cada una están en docs/api.md.
  *
  * La sesión va en una cookie que pone la API al iniciar sesión; el navegador la manda
  * sola en cada petición.
  */
 
-// La API se publica junto con el sitio (public/api queda en /api). Durante el
-// desarrollo con `npm run dev` se puede apuntar a otra con NEXT_PUBLIC_API_URL.
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "")
+// La API se publica junto con el sitio, en /api. Durante el desarrollo con
+// `npm run dev` se apunta a otra con NEXT_PUBLIC_API_URL (ver README).
+const BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "")
 
-/** Un error de la API, con el mensaje que ya viene en español para mostrarlo tal cual. */
+/**
+ * Un error que respondió la API. El mensaje viene en español y se muestra tal cual.
+ * `codigo` permite reaccionar sin leer el mensaje (ver docs/api.md); `campo` dice qué
+ * dato corregir.
+ */
 export class ErrorDeApi extends Error {
-  estado: number
-  codigo?: string
-  datos: any
-
-  constructor(mensaje: string, estado: number, datos: any) {
+  constructor(
+    mensaje: string,
+    public readonly estado: number,
+    public readonly datos: Record<string, any> = {},
+  ) {
     super(mensaje)
     this.name = "ErrorDeApi"
-    this.estado = estado
-    this.codigo = datos?.codigo
-    this.datos = datos
+  }
+
+  get codigo(): string | undefined {
+    return this.datos.codigo
+  }
+
+  get campo(): string | undefined {
+    return this.datos.campo
   }
 }
 
-async function pedir<T = any>(ruta: string, opciones: { metodo?: string; cuerpo?: unknown; keepalive?: boolean } = {}): Promise<T> {
+/** El mensaje de un error cualquiera, para mostrarlo. */
+export function mensajeDeError(error: unknown, porOmision = "Ocurrió un error. Inténtalo de nuevo."): string {
+  return error instanceof Error && error.message ? error.message : porOmision
+}
+
+type Consulta = Record<string, string | number | boolean | null | undefined>
+
+async function pedir<T>(ruta: string, opciones: { metodo?: string; cuerpo?: unknown; consulta?: Consulta; keepalive?: boolean } = {}): Promise<T> {
   let respuesta: Response
   try {
-    respuesta = await fetch(`${API_BASE}/${ruta}`, {
-      method: opciones.metodo || "GET",
+    respuesta = await fetch(`${BASE}/${ruta}${aConsulta(opciones.consulta)}`, {
+      method: opciones.metodo ?? "GET",
       credentials: "include",
       keepalive: opciones.keepalive,
       headers: {
@@ -42,548 +55,587 @@ async function pedir<T = any>(ruta: string, opciones: { metodo?: string; cuerpo?
       body: opciones.cuerpo !== undefined ? JSON.stringify(opciones.cuerpo) : undefined,
     })
   } catch {
-    throw new ErrorDeApi("No se pudo conectar con el servidor. Revisa tu conexión a internet.", 0, {})
+    throw new ErrorDeApi("No se pudo conectar con el servidor. Revisa tu conexión a internet.", 0)
   }
-
-  let datos: any = {}
+  if (respuesta.status === 204) {
+    return undefined as T
+  }
+  let datos: any = null
   try {
     datos = await respuesta.json()
   } catch {
-    // Respuesta vacía o que no es JSON (por ejemplo, una página de error del hosting).
+    // Una respuesta que no es JSON: por ejemplo, una página de error del hosting.
   }
-  if (!respuesta.ok || datos.success === false) {
-    throw new ErrorDeApi(datos.error || `Error del servidor (${respuesta.status})`, respuesta.status, datos)
+  if (!respuesta.ok) {
+    throw new ErrorDeApi(datos?.error || `Error del servidor (${respuesta.status})`, respuesta.status, datos ?? {})
   }
-  return datos
+  return datos as T
 }
 
-const q = (parametros: Record<string, string | number | boolean | undefined | null>) => {
-  const p = new URLSearchParams()
-  for (const [clave, valor] of Object.entries(parametros)) {
+function aConsulta(consulta?: Consulta): string {
+  if (!consulta) return ""
+  const parametros = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(consulta)) {
     if (valor !== undefined && valor !== null && valor !== "" && valor !== false) {
-      p.set(clave, String(valor))
+      parametros.set(clave, String(valor))
     }
   }
-  const texto = p.toString()
+  const texto = parametros.toString()
   return texto ? `?${texto}` : ""
 }
 
-/** Convierte "2026-10-21 14:05:00" (como lo da la base) en Date local. */
-export function fechaDeLaBase(valor: string | null | undefined): Date | null {
-  if (!valor) return null
-  const [fecha, hora = "00:00:00"] = valor.split(" ")
-  const [a, m, d] = fecha.split("-").map(Number)
-  const [h, mi, s] = hora.split(":").map(Number)
-  return new Date(a, m - 1, d, h || 0, mi || 0, s || 0)
-}
-
-/** "14:05:00" → "2:05:00 p.m.", como lo mostraba toLocaleTimeString(). */
-export function horaLegible(valor: string | null | undefined): string {
-  const fecha = fechaDeLaBase(valor)
-  return fecha ? fecha.toLocaleTimeString() : ""
-}
+const obtener = <T>(ruta: string, consulta?: Consulta) => pedir<T>(ruta, { consulta })
+const crear = <T>(ruta: string, cuerpo: unknown = {}) => pedir<T>(ruta, { metodo: "POST", cuerpo })
+const cambiar = <T>(ruta: string, cuerpo: unknown) => pedir<T>(ruta, { metodo: "PUT", cuerpo })
+const borrar = (ruta: string) => pedir<void>(ruta, { metodo: "DELETE" })
 
 // ---------------------------------------------------------------------------
-// Tipos (con los nombres de campo de Firestore)
+// Tipos
 // ---------------------------------------------------------------------------
 
 export type Rol = "admin" | "laboratorista" | "docente"
+export type Turno = "matutino" | "vespertino"
 
-export interface UsuarioEnSesion {
+export interface Cuenta {
+  id: number
   rol: Rol
-  id: string
+  matricula: string | null
   nombre: string
-  email: string
+  apellido: string
+  email: string | null
+  departamento: string | null
+  activo?: boolean
+}
+
+export interface Laboratorio {
+  id: number
+  clave: string
+  nombre: string
+  ubicacion: string | null
+  activo: boolean
+}
+
+export interface Carrera {
+  id: number
+  clave: string
+  nombre: string
+  activa: boolean
+}
+
+/** La carrera como aparece dentro de un alumno o una materia. */
+export interface CarreraBreve {
+  clave: string
+  nombre: string
+}
+
+export interface Periodo {
+  id: number
+  nombre: string
+  fechaInicio: string
+  fechaFin: string
+  actual: boolean
 }
 
 export interface Alumno {
-  Matricula: string
-  Nombre: string
-  Apellido: string
-  Carrera: string
-  Semestre: string
-  Turno: string
-  Grupo: string
-  Materias: string[]
-}
-
-export interface Docente {
-  Matricula: string
-  Nombre: string
-  Apellido: string
-  Email: string
-  Departamento: string
-}
-
-export interface Laboratorista {
-  Matricula: string
-  Nombre: string
-  Apellido: string
-  Email: string
-}
-
-export interface Administrador {
   id: number
-  Matricula: string
-  Nombre: string
-  Apellido: string
-  Email: string
+  matricula: string
+  nombre: string
+  apellido: string
+  carrera: CarreraBreve | null
+  semestre: number | null
+  turno: Turno | null
+  grupo: string | null
+  activo: boolean
 }
 
-export interface Practica {
-  id: string
-  Numero: string
-  Titulo: string
-  Descripcion: string
-  Duracion: string
-  fecha: string
+export interface AlumnoConCursos extends Alumno {
+  cursos: { id: number; materia: string; grupo: string; periodo: string; docente: string | null; inscritoEn: string }[]
+}
+
+/** Lo que se manda para dar de alta o editar un alumno. La carrera, por clave o nombre. */
+export interface DatosDeAlumno {
+  matricula: string
+  nombre: string
+  apellido: string
+  carrera?: string | null
+  semestre?: number | null
+  turno?: Turno | null
+  grupo?: string | null
+  activo?: boolean
 }
 
 export interface Materia {
-  id: string
-  NombreMateria: string
-  MaestroID: string
-  NombreDocente: string
-  Semestre: string
-  Turno: string
-  CicloEscolar: string
-  Laboratorio: string
-  Practicas?: Practica[]
+  id: number
+  clave: string | null
+  nombre: string
+  carrera: CarreraBreve | null
+  semestre: number | null
+  activa: boolean
 }
 
-export interface Equipo {
-  id: string
-  laboratorio: string
-  fueraDeServicio: boolean
-  enUso: boolean
-  usuarioActual: string | null
-  notas: string
-  estadoReparacion: "reportado" | "en_proceso" | "resuelto" | "ninguno"
-  comentarioEstado: string
-  ultimaActualizacion: string
+export interface Practica {
+  id: number
+  materiaId: number
+  numero: number
+  titulo: string
+  descripcion: string | null
+  duracionMinutos: number | null
+  fecha: string | null
+  /** Común a todos los docentes de la materia, o propia de `docente`. */
+  comun: boolean
+  docente: { id: number; nombre: string } | null
+  activa: boolean
 }
+
+export interface DatosDePractica {
+  numero?: number | null
+  titulo: string
+  descripcion?: string | null
+  duracionMinutos?: number | null
+  fecha?: string | null
+  docenteId?: number | null
+}
+
+export interface Curso {
+  id: number
+  materia: { id: number; clave: string | null; nombre: string }
+  periodo: { id: number; nombre: string; actual: boolean }
+  grupo: string
+  turno: Turno | null
+  docente: { id: number; nombre: string; apellido: string } | null
+  laboratorio: { clave: string; nombre: string } | null
+  inscritos: number
+}
+
+export interface DatosDeCurso {
+  materiaId: number
+  periodoId: number
+  grupo: string
+  turno?: Turno | null
+  docenteId?: number | null
+  laboratorio?: string | null
+}
+
+export interface Inscrito extends Alumno {
+  inscritoEn: string
+}
+
+export interface ResultadoDeInscripcion {
+  inscritos: string[]
+  yaInscritos: string[]
+  noEncontrados: string[]
+  inactivos: string[]
+}
+
+export interface ResumenDeAsistencia {
+  clases: number
+  alumnos: {
+    alumnoId: number
+    matricula: string
+    nombre: string
+    apellido: string
+    clases: number
+    asistencias: number
+    faltas: number
+    porcentaje: number | null
+  }[]
+}
+
+export interface Horario {
+  id: number
+  /** 1 = lunes … 6 = sábado */
+  dia: number
+  horaInicio: string
+  horaFin: string
+  laboratorio: { clave: string; nombre: string }
+  curso: { id: number; materia: string; grupo: string; docente: string | null }
+}
+
+export type EstadoDeEquipo = "libre" | "ocupado" | "fuera_de_servicio"
+export type EstadoDeReporte = "reportado" | "en_proceso" | "resuelto"
+
+/** Sin sesión solo llegan id, etiqueta y estado. */
+export interface Equipo {
+  id: number
+  etiqueta: string
+  estado: EstadoDeEquipo
+  ocupadoPor?: { tipo: TipoDePersona; matricula: string | null; nombre: string; desde: string; claseId: number | null } | null
+  notas?: string | null
+  reporteAbierto?: { id: number; estado: EstadoDeReporte; descripcion: string } | null
+  actualizadoEn?: string
+}
+
+export interface ReporteDeEquipo {
+  id: number
+  equipo: { id: number; etiqueta: string }
+  laboratorio: { clave: string; nombre: string }
+  descripcion: string
+  estado: EstadoDeReporte
+  comentario: string | null
+  reportadoPor: string | null
+  reportadoEn: string
+  actualizadoEn: string
+  resueltoEn: string | null
+}
+
+export type TipoDeClase = "regular" | "invitado"
+export type TipoDePersona = "alumno" | "docente" | "invitado"
 
 export interface Clase {
   id: number
-  laboratorio: string
-  tipo: "regular" | "invitado"
-  materiaId: string | null
+  tipo: TipoDeClase
+  laboratorio: { clave: string; nombre: string }
+  cursoId: number | null
   materia: string
-  practicaId: number | null
-  practica: string
-  docenteId: string | null
-  docente: string
-  departamento: string
-  grupo: string
+  practica: { id: number | null; numero: number | null; titulo: string } | null
+  docente: string | null
+  docenteId: number | null
+  grupo: string | null
+  departamento: string | null
+  abierta: boolean
   abiertaEn: string
   cerradaEn: string | null
-  abierta: boolean
   cierre: "normal" | "externo" | "automatico" | null
-  totalAsistencias: number
-  alumnos?: AsistenteDeClase[]
+  abiertaPor: string
+  cerradaPor: string | null
+  asistentes: number
+  /** Solo para quien lleva la clase. */
+  codigo?: string | null
+  /** Con `conAsistentes` o al pedir una sola clase. */
+  personas?: Asistencia[]
+  /** Al pedir una clase regular: los inscritos, con quién asistió. */
+  lista?: ListaDeClase
 }
 
-export interface AsistenteDeClase {
-  alumnoId: string
+/** Lo que ve el alumno sin sesión. */
+export interface ClaseAbierta {
+  id: number
+  tipo: TipoDeClase
+  materia: string
+  practica: string | null
+  docente: string | null
+  grupo: string | null
+  abiertaEn: string
+  pideCodigo: boolean
+}
+
+export interface Asistencia {
+  id: number
+  tipo: TipoDePersona
+  matricula: string | null
   nombre: string
-  apellido: string
-  carrera: string
-  semestre: string
-  turno: string
-  grupo: string
-  equipo: string
-  tipoUsuario: string
+  apellido: string | null
+  carrera: CarreraBreve | null
+  semestre: number | null
+  grupo: string | null
+  turno: Turno | null
+  /** Etiqueta de la computadora; null si trajo la suya. */
+  equipo: string | null
+  laboratorio: string
+  claseId: number | null
   horaEntrada: string
   horaSalida: string | null
 }
 
-export interface Asistencia {
-  id: string
-  AlumnoId: string
-  Nombre: string
-  Apellido: string
-  Carrera: string
-  Semestre: string
-  Turno: string
-  Grupo: string
-  Equipo: string
-  Materia: string
-  Practica: string
-  ClaseId: number | null
-  TipoUsuario: string
-  laboratorio: string
-  Fecha: string
+export interface ListaDeClase {
+  inscritos: number
+  presentes: number
+  faltas: number
+  alumnos: {
+    alumnoId: number
+    matricula: string
+    nombre: string
+    apellido: string
+    inscrito: boolean
+    presente: boolean
+    asistenciaId: number | null
+    equipo: string | null
+    horaEntrada: string | null
+    horaSalida: string | null
+  }[]
 }
+
+export interface EntradaRegistrada {
+  asistenciaId: number
+  nombre: string
+  equipo: string | null
+  clase: { id: number; tipo: TipoDeClase; materia: string; practica: string | null; docente: string | null }
+}
+
+export type EstadoDeSolicitud = "pendiente" | "aprobada_temporal" | "aprobada_permanente" | "rechazada"
 
 export interface Solicitud {
-  id: string
-  alumnoId: string
-  alumnoNombre: string
-  alumnoApellido: string
-  alumnoCarrera: string
-  alumnoSemestre: string
-  alumnoGrupo: string
-  alumnoTurno: string
-  equipo: string
-  materiaId: string
-  materiaNombre: string
-  maestroNombre: string
-  motivo: string
-  laboratorio: string
-  estado: "pendiente" | "aprobada" | "rechazada" | "aprobado_temporal" | "aprobado_permanente"
-  fechaSolicitud: Date | null
+  id: number
+  estado: EstadoDeSolicitud
   leida: boolean
+  motivo: string | null
+  comentario: string | null
+  laboratorio: { clave: string; nombre: string }
+  alumno: { matricula: string; nombre: string; apellido: string; carrera: CarreraBreve | null; semestre: number | null; grupo: string | null; turno: Turno | null }
+  equipo: string | null
+  clase: { id: number; materia: string; grupo: string | null; docente: string | null; abierta: boolean } | null
+  creadaEn: string
+  resueltaEn: string | null
+  resueltaPor: string | null
 }
 
-export interface Notificacion {
-  id: string
-  tipo: string
+export type TipoDeAviso = "solicitud" | "equipo" | "clase" | "sistema"
+
+export interface Aviso {
+  id: number
+  tipo: TipoDeAviso
   titulo: string
-  mensaje: string
-  fecha: Date | null
-  leida: boolean
-  prioridad: string
-  datos: any
-  laboratorio: string | null
-  /** Solo en avisos de equipos: el estado de reparación que tiene el equipo ahora. */
-  estadoEquipo?: "reportado" | "en_proceso" | "resuelto" | null
-  comentarioEstado?: string | null
-  fechaActualizacionEstado?: Date | null
+  mensaje: string | null
+  prioridad: "baja" | "media" | "alta"
+  leido: boolean
+  creadoEn: string
+  laboratorio: { clave: string; nombre: string } | null
+  solicitud: { id: number; estado: EstadoDeSolicitud } | null
+  reporte: { id: number; estado: EstadoDeReporte; equipo: { id: number; etiqueta: string } } | null
+  clase: { id: number; abierta: boolean } | null
 }
+
+export interface Evento {
+  id: number
+  laboratorio: string
+  nombre: string
+  tipo: string | null
+  organizador: string | null
+  participantes: number | null
+  fecha: string | null
+  hora: string | null
+  duracion: string | null
+  descripcion: string | null
+  resultados: string | null
+  creadoEn: string
+}
+
+export type DatosDeEvento = Partial<Omit<Evento, "id" | "creadoEn" | "laboratorio">> & { nombre: string }
 
 export interface EntradaDeBitacora {
-  id: string
-  timestamp: Date | null
-  action: string
-  details: string
+  id: number
+  fecha: string
   usuario: string
+  usuarioId: number | null
+  rol: Rol | null
+  accion: string
+  entidad: string | null
+  entidadId: string | null
+  detalles: string | null
   laboratorio: string | null
   ip: string | null
 }
 
-export interface Evento {
-  id: string
-  nombre: string
-  tipo: string
-  organizador: string
-  participantes: number
-  fecha: string
-  hora: string
-  duracion: string
-  descripcion: string
-  resultados: string
-  createdAt: Date | null
-}
-
-// ---------------------------------------------------------------------------
-// Conversión de las filas de la API a la forma de las pantallas
-// ---------------------------------------------------------------------------
-
-const comoAlumno = (a: any): Alumno => ({
-  Matricula: a.matricula,
-  Nombre: a.nombre,
-  Apellido: a.apellido,
-  Carrera: a.carrera ?? "",
-  Semestre: a.semestre ?? "",
-  Turno: a.turno ?? "",
-  Grupo: a.grupo ?? "",
-  Materias: Array.isArray(a.materias) ? a.materias.map(String) : [],
-})
-
-const comoPractica = (p: any): Practica => ({
-  id: String(p.id),
-  Numero: p.numero_practica ?? "",
-  Titulo: p.titulo,
-  Descripcion: p.descripcion ?? "",
-  Duracion: p.duracion ?? "",
-  fecha: p.fecha ?? "",
-})
-
-const comoMateria = (m: any): Materia => ({
-  id: m.id,
-  NombreMateria: m.nombre_materia,
-  MaestroID: m.docente_id ?? "",
-  NombreDocente: m.nombre_docente ?? "",
-  Semestre: m.semestre ?? "",
-  Turno: m.turno ?? "",
-  CicloEscolar: m.ciclo_escolar ?? "",
-  Laboratorio: m.laboratorio ?? "",
-  ...(m.practicas ? { Practicas: m.practicas.map(comoPractica) } : {}),
-})
-
-const comoAsistencia = (a: any): Asistencia => ({
-  id: a.id,
-  AlumnoId: a.AlumnoId,
-  Nombre: a.Nombre,
-  Apellido: a.Apellido,
-  Carrera: a.Carrera ?? "",
-  Semestre: a.Semestre ?? "",
-  Turno: a.Turno ?? "",
-  Grupo: a.Grupo ?? "",
-  Equipo: a.Equipo,
-  Materia: a.Materia ?? "",
-  Practica: a.Practica ?? "",
-  ClaseId: a.ClaseId,
-  TipoUsuario: a.TipoUsuario,
-  laboratorio: a.Laboratorio,
-  Fecha: a.Fecha,
-})
-
-const comoSolicitud = (s: any): Solicitud => {
-  // La base guarda el nombre completo; el apellido sale del alumno.
-  const apellido = s.alumno_apellido ?? ""
-  const nombre = apellido && s.nombre.endsWith(` ${apellido}`) ? s.nombre.slice(0, -apellido.length - 1) : s.nombre
-  return {
-    id: String(s.id),
-    alumnoId: s.alumno_id,
-    alumnoNombre: nombre,
-    alumnoApellido: apellido,
-    alumnoCarrera: s.carrera ?? "",
-    alumnoSemestre: s.alumno_semestre ?? "",
-    alumnoGrupo: s.alumno_grupo ?? "",
-    alumnoTurno: s.alumno_turno ?? "",
-    equipo: s.equipo_id ?? "",
-    materiaId: s.materia_id ?? "",
-    materiaNombre: s.materia_nombre ?? "",
-    maestroNombre: s.docente_nombre ?? "",
-    motivo: s.motivo ?? "",
-    laboratorio: s.laboratorio,
-    estado: s.estado,
-    fechaSolicitud: fechaDeLaBase(s.fecha_solicitud),
-    leida: Boolean(s.leida),
+export interface Estadisticas {
+  alumnos: number
+  docentes: number
+  laboratoristas: number
+  administradores: number
+  materias: number
+  cursosDelPeriodo: number
+  solicitudesPendientes: number
+  reportesAbiertos: number
+  laboratorio?: {
+    equipos: { total: number; ocupados: number; fueraDeServicio: number; libres: number }
+    personasDentro: number
+    clasesAbiertas: number
+    asistenciasHoy: number
+    clasesHoy: number
   }
 }
 
-const comoNotificacion = (n: any): Notificacion => ({
-  id: String(n.id),
-  tipo: n.tipo,
-  titulo: n.titulo,
-  mensaje: n.mensaje,
-  fecha: fechaDeLaBase(n.fecha),
-  leida: Boolean(n.leida),
-  prioridad: n.prioridad,
-  datos: n.datos,
-  laboratorio: n.laboratorio,
-  estadoEquipo: n.estadoEquipo ?? null,
-  comentarioEstado: n.comentarioEstado ?? null,
-  fechaActualizacionEstado: fechaDeLaBase(n.fechaActualizacionEstado),
-})
-
-/** Una clase cerrada con la forma de los documentos de ClassInformation, que usan los reportes. */
-export interface InformacionDeClase {
-  id: string
-  tipo: "regular" | "invitado"
-  materia: string
-  practica: string
-  /** dd/mm/aaaa, como se guardaba en Firebase */
-  fecha: string
-  fechaInicio: Date | null
-  horaInicio: string
-  horaFin: string
-  totalAsistencias: number
-  maestroId: string
-  maestroNombre: string
-  maestroApellido: string
-  departamento: string
-  grupo: string
-  carrera: string
-  laboratorio: string
-  alumnos: { id: string; nombre: string; apellido: string; equipo: string; carrera: string; grupo: string; semestre: string; turno: string }[]
-}
-
-export function claseComoInformacion(c: Clase): InformacionDeClase {
-  const inicio = fechaDeLaBase(c.abiertaEn)
-  const alumnos = (c.alumnos ?? []).map((a) => ({
-    id: a.alumnoId, nombre: a.nombre, apellido: a.apellido, equipo: a.equipo,
-    carrera: a.carrera, grupo: a.grupo, semestre: a.semestre, turno: a.turno,
-  }))
-  return {
-    id: String(c.id),
-    tipo: c.tipo,
-    materia: c.materia,
-    practica: c.practica,
-    fecha: inicio ? inicio.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "",
-    fechaInicio: inicio,
-    horaInicio: horaLegible(c.abiertaEn),
-    horaFin: horaLegible(c.cerradaEn),
-    totalAsistencias: c.abierta ? alumnos.length : c.totalAsistencias,
-    maestroId: c.docenteId ?? "",
-    // El nombre completo del docente va en maestroNombre; las pantallas los juntan.
-    maestroNombre: c.docente,
-    maestroApellido: "",
-    departamento: c.departamento,
-    grupo: c.grupo || alumnos[0]?.grupo || "",
-    carrera: alumnos[0]?.carrera ?? "",
-    laboratorio: c.laboratorio,
-    alumnos,
-  }
+export interface Paginacion {
+  total: number
+  pagina: number
+  porPagina: number
 }
 
 // ---------------------------------------------------------------------------
 // Rutas
 // ---------------------------------------------------------------------------
 
-export const API = {
-  // Sesión
-  iniciarSesion: (usuario: string, password: string, rol: Rol) =>
-    pedir<{ user: any; role: Rol }>("auth.php", { metodo: "POST", cuerpo: { email: usuario, password, role: rol } }),
-  sesion: async (): Promise<UsuarioEnSesion | null> => {
-    try {
-      return (await pedir<{ user: UsuarioEnSesion }>("auth.php")).user
-    } catch (e) {
-      if (e instanceof ErrorDeApi && e.estado === 401) return null
-      throw e
-    }
+export const api = {
+  sesion: {
+    iniciar: (usuario: string, contrasena: string, rol: Rol) => crear<Cuenta>("sesion", { usuario, contrasena, rol }),
+    /** La cuenta con sesión, o null si no hay. */
+    actual: async (): Promise<Cuenta | null> => {
+      try {
+        return await obtener<Cuenta>("sesion")
+      } catch (e) {
+        if (e instanceof ErrorDeApi && e.estado === 401) return null
+        throw e
+      }
+    },
+    cerrar: () => borrar("sesion"),
+    cambiarContrasena: (actual: string, nueva: string) => cambiar<void>("sesion/contrasena", { actual, nueva }),
   },
-  cerrarSesion: () => pedir("auth.php", { metodo: "DELETE" }),
 
-  // Alumnos
-  getAlumnos: async (busqueda?: string) => (await pedir("alumnos.php" + q({ q: busqueda }))).data.map(comoAlumno) as Alumno[],
-  getAlumno: async (matricula: string) => comoAlumno((await pedir("alumnos.php" + q({ matricula }))).data),
-  guardarAlumno: (alumno: Alumno) =>
-    pedir("alumnos.php", {
-      metodo: "POST",
-      cuerpo: {
-        matricula: alumno.Matricula, nombre: alumno.Nombre, apellido: alumno.Apellido, carrera: alumno.Carrera,
-        semestre: alumno.Semestre, turno: alumno.Turno, grupo: alumno.Grupo, materias: alumno.Materias ?? [],
-      },
-    }),
-  eliminarAlumno: (matricula: string) => pedir("alumnos.php" + q({ matricula }), { metodo: "DELETE" }),
-  cambioMasivoDeAlumnos: (cambio: { carrera: string; semestre: string; grupo?: string; nuevo_semestre?: string; nuevo_grupo?: string }) =>
-    pedir<{ actualizados: number }>("alumnos.php?action=cambio_masivo", { metodo: "POST", cuerpo: cambio }),
+  laboratorios: {
+    listar: (todos = false) => obtener<Laboratorio[]>("laboratorios", { todos }),
+    crear: (datos: { clave: string; nombre: string; ubicacion?: string | null }) => crear<Laboratorio>("laboratorios", datos),
+    editar: (id: number, datos: Partial<Pick<Laboratorio, "nombre" | "ubicacion" | "activo">>) => cambiar<Laboratorio>(`laboratorios/${id}`, datos),
+  },
 
-  // Docentes
-  getDocentes: async (): Promise<Docente[]> =>
-    (await pedir("docentes.php")).data.map((d: any) => ({
-      Matricula: d.matricula, Nombre: d.nombre, Apellido: d.apellido, Email: d.email ?? "", Departamento: d.departamento ?? "",
-    })),
-  guardarDocente: (d: Docente & { Contraseña?: string }) =>
-    pedir("docentes.php", {
-      metodo: "POST",
-      cuerpo: { matricula: d.Matricula, nombre: d.Nombre, apellido: d.Apellido, email: d.Email, departamento: d.Departamento, password: d.Contraseña ?? "" },
-    }),
-  eliminarDocente: (matricula: string) => pedir("docentes.php" + q({ matricula }), { metodo: "DELETE" }),
+  carreras: {
+    listar: (todas = false) => obtener<Carrera[]>("carreras", { todas }),
+    crear: (datos: { clave: string; nombre: string }) => crear<Carrera>("carreras", datos),
+    editar: (id: number, datos: Partial<Pick<Carrera, "clave" | "nombre" | "activa">>) => cambiar<Carrera>(`carreras/${id}`, datos),
+    eliminar: (id: number) => borrar(`carreras/${id}`),
+  },
 
-  // Laboratoristas
-  getLaboratoristas: async (): Promise<Laboratorista[]> =>
-    (await pedir("laboratoristas.php")).data.map((l: any) => ({ Matricula: l.matricula, Nombre: l.nombre, Apellido: l.apellido, Email: l.email ?? "" })),
-  guardarLaboratorista: (l: Laboratorista & { Contraseña?: string }) =>
-    pedir("laboratoristas.php", {
-      metodo: "POST",
-      cuerpo: { matricula: l.Matricula, nombre: l.Nombre, apellido: l.Apellido, email: l.Email, password: l.Contraseña ?? "" },
-    }),
-  eliminarLaboratorista: (matricula: string) => pedir("laboratoristas.php" + q({ matricula }), { metodo: "DELETE" }),
+  periodos: {
+    listar: () => obtener<Periodo[]>("periodos"),
+    /** El periodo que contiene hoy, o null si no hay. */
+    actual: async (): Promise<Periodo | null> => {
+      try {
+        return await obtener<Periodo>("periodos/actual")
+      } catch (e) {
+        if (e instanceof ErrorDeApi && e.estado === 404) return null
+        throw e
+      }
+    },
+    crear: (datos: Omit<Periodo, "id" | "actual">) => crear<Periodo>("periodos", datos),
+    editar: (id: number, datos: Omit<Periodo, "id" | "actual">) => cambiar<Periodo>(`periodos/${id}`, datos),
+    eliminar: (id: number) => borrar(`periodos/${id}`),
+  },
 
-  // Administradores
-  getAdministradores: async (): Promise<Administrador[]> =>
-    (await pedir("administradores.php")).data.map((a: any) => ({
-      id: Number(a.id), Matricula: a.matricula ?? "", Nombre: a.nombre, Apellido: a.apellido ?? "", Email: a.email,
-    })),
-  guardarAdministrador: (a: Partial<Administrador> & { Contraseña?: string }) =>
-    pedir("administradores.php", {
-      metodo: "POST",
-      cuerpo: { id: a.id, matricula: a.Matricula, nombre: a.Nombre, apellido: a.Apellido, email: a.Email, password: a.Contraseña ?? "" },
-    }),
-  eliminarAdministrador: (id: number) => pedir("administradores.php" + q({ id }), { metodo: "DELETE" }),
+  usuarios: {
+    listar: (filtros: { rol?: Rol; activo?: boolean } = {}) =>
+      obtener<Cuenta[]>("usuarios", { rol: filtros.rol, activo: filtros.activo === undefined ? undefined : filtros.activo ? "1" : "0" }),
+    crear: (datos: Omit<Cuenta, "id" | "activo"> & { contrasena: string }) => crear<Cuenta>("usuarios", datos),
+    editar: (id: number, datos: Partial<Omit<Cuenta, "id" | "rol">>) => cambiar<Cuenta>(`usuarios/${id}`, datos),
+    restablecerContrasena: (id: number, contrasena: string) => cambiar<void>(`usuarios/${id}/contrasena`, { contrasena }),
+    eliminar: (id: number) => borrar(`usuarios/${id}`),
+  },
 
-  // Materias y prácticas
-  getMaterias: async (filtros: { docenteId?: string; laboratorio?: string; conPracticas?: boolean } = {}) =>
-    (await pedir("materias.php" + q({ docente_id: filtros.docenteId, laboratorio: filtros.laboratorio, con_practicas: filtros.conPracticas ? 1 : undefined })))
-      .data.map(comoMateria) as Materia[],
-  getMateria: async (id: string) => comoMateria((await pedir("materias.php" + q({ id }))).data),
-  getPracticas: async (materiaId: string) => (await API.getMateria(materiaId)).Practicas ?? [],
-  guardarMateria: (m: Partial<Materia>) =>
-    pedir<{ id: string }>("materias.php", {
-      metodo: "POST",
-      cuerpo: {
-        id: m.id, nombre_materia: m.NombreMateria, docente_id: m.MaestroID, semestre: m.Semestre, turno: m.Turno,
-        ciclo_escolar: m.CicloEscolar, laboratorio: m.Laboratorio,
-      },
-    }),
-  eliminarMateria: (id: string) => pedir("materias.php" + q({ id }), { metodo: "DELETE" }),
-  guardarPractica: (materiaId: string, p: Partial<Practica>) =>
-    pedir("materias.php?action=" + (p.id ? "editar_practica" : "crear_practica"), {
-      metodo: "POST",
-      cuerpo: { id: p.id, materia_id: materiaId, numero_practica: p.Numero, titulo: p.Titulo, descripcion: p.Descripcion, duracion: p.Duracion, fecha: p.fecha },
-    }),
-  eliminarPractica: (id: string) => pedir("materias.php" + q({ action: "practica", id }), { metodo: "DELETE" }),
+  alumnos: {
+    buscar: (filtros: { q?: string; carrera?: string; semestre?: number; grupo?: string; turno?: Turno; activo?: boolean; pagina?: number; porPagina?: number } = {}) =>
+      obtener<Paginacion & { alumnos: Alumno[] }>("alumnos", { ...filtros, activo: filtros.activo === false ? "0" : undefined }),
+    uno: (matricula: string) => obtener<AlumnoConCursos>(`alumnos/${encodeURIComponent(matricula)}`),
+    crear: (datos: DatosDeAlumno) => crear<Alumno>("alumnos", datos),
+    editar: (matricula: string, datos: Partial<DatosDeAlumno>) => cambiar<Alumno>(`alumnos/${encodeURIComponent(matricula)}`, datos),
+    eliminar: (matricula: string) => borrar(`alumnos/${encodeURIComponent(matricula)}`),
+    /** Todo o nada: si un renglón tiene error, la respuesta es un ErrorDeApi con `datos.renglones`. */
+    cargarLote: (alumnos: DatosDeAlumno[]) => crear<{ creados: number; actualizados: number }>("alumnos/lote", { alumnos }),
+    cambioMasivo: (datos: { carrera: string; semestre: number; grupo?: string; nuevoSemestre?: number; nuevoGrupo?: string; nuevoTurno?: Turno }) =>
+      crear<{ actualizados: number }>("alumnos/cambio-masivo", datos),
+  },
 
-  // Equipos
-  getEquipos: async (laboratorio: string) => (await pedir<{ data: Equipo[] }>("equipos.php" + q({ laboratorio }))).data,
-  actualizarEquipo: (equipo: Partial<Equipo> & { id: string; laboratorio: string }) => pedir("equipos.php", { metodo: "POST", cuerpo: equipo }),
-  agregarEquipo: (id: string, laboratorio: string) => pedir("equipos.php?action=crear", { metodo: "POST", cuerpo: { id, laboratorio } }),
-  quitarEquipo: (id: string, laboratorio: string) => pedir("equipos.php" + q({ id, laboratorio }), { metodo: "DELETE" }),
-  /** Reemplaza los equipos del laboratorio por PC-1 a PC-cantidad. */
-  configurarEquipos: (cantidad: number, laboratorio: string) =>
-    pedir<{ anteriores: number }>("equipos.php?action=configurar", { metodo: "POST", cuerpo: { cantidad, laboratorio } }),
+  materias: {
+    listar: (filtros: { q?: string; carrera?: string; semestre?: number; activa?: boolean } = {}) =>
+      obtener<Materia[]>("materias", { ...filtros, activa: filtros.activa === false ? "0" : undefined }),
+    crear: (datos: { clave?: string | null; nombre: string; carrera?: string | null; semestre?: number | null }) => crear<Materia>("materias", datos),
+    editar: (id: number, datos: Partial<{ clave: string | null; nombre: string; carrera: string | null; semestre: number | null; activa: boolean }>) =>
+      cambiar<Materia>(`materias/${id}`, datos),
+    eliminar: (id: number) => borrar(`materias/${id}`),
+  },
 
-  // Clases
-  getClasesAbiertas: async (laboratorio: string) => (await pedir<{ data: Clase[] }>("clases.php" + q({ abiertas: 1, laboratorio }))).data,
-  getClase: async (id: number) => (await pedir<{ data: Clase }>("clases.php" + q({ id }))).data,
-  /** Las clases con quiénes asistieron, en la forma de ClassInformation (para los reportes). */
-  getInformacionDeClases: async (filtros: { laboratorio?: string; desde?: string; hasta?: string; estado?: "abiertas" | "cerradas"; docenteId?: string } = {}): Promise<InformacionDeClase[]> =>
-    (await pedir<{ data: Clase[] }>("clases.php" + q({
-      laboratorio: filtros.laboratorio, docente_id: filtros.docenteId, desde: filtros.desde, hasta: filtros.hasta, estado: filtros.estado, con_alumnos: 1,
-    }))).data.map(claseComoInformacion),
-  getClases: async (filtros: { laboratorio?: string; tipo?: string; docenteId?: string; desde?: string; hasta?: string; estado?: "abiertas" | "cerradas"; conAlumnos?: boolean } = {}) =>
-    (await pedir<{ data: Clase[] }>("clases.php" + q({
-      laboratorio: filtros.laboratorio, tipo: filtros.tipo, docente_id: filtros.docenteId, desde: filtros.desde, hasta: filtros.hasta,
-      estado: filtros.estado, con_alumnos: filtros.conAlumnos ? 1 : undefined,
-    }))).data,
-  abrirClase: async (datos: { laboratorio: string; materia_id: string; practica_id: string | number; grupo?: string }) =>
-    (await pedir<{ data: Clase }>("clases.php?action=abrir", { metodo: "POST", cuerpo: { tipo: "regular", ...datos } })).data,
-  abrirClaseDeInvitado: async (datos: { laboratorio: string; docente_id?: string; docente?: string; departamento: string; materia: string; practica: string; grupo?: string }) =>
-    (await pedir<{ data: Clase }>("clases.php?action=abrir", { metodo: "POST", cuerpo: { tipo: "invitado", ...datos } })).data,
-  cerrarClase: async (id: number) => (await pedir<{ data: Clase }>("clases.php?action=cerrar", { metodo: "POST", cuerpo: { id } })).data,
-  /** Para cuando el docente cierra la pestaña: la petición sigue aunque la página ya no exista. */
-  cerrarClaseAlSalir: (id: number) =>
-    pedir("clases.php?action=cerrar", { metodo: "POST", cuerpo: { id, automatico: true }, keepalive: true }).catch(() => undefined),
+  practicas: {
+    /** Las comunes y las del docente (al docente con sesión le llegan las suyas). */
+    deMateria: (materiaId: number, filtros: { docente?: number; inactivas?: boolean } = {}) => obtener<Practica[]>(`materias/${materiaId}/practicas`, filtros),
+    crear: (materiaId: number, datos: DatosDePractica) => crear<Practica>(`materias/${materiaId}/practicas`, datos),
+    editar: (id: number, datos: Partial<DatosDePractica>) => cambiar<Practica>(`practicas/${id}`, datos),
+    /** Si ya se usó en una clase, la API la desactiva en lugar de borrarla. */
+    eliminar: (id: number) => borrar(`practicas/${id}`),
+  },
 
-  // Asistencias
-  getAsistenciasActivas: async (filtro: { laboratorio?: string; claseId?: number }) =>
-    (await pedir("asistencias.php" + q({ action: "activas", laboratorio: filtro.laboratorio, clase_id: filtro.claseId }))).data.map(comoAsistencia) as Asistencia[],
-  registrarEntrada: (registro: { AlumnoId?: string; Equipo: string; Laboratorio: string; TipoUsuario?: "estudiante" | "docente" | "invitado"; Nombre?: string; Apellido?: string; ClaseId?: number }) =>
-    pedir<{ id: number; nombre: string; clase: Pick<Clase, "id" | "tipo" | "materia" | "practica" | "docente"> }>("asistencias.php?action=entrada", { metodo: "POST", cuerpo: registro }),
-  registrarSalida: (id: string | number) => pedir("asistencias.php?action=salida", { metodo: "POST", cuerpo: { id } }),
-  eliminarAsistencia: (id: string | number) => pedir("asistencias.php" + q({ id }), { metodo: "DELETE" }),
-  getHistorico: async (filtros: { laboratorio?: string; fecha_inicio?: string; fecha_fin?: string; carrera?: string; materia?: string; alumno_id?: string } = {}) =>
-    (await pedir("asistencias.php" + q({ action: "historico", ...filtros }))).data as any[],
+  cursos: {
+    /** Sin periodo, los del periodo actual. */
+    listar: (filtros: { periodo?: number | "todos"; docente?: number | "yo"; materia?: number; laboratorio?: string } = {}) => obtener<Curso[]>("cursos", filtros),
+    uno: (id: number) => obtener<Curso>(`cursos/${id}`),
+    crear: (datos: DatosDeCurso) => crear<Curso>("cursos", datos),
+    editar: (id: number, datos: Partial<DatosDeCurso>) => cambiar<Curso>(`cursos/${id}`, datos),
+    eliminar: (id: number) => borrar(`cursos/${id}`),
+    inscritos: (id: number) => obtener<Inscrito[]>(`cursos/${id}/alumnos`),
+    inscribir: (id: number, matriculas: string[]) => crear<ResultadoDeInscripcion>(`cursos/${id}/alumnos`, { matriculas }),
+    darDeBaja: (id: number, matricula: string) => borrar(`cursos/${id}/alumnos/${encodeURIComponent(matricula)}`),
+    asistencia: (id: number) => obtener<ResumenDeAsistencia>(`cursos/${id}/asistencia`),
+  },
 
-  // Solicitudes
-  getSolicitudes: async (laboratorio: string, estado?: string) => (await pedir("solicitudes.php" + q({ laboratorio, estado }))).data.map(comoSolicitud) as Solicitud[],
-  crearSolicitud: (s: { alumno_id: string; laboratorio: string; equipo?: string; clase_id?: number; motivo?: string }) =>
-    pedir<{ id: number }>("solicitudes.php", { metodo: "POST", cuerpo: s }),
-  resolverSolicitud: (id: string, estado: "aprobado_temporal" | "aprobado_permanente" | "rechazada") =>
-    pedir("solicitudes.php", { metodo: "PUT", cuerpo: { id, estado } }),
-  marcarSolicitudLeida: (id: string) => pedir("solicitudes.php", { metodo: "PUT", cuerpo: { id, leida: true } }),
+  horarios: {
+    listar: (filtros: { laboratorio?: string; periodo?: number; docente?: number | "yo"; curso?: number } = {}) => obtener<Horario[]>("horarios", filtros),
+    crear: (datos: { cursoId: number; laboratorio: string; dia: number; horaInicio: string; horaFin: string }) => crear<Horario>("horarios", datos),
+    editar: (id: number, datos: Partial<{ cursoId: number; laboratorio: string; dia: number; horaInicio: string; horaFin: string }>) => cambiar<Horario>(`horarios/${id}`, datos),
+    eliminar: (id: number) => borrar(`horarios/${id}`),
+  },
 
-  // Notificaciones
-  getNotificaciones: async (laboratorio?: string, tipo?: string) =>
-    (await pedir("notificaciones.php" + q({ laboratorio, tipo }))).data.map(comoNotificacion) as Notificacion[],
-  crearNotificacion: (n: { tipo: string; titulo: string; mensaje: string; laboratorio: string; prioridad?: string; datos?: any }) =>
-    pedir("notificaciones.php", { metodo: "POST", cuerpo: n }),
-  /** Sin id, las marca todas. */
-  marcarNotificacionLeida: (id?: string) => pedir("notificaciones.php", { metodo: "PUT", cuerpo: { id } }),
-  marcarNotificacionNoLeida: (id: string) => pedir("notificaciones.php", { metodo: "PUT", cuerpo: { id, leida: false } }),
+  equipos: {
+    deLaboratorio: (laboratorio: string) => obtener<Equipo[]>(`laboratorios/${encodeURIComponent(laboratorio)}/equipos`),
+    agregar: (laboratorio: string, etiqueta: string) => crear<Equipo>(`laboratorios/${encodeURIComponent(laboratorio)}/equipos`, { etiqueta }),
+    /** Deja el laboratorio con PC-1 a PC-cantidad. */
+    configurar: (laboratorio: string, cantidad: number) =>
+      crear<{ equipos: number; agregados: number; retirados: number }>(`laboratorios/${encodeURIComponent(laboratorio)}/equipos/configurar`, { cantidad }),
+    editar: (id: number, datos: { fueraDeServicio?: boolean; notas?: string | null; etiqueta?: string }) =>
+      cambiar<{ id: number; etiqueta: string; fueraDeServicio: boolean; notas: string | null }>(`equipos/${id}`, datos),
+    retirar: (id: number) => borrar(`equipos/${id}`),
+  },
 
-  // Bitácora
-  getBitacora: async (filtros: { desde?: string; hasta?: string; accion?: string; laboratorio?: string; q?: string; limite?: number } = {}): Promise<EntradaDeBitacora[]> =>
-    (await pedir("bitacora.php" + q(filtros))).data.map((l: any): EntradaDeBitacora => ({
-      id: String(l.id), timestamp: fechaDeLaBase(l.fecha), action: l.accion, details: l.detalles ?? "", usuario: l.usuario,
-      laboratorio: l.laboratorio, ip: l.ip,
-    })),
+  reportesDeEquipo: {
+    listar: (filtros: { laboratorio?: string; estado?: EstadoDeReporte | "abiertos"; equipo?: number } = {}) => obtener<ReporteDeEquipo[]>("reportes-de-equipo", filtros),
+    reportar: (equipoId: number, descripcion: string, fueraDeServicio = true) => crear<ReporteDeEquipo>(`equipos/${equipoId}/reportes`, { descripcion, fueraDeServicio }),
+    actualizar: (id: number, datos: { estado?: EstadoDeReporte; comentario?: string | null }) => cambiar<ReporteDeEquipo>(`reportes-de-equipo/${id}`, datos),
+  },
 
-  // Eventos
-  getEventos: async (laboratorio: string): Promise<Evento[]> =>
-    (await pedir("eventos.php" + q({ laboratorio }))).data.map((e: any): Evento => ({
-      id: String(e.id), nombre: e.nombre, tipo: e.tipo, organizador: e.organizador, participantes: e.participantes,
-      fecha: e.fecha ?? "", hora: e.hora, duracion: e.duracion, descripcion: e.descripcion ?? "", resultados: e.resultados ?? "",
-      createdAt: fechaDeLaBase(e.creado_en),
-    })),
-  guardarEvento: (e: Partial<Evento> & { laboratorio?: string }) =>
-    pedir<{ id: number }>("eventos.php", { metodo: "POST", cuerpo: { ...e, id: e.id ? Number(e.id) : undefined } }),
-  eliminarEvento: (id: string) => pedir("eventos.php" + q({ id }), { metodo: "DELETE" }),
+  clases: {
+    /** Pública: lo que necesita la página de registro. */
+    abiertas: (laboratorio: string) => obtener<ClaseAbierta[]>("clases/abiertas", { laboratorio }),
+    listar: (filtros: { laboratorio?: string; estado?: "abiertas" | "cerradas"; tipo?: TipoDeClase; desde?: string; hasta?: string; docente?: number | "yo"; curso?: number; conAsistentes?: boolean; pagina?: number; porPagina?: number } = {}) =>
+      obtener<Paginacion & { clases: Clase[] }>("clases", filtros),
+    una: (id: number) => obtener<Clase>(`clases/${id}`),
+    abrir: (datos: { cursoId: number; laboratorio?: string; practicaId?: number | null }) => crear<Clase>("clases", { tipo: "regular", ...datos }),
+    abrirDeInvitado: (datos: { laboratorio: string; materia: string; practica?: string | null; docente?: string | null; departamento?: string | null; grupo?: string | null }) =>
+      crear<Clase>("clases", { tipo: "invitado", ...datos }),
+    cerrar: (id: number) => crear<Clase>(`clases/${id}/cerrar`),
+    /** Para cuando el docente cierra la pestaña: la petición sigue aunque la página ya no exista. */
+    cerrarAlSalir: (id: number) =>
+      pedir(`clases/${id}/cerrar`, { metodo: "POST", cuerpo: { automatico: true }, keepalive: true }).catch(() => undefined),
+    registrarAMano: (id: number, datos: { matricula?: string; nombre?: string; apellido?: string; equipo?: string | null; equipoPropio?: boolean }) =>
+      crear<Asistencia>(`clases/${id}/asistencias`, datos),
+  },
 
-  // Estadísticas
-  getStats: async (laboratorio: string) => (await pedir("stats.php" + q({ laboratorio }))).data,
+  registro: {
+    /** Pública. Los rechazos traen un `codigo` (no_inscrito, ya_registrado, equipo_ocupado...). */
+    entrar: (datos: { laboratorio: string; tipo?: TipoDePersona; matricula?: string; nombre?: string; apellido?: string; equipo?: string | null; equipoPropio?: boolean; claseId?: number; codigo?: string }) =>
+      crear<EntradaRegistrada>("registro/entrada", datos),
+  },
+
+  asistencias: {
+    activas: (laboratorio: string) => obtener<Asistencia[]>("asistencias/activas", { laboratorio }),
+    historial: (filtros: { laboratorio?: string; desde?: string; hasta?: string; alumno?: string; carrera?: string; curso?: number; clase?: number; fueraDeClase?: boolean; pagina?: number; porPagina?: number } = {}) =>
+      obtener<Paginacion & { asistencias: Asistencia[] }>("asistencias", filtros),
+    usoFueraDeClase: (datos: { laboratorio: string; matricula?: string; nombre?: string; apellido?: string; equipo?: string | null; equipoPropio?: boolean }) =>
+      crear<Asistencia>("asistencias", datos),
+    registrarSalida: (id: number) => crear<Asistencia>(`asistencias/${id}/salida`),
+    quitar: (id: number) => borrar(`asistencias/${id}`),
+  },
+
+  solicitudes: {
+    /** Pública: la manda el alumno. */
+    crear: (datos: { laboratorio: string; matricula: string; claseId?: number; equipo?: string | null; equipoPropio?: boolean; motivo?: string }) =>
+      crear<Solicitud>("solicitudes", datos),
+    listar: (filtros: { laboratorio?: string; estado?: EstadoDeSolicitud; clase?: number } = {}) => obtener<Solicitud[]>("solicitudes", filtros),
+    resolver: (id: number, estado: Exclude<EstadoDeSolicitud, "pendiente">, comentario?: string) => crear<Solicitud>(`solicitudes/${id}/resolver`, { estado, comentario }),
+    marcarLeida: (id: number, leida = true) => cambiar<void>(`solicitudes/${id}`, { leida }),
+  },
+
+  avisos: {
+    listar: (filtros: { laboratorio?: string; tipo?: TipoDeAviso; leido?: boolean } = {}) =>
+      obtener<Aviso[]>("avisos", { ...filtros, leido: filtros.leido === undefined ? undefined : filtros.leido ? "1" : "0" }),
+    marcar: (id: number, leido = true) => cambiar<void>(`avisos/${id}`, { leido }),
+    marcarTodos: (laboratorio?: string) => crear<{ marcados: number }>("avisos/leidos", { laboratorio }),
+  },
+
+  eventos: {
+    listar: (filtros: { laboratorio?: string; desde?: string; hasta?: string } = {}) => obtener<Evento[]>("eventos", filtros),
+    crear: (datos: DatosDeEvento & { laboratorio: string }) => crear<Evento>("eventos", datos),
+    editar: (id: number, datos: Partial<DatosDeEvento>) => cambiar<Evento>(`eventos/${id}`, datos),
+    eliminar: (id: number) => borrar(`eventos/${id}`),
+  },
+
+  bitacora: {
+    consultar: (filtros: { desde?: string; hasta?: string; accion?: string; entidad?: string; usuario?: number; laboratorio?: string; q?: string; pagina?: number; porPagina?: number } = {}) =>
+      obtener<Paginacion & { entradas: EntradaDeBitacora[] }>("bitacora", filtros),
+  },
+
+  estadisticas: (laboratorio?: string) => obtener<Estadisticas>("estadisticas", { laboratorio }),
 }

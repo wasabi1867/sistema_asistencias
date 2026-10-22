@@ -4,9 +4,9 @@ name: Frontend
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.github/workflows/frontend.yml']
+    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.eslintrc.json', '.github/workflows/frontend.yml']
   pull_request:
-    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.github/workflows/frontend.yml']
+    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.eslintrc.json', '.github/workflows/frontend.yml']
 
 jobs:
   compilar:

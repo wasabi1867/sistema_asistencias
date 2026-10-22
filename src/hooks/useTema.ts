@@ -1,0 +1,21 @@
+import { useEffect, useState } from "react"
+import { aplicarTema, cambiarTema, colores, temaGuardado, type Tema } from "../lib/tema"
+
+/** El tema de la página y sus colores, con el botón para cambiarlo. */
+export function useTema() {
+  const [tema, setTema] = useState<Tema>("light")
+
+  useEffect(() => {
+    const guardado = temaGuardado()
+    setTema(guardado)
+    aplicarTema(guardado)
+  }, [])
+
+  const alternar = () => {
+    const nuevo = cambiarTema()
+    setTema(nuevo)
+    aplicarTema(nuevo)
+  }
+
+  return { tema, oscuro: tema === "dark", c: colores[tema], alternar }
+}
