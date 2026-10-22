@@ -163,23 +163,33 @@ CREATE TABLE inscripciones (
   -- fk_inscripciones_solicitud se agrega al final, cuando ya existe solicitudes_ingreso.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Las prácticas de un curso. Son del curso y no de la materia porque cada
--- docente y cada grupo llevan las suyas, con su fecha; para reusarlas en otro
--- periodo se copian.
+-- Las prácticas de una materia. Son de la materia y no del curso para no
+-- recapturarlas cada semestre ni en cada grupo.
+-- * docente_id NULL: práctica común, para todos los docentes de la materia.
+-- * docente_id con valor: práctica propia de ese docente (así venían de Firebase).
+-- Sirve igual si el instituto responde que las prácticas son por materia o por
+-- docente.
 CREATE TABLE practicas (
-  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  curso_id     INT UNSIGNED NOT NULL,
-  numero       SMALLINT UNSIGNED NOT NULL,
-  titulo       VARCHAR(150) NOT NULL,
-  descripcion  TEXT         NULL,
-  -- Texto libre como "2 horas": solo se muestra, no se calcula con él.
-  duracion     VARCHAR(50)  NULL,
-  -- Fecha planeada.
-  fecha        DATE         NULL,
-  activa       BOOLEAN      NOT NULL DEFAULT TRUE,
+  id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  materia_id        INT UNSIGNED NOT NULL,
+  docente_id        INT UNSIGNED NULL,
+  numero            SMALLINT UNSIGNED NOT NULL,
+  titulo            VARCHAR(150) NOT NULL,
+  descripcion       TEXT         NULL,
+  duracion_minutos  SMALLINT UNSIGNED NULL,
+  -- Fecha planeada; la real es la de la clase en que se trabajó.
+  fecha             DATE         NULL,
+  activa            BOOLEAN      NOT NULL DEFAULT TRUE,
+  creado_en         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- No se repite el número entre las prácticas activas de la misma lista. Una
+  -- desactivada (porque ya se usó en clases) libera su número.
+  lista             INT UNSIGNED AS (IFNULL(docente_id, 0)) STORED,
+  numero_activo     SMALLINT UNSIGNED AS (IF(activa, numero, NULL)) STORED,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_practicas_numero (curso_id, numero),
-  CONSTRAINT fk_practicas_curso FOREIGN KEY (curso_id) REFERENCES cursos (id)
+  UNIQUE KEY uq_practicas_numero (materia_id, lista, numero_activo),
+  KEY ix_practicas_docente (docente_id),
+  CONSTRAINT fk_practicas_materia FOREIGN KEY (materia_id) REFERENCES materias (id),
+  CONSTRAINT fk_practicas_docente FOREIGN KEY (docente_id) REFERENCES usuarios (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- En qué laboratorio y a qué hora se imparte cada curso cada semana. Antes el
@@ -215,10 +225,14 @@ CREATE TABLE equipos (
   etiqueta           VARCHAR(30)  NOT NULL,
   fuera_de_servicio  BOOLEAN      NOT NULL DEFAULT FALSE,
   notas              TEXT         NULL,
+  -- Un equipo retirado que tiene historial se desactiva y libera su etiqueta.
   activo             BOOLEAN      NOT NULL DEFAULT TRUE,
   actualizado_en     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  etiqueta_activa    VARCHAR(30) AS (IF(activo, etiqueta, NULL)) STORED,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_equipos_etiqueta (laboratorio_id, etiqueta),
+  UNIQUE KEY uq_equipos_etiqueta (laboratorio_id, etiqueta_activa),
+  -- Para que asistencias y solicitudes exijan que el equipo sea de su laboratorio.
+  UNIQUE KEY uq_equipos_id_laboratorio (id, laboratorio_id),
   CONSTRAINT fk_equipos_laboratorio FOREIGN KEY (laboratorio_id) REFERENCES laboratorios (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -265,6 +279,10 @@ CREATE TABLE clases (
   materia_invitado     VARCHAR(150) NULL,
   practica_invitado    VARCHAR(150) NULL,
   grupo_invitado       VARCHAR(20)  NULL,
+  -- Código que se muestra en el aula y que el alumno escribe al registrarse,
+  -- para que no se pueda registrar a alguien desde fuera del laboratorio. Lo
+  -- genera la API al abrir la clase; si se exige o no es configuración.
+  codigo               CHAR(4)      NULL,
   abierta_por          INT UNSIGNED NOT NULL,
   abierta_en           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   cerrada_por          INT UNSIGNED NULL,
@@ -279,6 +297,8 @@ CREATE TABLE clases (
   PRIMARY KEY (id),
   UNIQUE KEY uq_clases_laboratorio_abierto (laboratorio_abierto),
   UNIQUE KEY uq_clases_curso_abierto (curso_abierto),
+  -- Para que asistencias y solicitudes exijan estar en el laboratorio de su clase.
+  UNIQUE KEY uq_clases_id_laboratorio (id, laboratorio_id),
   KEY ix_clases_laboratorio (laboratorio_id, abierta_en),
   KEY ix_clases_curso (curso_id, abierta_en),
   KEY ix_clases_abierta_en (abierta_en),
@@ -298,12 +318,16 @@ CREATE TABLE clases (
   CONSTRAINT ck_clases_horas CHECK (cerrada_en IS NULL OR cerrada_en >= abierta_en)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Cada entrada a una clase. Mientras hora_salida es NULL la persona sigue dentro.
--- Sustituye a asistencias (las de ahora) y asistencias_historico (las pasadas):
--- es la misma fila antes y después de la salida.
+-- Cada entrada a un laboratorio. Mientras hora_salida es NULL la persona sigue
+-- dentro. Sustituye a asistencias (las de ahora) y asistencias_historico (las
+-- pasadas): es la misma fila antes y después de la salida.
+-- Casi todas son de una clase. Las que no (clase_id NULL) son uso del
+-- laboratorio fuera de clase: las registra el personal o las autoriza una
+-- solicitud aprobada.
 CREATE TABLE asistencias (
   id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  clase_id           INT UNSIGNED NOT NULL,
+  laboratorio_id     INT UNSIGNED NOT NULL,
+  clase_id           INT UNSIGNED NULL,
   -- NULL: trae su propio equipo.
   equipo_id          INT UNSIGNED NULL,
   tipo_persona       ENUM('alumno', 'docente', 'invitado') NOT NULL,
@@ -326,20 +350,26 @@ CREATE TABLE asistencias (
   UNIQUE KEY uq_asistencias_equipo_ocupado (equipo_ocupado),
   UNIQUE KEY uq_asistencias_alumno_dentro (alumno_dentro),
   UNIQUE KEY uq_asistencias_usuario_dentro (usuario_dentro),
-  KEY ix_asistencias_clase (clase_id),
+  KEY ix_asistencias_laboratorio (laboratorio_id, hora_entrada),
+  KEY ix_asistencias_clase (clase_id, laboratorio_id),
   KEY ix_asistencias_alumno (alumno_id, hora_entrada),
   KEY ix_asistencias_usuario (usuario_id),
-  KEY ix_asistencias_equipo (equipo_id, hora_entrada),
+  KEY ix_asistencias_equipo (equipo_id, laboratorio_id),
   KEY ix_asistencias_hora_entrada (hora_entrada),
   KEY ix_asistencias_registrada_por (registrada_por),
   KEY ix_asistencias_solicitud (solicitud_id),
-  CONSTRAINT fk_asistencias_clase FOREIGN KEY (clase_id) REFERENCES clases (id),
-  CONSTRAINT fk_asistencias_equipo FOREIGN KEY (equipo_id) REFERENCES equipos (id),
+  CONSTRAINT fk_asistencias_laboratorio FOREIGN KEY (laboratorio_id) REFERENCES laboratorios (id),
+  -- La clase y el equipo tienen que ser del mismo laboratorio que la asistencia.
+  -- Con clase_id o equipo_id en NULL, la llave correspondiente no se revisa.
+  CONSTRAINT fk_asistencias_clase FOREIGN KEY (clase_id, laboratorio_id) REFERENCES clases (id, laboratorio_id),
+  CONSTRAINT fk_asistencias_equipo FOREIGN KEY (equipo_id, laboratorio_id) REFERENCES equipos (id, laboratorio_id),
   CONSTRAINT fk_asistencias_alumno FOREIGN KEY (alumno_id) REFERENCES alumnos (id),
   CONSTRAINT fk_asistencias_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
   CONSTRAINT fk_asistencias_registrada_por FOREIGN KEY (registrada_por) REFERENCES usuarios (id),
   -- fk_asistencias_solicitud se agrega al final, cuando ya existe solicitudes_ingreso.
   CONSTRAINT ck_asistencias_horas CHECK (hora_salida IS NULL OR hora_salida >= hora_entrada),
+  -- Fuera de clase alguien tiene que responder por la entrada.
+  CONSTRAINT ck_asistencias_autorizada CHECK (clase_id IS NOT NULL OR registrada_por IS NOT NULL OR solicitud_id IS NOT NULL),
   CONSTRAINT ck_asistencias_persona CHECK (
        (tipo_persona = 'alumno'   AND alumno_id IS NOT NULL AND usuario_id IS NULL AND invitado_nombre IS NULL)
     OR (tipo_persona = 'docente'  AND usuario_id IS NOT NULL AND alumno_id IS NULL AND invitado_nombre IS NULL)
@@ -347,35 +377,45 @@ CREATE TABLE asistencias (
   )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Un alumno que no está inscrito en el curso de la clase abierta pide entrar.
--- El administrador la aprueba solo por esa vez (temporal), la aprueba
--- inscribiéndolo en el curso (permanente) o la rechaza.
+-- Un alumno pide entrar a un laboratorio:
+-- * a una clase abierta de un curso en el que no está inscrito (clase_id), o
+-- * a usar el laboratorio fuera de clase (clase_id NULL).
+-- Se aprueba solo por esa vez (temporal), se aprueba inscribiéndolo en el curso
+-- de la clase (permanente) o se rechaza.
 CREATE TABLE solicitudes_ingreso (
-  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  clase_id      INT UNSIGNED NOT NULL,
-  alumno_id     INT UNSIGNED NOT NULL,
+  id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  laboratorio_id  INT UNSIGNED NOT NULL,
+  clase_id        INT UNSIGNED NULL,
+  alumno_id       INT UNSIGNED NOT NULL,
   -- El equipo que eligió; NULL si trae el suyo.
-  equipo_id     INT UNSIGNED NULL,
-  motivo        TEXT         NULL,
-  estado        ENUM('pendiente', 'aprobada_temporal', 'aprobada_permanente', 'rechazada') NOT NULL DEFAULT 'pendiente',
-  leida         BOOLEAN      NOT NULL DEFAULT FALSE,
-  creada_en     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  resuelta_por  INT UNSIGNED NULL,
-  resuelta_en   DATETIME     NULL,
-  -- Una sola solicitud pendiente por alumno y clase.
-  pendiente     VARCHAR(30) AS (IF(estado = 'pendiente', CONCAT(clase_id, '-', alumno_id), NULL)) STORED,
+  equipo_id       INT UNSIGNED NULL,
+  motivo          TEXT         NULL,
+  estado          ENUM('pendiente', 'aprobada_temporal', 'aprobada_permanente', 'rechazada') NOT NULL DEFAULT 'pendiente',
+  leida           BOOLEAN      NOT NULL DEFAULT FALSE,
+  creada_en       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resuelta_por    INT UNSIGNED NULL,
+  resuelta_en     DATETIME     NULL,
+  -- Lo que se le dice al alumno o se anota al resolverla.
+  comentario      VARCHAR(255) NULL,
+  -- Una sola solicitud pendiente por alumno, laboratorio y clase.
+  pendiente       VARCHAR(40) AS (IF(estado = 'pendiente', CONCAT(alumno_id, '-', laboratorio_id, '-', IFNULL(clase_id, 0)), NULL)) STORED,
   PRIMARY KEY (id),
   UNIQUE KEY uq_solicitudes_pendiente (pendiente),
-  KEY ix_solicitudes_clase (clase_id),
+  KEY ix_solicitudes_laboratorio (laboratorio_id, estado, creada_en),
+  KEY ix_solicitudes_clase (clase_id, laboratorio_id),
   KEY ix_solicitudes_alumno (alumno_id),
   KEY ix_solicitudes_estado (estado, creada_en),
-  KEY ix_solicitudes_equipo (equipo_id),
+  KEY ix_solicitudes_equipo (equipo_id, laboratorio_id),
   KEY ix_solicitudes_resuelta_por (resuelta_por),
-  CONSTRAINT fk_solicitudes_clase FOREIGN KEY (clase_id) REFERENCES clases (id),
+  CONSTRAINT fk_solicitudes_laboratorio FOREIGN KEY (laboratorio_id) REFERENCES laboratorios (id),
+  -- La clase y el equipo tienen que ser del laboratorio de la solicitud.
+  CONSTRAINT fk_solicitudes_clase FOREIGN KEY (clase_id, laboratorio_id) REFERENCES clases (id, laboratorio_id),
+  CONSTRAINT fk_solicitudes_equipo FOREIGN KEY (equipo_id, laboratorio_id) REFERENCES equipos (id, laboratorio_id),
   CONSTRAINT fk_solicitudes_alumno FOREIGN KEY (alumno_id) REFERENCES alumnos (id),
-  CONSTRAINT fk_solicitudes_equipo FOREIGN KEY (equipo_id) REFERENCES equipos (id),
   CONSTRAINT fk_solicitudes_resuelta_por FOREIGN KEY (resuelta_por) REFERENCES usuarios (id),
-  CONSTRAINT ck_solicitudes_resolucion CHECK ((estado = 'pendiente') = (resuelta_en IS NULL))
+  CONSTRAINT ck_solicitudes_resolucion CHECK ((estado = 'pendiente') = (resuelta_en IS NULL)),
+  -- Sin clase no hay curso en el cual inscribirlo.
+  CONSTRAINT ck_solicitudes_permanente CHECK (estado <> 'aprobada_permanente' OR clase_id IS NOT NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE inscripciones
