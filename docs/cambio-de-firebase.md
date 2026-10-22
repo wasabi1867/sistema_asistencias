@@ -8,7 +8,7 @@ Lo averiguado el 22 de octubre de 2026:
 
 - **La cuenta** es de Daniel Alonso Osuna Talamantes. David entra como colaborador: puede administrar, pero no comprar ni cambiar de plan.
 - **El plan** es Single Web Hosting:
-  - Un solo sitio y un número limitado de bases de datos. Al crear la de este sistema apareció el aviso de límite.
+  - Un solo sitio y un número limitado de bases de datos. Para crear la de este sistema se borró la anterior, `u568725086_asistencias`, que tenía el esquema del sistema original; las pantallas de ese sistema guardaban todo en Firebase, no en ella.
   - **Sin terminal (SSH).**
   - **Con MySQL remoto:** la base se puede usar desde una computadora cuya IP se autorice.
   - PHP 8.3.
@@ -76,7 +76,9 @@ Crea las 19 tablas y carga los datos iniciales: laboratorios, carreras y los equ
 php scripts/crear-admin.php correo@puertopenasco.tecnm.mx "Nombre" "Apellido"
 ```
 
-Pide la contraseña al correrlo, para que no quede en el historial. Mientras se escribe, se ve en pantalla.
+Pide la contraseña al correrlo, para que no quede en el historial. Mientras se escribe, se ve en pantalla. Si la cuenta ya existe, solo le pone la contraseña nueva.
+
+También se le puede pasar por tubería (`"la contraseña" | php scripts/crear-admin.php ...`). PowerShell 5.1 antepone así una marca invisible (BOM) que el script quita; antes de esa corrección, la contraseña quedaba guardada con ella y no servía para entrar.
 
 ## 4. Importar los datos de Firebase (solo si se usaron)
 
@@ -136,7 +138,6 @@ Las direcciones de la versión con Firebase (`/AdminPanel`, `/lista-asistencias`
 
 ## 8. Después de publicar
 
-- **Cambiar la contraseña de la base anterior** (`u568725086_asistencias`) en hPanel. Estuvo publicada en el repositorio, y quitarla del código no la borra del historial de git.
 - **Quitar la autorización de MySQL remoto** cuando ya no haga falta correr scripts desde la computadora. Se vuelve a agregar en un minuto si se necesita.
 - **Dejar Firebase unas semanas sin borrar,** como respaldo. Lo ideal es de solo lectura: la aplicación anterior escribía sin iniciar sesión, así que sus reglas deben permitir escribir a cualquiera que tenga la configuración web. No se han revisado las reglas mismas.
 

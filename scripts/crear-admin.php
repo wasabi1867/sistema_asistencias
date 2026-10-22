@@ -21,8 +21,12 @@ use Asistencias\Seguridad\Contrasenas;
 function contrasenaNueva(): string
 {
     fwrite(STDOUT, 'Contraseña nueva (mínimo ' . Contrasenas::LONGITUD_MINIMA . ' caracteres): ');
+    // PowerShell 5.1 antepone la marca de UTF-8 (BOM) al pasarle texto por tubería
+    // (`"clave" | php ...`). Sin quitarla, la contraseña guardada lleva tres bytes
+    // invisibles y nadie puede entrar con ella.
+    $escrita = preg_replace('/^\xEF\xBB\xBF/', '', (string)fgets(STDIN));
     try {
-        return Contrasenas::cifrarNueva(trim((string)fgets(STDIN)));
+        return Contrasenas::cifrarNueva(trim($escrita));
     } catch (ErrorHttp $e) {
         fwrite(STDERR, $e->getMessage() . ".\n");
         exit(1);
