@@ -1,17 +1,12 @@
 import { Moon, Sun } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-/** El botón redondo de la esquina que cambia entre tema claro y oscuro. */
-export function BotonDeTema({ oscuro, alternar, className = "fixed top-4 right-4 z-50" }: { oscuro: boolean; alternar: () => void; className?: string }) {
+/** El botón que cambia entre tema claro y oscuro, para las páginas sin menú de usuario. */
+export function BotonDeTema({ oscuro, alternar }: { oscuro: boolean; alternar: () => void }) {
+  const texto = oscuro ? "Usar tema claro" : "Usar tema oscuro"
   return (
-    <button
-      type="button"
-      onClick={alternar}
-      title={oscuro ? "Tema claro" : "Tema oscuro"}
-      className={`${className} p-3 rounded-full transition-all duration-300 text-white ${
-        oscuro ? "bg-[#1C4A3F] hover:bg-[#153731]" : "bg-[#1BB827] hover:bg-[#18a423]"
-      }`}
-    >
-      {oscuro ? <Sun size={20} /> : <Moon size={20} />}
-    </button>
+    <Button type="button" variant="ghost" size="icon" onClick={alternar} title={texto} aria-label={texto}>
+      {oscuro ? <Sun /> : <Moon />}
+    </Button>
   )
 }

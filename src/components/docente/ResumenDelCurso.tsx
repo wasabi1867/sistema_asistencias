@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react"
-import { FileDown } from "lucide-react"
+import { FileSpreadsheet, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 import { api, type ResumenDeAsistencia } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { tablasExcel } from "../../lib/exportar"
+import { SinDatos } from "../comunes/Bloques"
+
+// Debajo de este porcentaje, la asistencia se marca en rojo.
+const MINIMO = 80
 
 /**
  * Asistencias, faltas y porcentaje de cada alumno del curso, sobre las clases ya
@@ -22,10 +28,10 @@ export function ResumenDelCurso({ cursoId, nombre }: { cursoId: number | null; n
   }, [cursoId])
 
   if (!cursoId) {
-    return <p className="text-sm text-gray-500">Elige un curso para ver la asistencia de sus alumnos.</p>
+    return <SinDatos icono={Users} titulo="Elige un curso" />
   }
   if (!resumen) {
-    return <p className="text-sm text-gray-500">Cargando...</p>
+    return <p className="p-5 text-sm text-muted-foreground">Cargando…</p>
   }
 
   const exportar = () =>
@@ -46,26 +52,60 @@ export function ResumenDelCurso({ cursoId, nombre }: { cursoId: number | null; n
     )
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm">{resumen.clases} clases cerradas</p>
-        <Button type="button" size="sm" onClick={exportar} disabled={resumen.alumnos.length === 0} className="bg-[#1d5631] hover:bg-[#153d23] text-white">
-          <FileDown className="w-4 h-4 mr-1" /> Excel
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
+        <p className="text-sm text-muted-foreground">
+          {resumen.clases} {resumen.clases === 1 ? "clase cerrada" : "clases cerradas"} · en rojo, menos de {MINIMO}%
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={exportar} disabled={resumen.alumnos.length === 0}>
+          <FileSpreadsheet /> Exportar a Excel
         </Button>
       </div>
-      {resumen.alumnos.length === 0 && <p className="text-sm text-gray-500">El curso todavía no tiene alumnos inscritos.</p>}
-      <ul className="space-y-1">
-        {resumen.alumnos.map((alumno) => (
-          <li key={alumno.alumnoId} className="flex justify-between items-center p-2 rounded-lg bg-[#e6ffe9] dark:bg-[#153731]/60 text-sm">
-            <span className="min-w-0 truncate">
-              {alumno.apellido} {alumno.nombre}
-            </span>
-            <span className={`shrink-0 font-semibold ${alumno.porcentaje !== null && alumno.porcentaje < 80 ? "text-red-600" : "text-[#1d5631] dark:text-[#1BB827]"}`}>
-              {alumno.porcentaje === null ? "—" : `${alumno.porcentaje}%`} <span className="font-normal opacity-70">({alumno.faltas} faltas)</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      {resumen.alumnos.length === 0 ? (
+        <SinDatos icono={Users} titulo="El curso todavía no tiene alumnos inscritos" />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Alumno</TableHead>
+              <TableHead className="text-right">Asistencias</TableHead>
+              <TableHead className="text-right">Faltas</TableHead>
+              <TableHead className="w-40">Porcentaje</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {resumen.alumnos.map((alumno) => {
+              const bajo = alumno.porcentaje !== null && alumno.porcentaje < MINIMO
+              return (
+                <TableRow key={alumno.alumnoId}>
+                  <TableCell>
+                    <p className="font-medium">
+                      {alumno.apellido} {alumno.nombre}
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">{alumno.matricula}</p>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {alumno.asistencias} <span className="text-muted-foreground">/ {alumno.clases}</span>
+                  </TableCell>
+                  <TableCell className={cn("text-right tabular-nums", alumno.faltas > 0 && bajo && "font-medium text-destructive")}>{alumno.faltas}</TableCell>
+                  <TableCell>
+                    {alumno.porcentaje === null ? (
+                      <span className="text-muted-foreground">Sin clases</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden>
+                          <div className={cn("h-full rounded-full", bajo ? "bg-destructive" : "bg-success")} style={{ width: `${alumno.porcentaje}%` }} />
+                        </div>
+                        <span className={cn("w-10 text-right text-sm font-medium tabular-nums", bajo && "text-destructive")}>{alumno.porcentaje}%</span>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      )}
     </div>
   )
 }

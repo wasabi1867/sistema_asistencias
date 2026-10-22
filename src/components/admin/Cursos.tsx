@@ -1,10 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { BarChart3, Edit, Plus, Trash2, Users } from "lucide-react"
+import { BarChart3, BookOpen, Pencil, Plus, Trash2, UserMinus, Users } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,12 +12,14 @@ import { alertas } from "../../lib/alertas"
 import { fecha, turno as textoDeTurno } from "../../lib/formato"
 import { useDatos } from "../../hooks/useDatos"
 import { ResumenDelCurso } from "../docente/ResumenDelCurso"
+import { Campo, Listado, Panel, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
 import type { PropsDeSeccion } from "./seccion"
 
 const NINGUNO = "ninguno"
 
 /** Los cursos de cada periodo: una materia que un docente imparte a un grupo. */
-export function Cursos({ c }: PropsDeSeccion) {
+export function Cursos({ irA }: PropsDeSeccion) {
   const { datos: periodos } = useDatos(() => api.periodos.listar(), [])
   const [periodo, setPeriodo] = useState<string>("")
   const { datos: cursos, recargar } = useDatos(() => (periodo ? api.cursos.listar({ periodo: Number(periodo) }) : Promise.resolve([] as Curso[])), [periodo], "No se pudieron cargar los cursos")
@@ -44,17 +45,27 @@ export function Cursos({ c }: PropsDeSeccion) {
   }
 
   if (periodos && periodos.length === 0) {
-    return <p className={c.texto}>Primero da de alta un periodo escolar en Catálogos.</p>
+    return (
+      <Panel>
+        <SinDatos icono={BookOpen} titulo="Todavía no hay periodos escolares">
+          Los cursos son de un periodo. Da de alta el primero en{" "}
+          <button type="button" className="font-medium text-primary underline-offset-4 hover:underline" onClick={() => irA("catalogos")}>
+            Carreras, periodos y laboratorios
+          </button>
+          .
+        </SinDatos>
+      </Panel>
+    )
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Select value={periodo} onValueChange={setPeriodo}>
-          <SelectTrigger className="w-64">
+          <SelectTrigger className="w-full sm:w-64" aria-label="Periodo">
             <SelectValue placeholder="Periodo" />
           </SelectTrigger>
-          <SelectContent className={c.menu}>
+          <SelectContent>
             {(periodos ?? []).map((p) => (
               <SelectItem key={p.id} value={String(p.id)}>
                 {p.nombre} {p.actual ? "(actual)" : ""}
@@ -62,61 +73,58 @@ export function Cursos({ c }: PropsDeSeccion) {
             ))}
           </SelectContent>
         </Select>
-        <Button type="button" onClick={() => setEditando("nuevo")} className={c.botonSecundario}>
-          <Plus className="w-4 h-4 mr-2" /> Nuevo curso
+        <Button type="button" onClick={() => setEditando("nuevo")}>
+          <Plus /> Nuevo curso
         </Button>
       </div>
 
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="p-0 overflow-x-auto">
+      <Listado pie={cursos ? <span className="tabular-nums">{cursos.length} cursos en el periodo</span> : undefined}>
+        {cursos?.length === 0 ? (
+          <SinDatos icono={Users} titulo="No hay cursos en este periodo">
+            Un curso junta una materia, un grupo y un docente.
+          </SinDatos>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Materia</TableHead>
-                <TableHead>Grupo</TableHead>
-                <TableHead>Docente</TableHead>
-                <TableHead>Laboratorio</TableHead>
-                <TableHead>Turno</TableHead>
-                <TableHead>Inscritos</TableHead>
-                <TableHead />
+                <TableHead className="hidden sm:table-cell">Docente</TableHead>
+                <TableHead className="hidden md:table-cell">Laboratorio</TableHead>
+                <TableHead className="hidden sm:table-cell">Turno</TableHead>
+                <TableHead className="text-right">Inscritos</TableHead>
+                <TableHead className="w-12">
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(cursos ?? []).map((curso) => (
-                <TableRow key={curso.id}>
-                  <TableCell>{curso.materia.nombre}</TableCell>
-                  <TableCell>{curso.grupo}</TableCell>
-                  <TableCell>{curso.docente ? `${curso.docente.nombre} ${curso.docente.apellido}` : <span className="text-orange-600">Sin docente</span>}</TableCell>
-                  <TableCell>{curso.laboratorio?.nombre ?? "Cualquiera"}</TableCell>
-                  <TableCell>{textoDeTurno(curso.turno)}</TableCell>
-                  <TableCell>{curso.inscritos}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setInscritos(curso)} title="Alumnos inscritos">
-                      <Users className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setResumen(curso)} title="Asistencia">
-                      <BarChart3 className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditando(curso)} title="Editar">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => eliminar(curso)} title="Eliminar" className="text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                <TableRow key={curso.id} className="cursor-pointer" onClick={() => setInscritos(curso)}>
+                  <TableCell>
+                    <span className="font-medium">{curso.materia.nombre}</span> <span className="text-muted-foreground">· {curso.grupo}</span>
+                    <span className="block text-xs text-muted-foreground sm:hidden">{curso.docente ? `${curso.docente.nombre} ${curso.docente.apellido}` : "Sin docente"}</span>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">{curso.docente ? `${curso.docente.nombre} ${curso.docente.apellido}` : <Badge variant="warning">Sin docente</Badge>}</TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">{curso.laboratorio?.nombre ?? "Cualquiera"}</TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">{textoDeTurno(curso.turno)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{curso.inscritos}</TableCell>
+                  <TableCell>
+                    <MenuDeAcciones
+                      etiqueta={`Acciones para ${curso.materia.nombre} ${curso.grupo}`}
+                      acciones={[
+                        { texto: "Alumnos inscritos", icono: Users, alElegir: () => setInscritos(curso) },
+                        { texto: "Asistencia", icono: BarChart3, alElegir: () => setResumen(curso) },
+                        { texto: "Editar", icono: Pencil, alElegir: () => setEditando(curso) },
+                        { texto: "Eliminar", icono: Trash2, peligro: true, alElegir: () => eliminar(curso) },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
-              {cursos?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 opacity-60">
-                    No hay cursos en este periodo
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        )}
+      </Listado>
 
       {editando && (
         <FormularioDeCurso
@@ -140,13 +148,16 @@ export function Cursos({ c }: PropsDeSeccion) {
       )}
       {resumen && (
         <Dialog open onOpenChange={(abierto) => !abierto && setResumen(null)}>
-          <DialogContent aria-describedby={undefined} className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="gap-0 p-0 sm:max-w-2xl">
+            <DialogHeader className="p-6 pb-4">
               <DialogTitle>
                 Asistencia de {resumen.materia.nombre} {resumen.grupo}
               </DialogTitle>
+              <DialogDescription>Sobre las clases ya cerradas del curso.</DialogDescription>
             </DialogHeader>
-            <ResumenDelCurso cursoId={resumen.id} nombre={`${resumen.materia.nombre} ${resumen.grupo}`} />
+            <div className="border-t">
+              <ResumenDelCurso cursoId={resumen.id} nombre={`${resumen.materia.nombre} ${resumen.grupo}`} />
+            </div>
           </DialogContent>
         </Dialog>
       )}
@@ -184,6 +195,7 @@ function FormularioDeCurso({ curso, periodoId, alCerrar, alGuardar }: { curso: C
       } else {
         await api.cursos.crear(cuerpo)
       }
+      alertas.breve(curso ? "Curso actualizado" : "Curso creado")
       alGuardar()
     } catch (error) {
       await alertas.error("No se pudo guardar el curso", error)
@@ -191,10 +203,9 @@ function FormularioDeCurso({ curso, periodoId, alCerrar, alGuardar }: { curso: C
   }
 
   const elegir = (clave: keyof typeof datos, etiqueta: string, opciones: { valor: string; texto: string }[], conNinguno?: string) => (
-    <div className="space-y-1">
-      <Label>{etiqueta}</Label>
+    <Campo etiqueta={etiqueta} htmlFor={`curso-${clave}`}>
       <Select value={datos[clave]} onValueChange={(v) => setDatos({ ...datos, [clave]: v })}>
-        <SelectTrigger>
+        <SelectTrigger id={`curso-${clave}`}>
           <SelectValue placeholder={`Elige ${etiqueta.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent>
@@ -206,32 +217,37 @@ function FormularioDeCurso({ curso, periodoId, alCerrar, alGuardar }: { curso: C
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </Campo>
   )
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{curso ? "Editar curso" : "Nuevo curso"}</DialogTitle>
+          <DialogDescription>Una materia con su grupo y su docente en un periodo.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={guardar} className="space-y-3">
+        <form onSubmit={guardar} className="space-y-4">
           {elegir("materiaId", "Materia", (materias ?? []).map((m) => ({ valor: String(m.id), texto: `${m.nombre}${m.carrera ? ` (${m.carrera.clave})` : ""}` })))}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {elegir("periodoId", "Periodo", (periodos ?? []).map((p) => ({ valor: String(p.id), texto: p.nombre })))}
-            <div className="space-y-1">
-              <Label htmlFor="grupo-curso">Grupo</Label>
+            <Campo etiqueta="Grupo" htmlFor="grupo-curso">
               <Input id="grupo-curso" value={datos.grupo} onChange={(e) => setDatos({ ...datos, grupo: e.target.value.toUpperCase() })} placeholder="Ej. 5A" required />
-            </div>
+            </Campo>
           </div>
           {elegir("docenteId", "Docente", (docentes ?? []).map((d) => ({ valor: String(d.id), texto: `${d.nombre} ${d.apellido}` })), "Sin docente por ahora")}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {elegir("laboratorio", "Laboratorio", (laboratorios ?? []).map((l) => ({ valor: l.clave, texto: l.nombre })), "Cualquiera")}
             {elegir("turno", "Turno", [{ valor: "matutino", texto: "Matutino" }, { valor: "vespertino", texto: "Vespertino" }], "Sin turno")}
           </div>
-          <Button type="submit" disabled={!datos.materiaId} className="w-full bg-[#1d5631] hover:bg-[#153d23] text-white">
-            Guardar
-          </Button>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={alCerrar}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={!datos.materiaId}>
+              Guardar
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
@@ -243,7 +259,8 @@ function InscritosDelCurso({ curso, alCerrar }: { curso: Curso; alCerrar: () => 
   const { datos: inscritos, recargar } = useDatos(() => api.cursos.inscritos(curso.id), [curso.id])
   const [lista, setLista] = useState("")
 
-  const inscribir = async () => {
+  const inscribir = async (e: FormEvent) => {
+    e.preventDefault()
     const matriculas = lista
       .split(/[\s,;]+/)
       .map((m) => m.trim().toUpperCase())
@@ -277,31 +294,54 @@ function InscritosDelCurso({ curso, alCerrar }: { curso: Curso; alCerrar: () => 
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {curso.materia.nombre} {curso.grupo}: {inscritos?.length ?? curso.inscritos} inscritos
+            {curso.materia.nombre} · {curso.grupo}
           </DialogTitle>
+          <DialogDescription>
+            {inscritos?.length ?? curso.inscritos} inscritos · {curso.docente ? `${curso.docente.nombre} ${curso.docente.apellido}` : "sin docente"}
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
-          <Label htmlFor="lista-matriculas">Inscribir: pega los números de control</Label>
-          <Textarea id="lista-matriculas" value={lista} onChange={(e) => setLista(e.target.value)} rows={3} placeholder="Uno por renglón, o separados por comas" />
-          <Button type="button" onClick={inscribir} className="bg-[#1d5631] hover:bg-[#153d23] text-white">
+        <form onSubmit={inscribir} className="space-y-2">
+          <Campo etiqueta="Inscribir: pega los números de control" htmlFor="lista-matriculas" ayuda="Uno por renglón, o separados por comas o espacios.">
+            <Textarea id="lista-matriculas" value={lista} onChange={(e) => setLista(e.target.value)} rows={3} />
+          </Campo>
+          <Button type="submit" disabled={!lista.trim()}>
             Inscribir
           </Button>
-        </div>
-        <ul className="space-y-1 text-sm">
-          {(inscritos ?? []).map((a) => (
-            <li key={a.id} className="flex justify-between items-center p-2 rounded-lg bg-[#e6ffe9] dark:bg-[#153731]/60">
-              <span>
-                <span className="font-mono">{a.matricula}</span> {a.apellido} {a.nombre} <span className="opacity-60">desde {fecha(a.inscritoEn)}</span>
-              </span>
-              <button type="button" onClick={() => darDeBaja(a.matricula, `${a.nombre} ${a.apellido}`)} className="text-red-500" title="Dar de baja">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </li>
-          ))}
-        </ul>
+        </form>
+        {inscritos?.length === 0 ? (
+          <div className="rounded-lg border">
+            <SinDatos icono={Users} titulo="Nadie inscrito todavía" className="py-6" />
+          </div>
+        ) : (
+          <ul className="max-h-80 divide-y overflow-y-auto rounded-lg border">
+            {(inscritos ?? []).map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="font-medium">
+                    {a.apellido} {a.nombre}
+                  </span>{" "}
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {a.matricula} · desde {fecha(a.inscritoEn)}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => darDeBaja(a.matricula, `${a.nombre} ${a.apellido}`)}
+                  aria-label={`Dar de baja a ${a.nombre} ${a.apellido}`}
+                  title="Dar de baja"
+                >
+                  <UserMinus />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </DialogContent>
     </Dialog>
   )

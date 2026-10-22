@@ -11,9 +11,10 @@ export default function Document() {
       <Head>
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <meta name="theme-color" content="#800040" />
+        <meta name="description" content="Registro de entradas y asistencias a los laboratorios del Instituto Tecnológico Superior de Puerto Peñasco." />
+        <meta name="theme-color" content="#84153f" />
       </Head>
-      <body className="antialiased">
+      <body>
         <script dangerouslySetInnerHTML={{ __html: aplicarTemaGuardado }} />
         <Main />
         <NextScript />

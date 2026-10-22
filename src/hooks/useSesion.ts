@@ -4,7 +4,7 @@ import { api, type Cuenta, type Rol } from "../lib/api"
 
 /**
  * La cuenta con sesión, tal como la conoce la API. Si no hay sesión o su rol no es uno
- * de `roles`, regresa a la página principal: quien decide es el servidor, no lo que
+ * de `roles`, lleva al inicio de sesión: quien decide es el servidor, no lo que
  * haya guardado el navegador.
  */
 export function useSesion(roles: Rol[]) {
@@ -19,13 +19,13 @@ export function useSesion(roles: Rol[]) {
       .then((cuenta) => {
         if (!vigente) return
         if (!cuenta || !rolesClave.split(",").includes(cuenta.rol)) {
-          router.push("/")
+          router.push("/entrar")
           return
         }
         setUsuario(cuenta)
       })
       .catch(() => {
-        if (vigente) router.push("/")
+        if (vigente) router.push("/entrar")
       })
     return () => {
       vigente = false

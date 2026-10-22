@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, type Alumno, type Carrera, type Turno } from "../../../lib/api"
 import { alertas } from "../../../lib/alertas"
+import { Campo } from "../../comunes/Bloques"
 
 const SIN = "ninguno"
 
@@ -38,7 +38,7 @@ export function FormularioDeAlumno({ alumno, carreras, alCerrar, alGuardar }: { 
       } else {
         await api.alumnos.crear(cuerpo)
       }
-      await alertas.breve(alumno ? "Alumno actualizado" : "Alumno dado de alta")
+      alertas.breve(alumno ? "Alumno actualizado" : "Alumno dado de alta")
       alGuardar()
     } catch (error) {
       await alertas.error("No se pudo guardar el alumno", error)
@@ -46,32 +46,31 @@ export function FormularioDeAlumno({ alumno, carreras, alCerrar, alGuardar }: { 
   }
 
   const texto = (clave: "matricula" | "nombre" | "apellido" | "grupo", etiqueta: string, obligatorio = true) => (
-    <div className="space-y-1">
-      <Label htmlFor={`alumno-${clave}`}>{etiqueta}</Label>
+    <Campo etiqueta={etiqueta} htmlFor={`alumno-${clave}`}>
       <Input
         id={`alumno-${clave}`}
         value={datos[clave]}
         onChange={(e) => setDatos({ ...datos, [clave]: clave === "matricula" ? e.target.value.toUpperCase().trim() : e.target.value })}
         required={obligatorio}
       />
-    </div>
+    </Campo>
   )
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{alumno ? `Editar a ${alumno.nombre} ${alumno.apellido}` : "Nuevo alumno"}</DialogTitle>
+          <DialogDescription>Los datos escolares se pueden dejar vacíos y completar después.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={guardar} className="grid grid-cols-2 gap-3">
+        <form onSubmit={guardar} className="grid grid-cols-2 gap-4">
           {texto("matricula", "Número de control")}
           {texto("grupo", "Grupo", false)}
           {texto("nombre", "Nombre")}
           {texto("apellido", "Apellidos")}
-          <div className="space-y-1 col-span-2">
-            <Label>Carrera</Label>
+          <Campo etiqueta="Carrera" htmlFor="alumno-carrera" className="col-span-2">
             <Select value={datos.carrera} onValueChange={(v) => setDatos({ ...datos, carrera: v })}>
-              <SelectTrigger>
+              <SelectTrigger id="alumno-carrera">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -83,11 +82,10 @@ export function FormularioDeAlumno({ alumno, carreras, alCerrar, alGuardar }: { 
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Semestre</Label>
+          </Campo>
+          <Campo etiqueta="Semestre" htmlFor="alumno-semestre">
             <Select value={datos.semestre} onValueChange={(v) => setDatos({ ...datos, semestre: v })}>
-              <SelectTrigger>
+              <SelectTrigger id="alumno-semestre">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -99,11 +97,10 @@ export function FormularioDeAlumno({ alumno, carreras, alCerrar, alGuardar }: { 
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Turno</Label>
+          </Campo>
+          <Campo etiqueta="Turno" htmlFor="alumno-turno">
             <Select value={datos.turno} onValueChange={(v) => setDatos({ ...datos, turno: v })}>
-              <SelectTrigger>
+              <SelectTrigger id="alumno-turno">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -112,10 +109,13 @@ export function FormularioDeAlumno({ alumno, carreras, alCerrar, alGuardar }: { 
                 <SelectItem value="vespertino">Vespertino</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <Button type="submit" className="col-span-2 bg-[#1d5631] hover:bg-[#153d23] text-white">
-            Guardar
-          </Button>
+          </Campo>
+          <DialogFooter className="col-span-2">
+            <Button type="button" variant="outline" onClick={alCerrar}>
+              Cancelar
+            </Button>
+            <Button type="submit">Guardar</Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

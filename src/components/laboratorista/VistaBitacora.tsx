@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from "react"
-import { FileDown, Search } from "lucide-react"
+import { FileSpreadsheet, ScrollText } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, type EntradaDeBitacora } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { tablasExcel } from "../../lib/exportar"
 import { fechaHora, hoy } from "../../lib/formato"
+import { Paginador } from "../comunes/Paginador"
+import { CampoDeBusqueda, Listado, SinDatos } from "../comunes/Bloques"
 import type { PropsDeVista } from "./vista"
 
 /** Las acciones que anota la API, en palabras. Las que vienen de Firebase se muestran tal cual. */
@@ -56,7 +56,7 @@ const TABLAS: Record<string, string> = {
 const POR_PAGINA = 50
 
 /** Quién hizo qué, cuándo y desde dónde. Solo se consulta: nadie la puede editar. */
-export function VistaBitacora({ laboratorio, c }: PropsDeVista) {
+export function VistaBitacora({ laboratorio }: PropsDeVista) {
   const [desde, setDesde] = useState(hoy())
   const [hasta, setHasta] = useState(hoy())
   const [accion, setAccion] = useState("todas")
@@ -89,6 +89,12 @@ export function VistaBitacora({ laboratorio, c }: PropsDeVista) {
     cargar()
   }, [cargar])
 
+  // Cualquier cambio de filtro regresa a la primera página.
+  const filtrar = (cambio: () => void) => {
+    cambio()
+    setPagina(1)
+  }
+
   const exportar = async () => {
     try {
       const todo = await api.bitacora.consultar(filtros({ porPagina: 1000 }))
@@ -109,37 +115,30 @@ export function VistaBitacora({ laboratorio, c }: PropsDeVista) {
     }
   }
 
-  const paginas = respuesta ? Math.max(1, Math.ceil(respuesta.total / POR_PAGINA)) : 1
-
   return (
     <div className="space-y-4">
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-          <div className="space-y-1">
-            <Label htmlFor="desde-bitacora">Desde</Label>
-            <Input id="desde-bitacora" type="date" value={desde} onChange={(e) => {
-                setDesde(e.target.value)
-                setPagina(1)
-              }} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="hasta-bitacora">Hasta</Label>
-            <Input id="hasta-bitacora" type="date" value={hasta} onChange={(e) => {
-                setHasta(e.target.value)
-                setPagina(1)
-              }} />
-          </div>
-          <div className="space-y-1">
-            <Label>Acción</Label>
-            <Select value={accion} onValueChange={(v) => {
-                setAccion(v)
-                setPagina(1)
-              }}>
-              <SelectTrigger>
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" onClick={exportar} disabled={!respuesta?.total}>
+          <FileSpreadsheet /> Exportar a Excel
+        </Button>
+      </div>
+      <Listado
+        filtros={
+          <>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Desde
+              <Input type="date" value={desde} onChange={(e) => filtrar(() => setDesde(e.target.value))} className="w-40" aria-label="Desde" />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              hasta
+              <Input type="date" value={hasta} onChange={(e) => filtrar(() => setHasta(e.target.value))} className="w-40" aria-label="Hasta" />
+            </label>
+            <Select value={accion} onValueChange={(v) => filtrar(() => setAccion(v))}>
+              <SelectTrigger className="w-full sm:w-56" aria-label="Acción">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className={c.menu}>
-                <SelectItem value="todas">Todas</SelectItem>
+              <SelectContent>
+                <SelectItem value="todas">Todas las acciones</SelectItem>
                 {Object.entries(ACCIONES).map(([valor, nombre]) => (
                   <SelectItem key={valor} value={valor}>
                     {nombre}
@@ -147,35 +146,28 @@ export function VistaBitacora({ laboratorio, c }: PropsDeVista) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="texto-bitacora">Buscar</Label>
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-2 top-3 opacity-50" />
-              <Input id="texto-bitacora" value={texto} onChange={(e) => {
-                setTexto(e.target.value)
-                setPagina(1)
-              }} placeholder="Usuario o detalle" className="pl-8" />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant={soloEsteLaboratorio ? "default" : "outline"} onClick={() => {
-                setSoloEsteLaboratorio(!soloEsteLaboratorio)
-                setPagina(1)
-              }} className="flex-1">
-              {soloEsteLaboratorio ? "Este laboratorio" : "Todos"}
-            </Button>
-            <Button type="button" onClick={exportar} className={c.botonSecundario} title="Exportar a Excel">
-              <FileDown className="w-4 h-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <p className={`text-sm ${c.textoSuave}`}>{respuesta ? `${respuesta.total} registros` : "Cargando..."}</p>
-
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="p-0 overflow-x-auto">
+            <Select value={soloEsteLaboratorio ? "este" : "todos"} onValueChange={(v) => filtrar(() => setSoloEsteLaboratorio(v === "este"))}>
+              <SelectTrigger className="w-full sm:w-52" aria-label="Laboratorio">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los laboratorios</SelectItem>
+                <SelectItem value="este">Solo {laboratorio.nombre}</SelectItem>
+              </SelectContent>
+            </Select>
+            <CampoDeBusqueda etiqueta="Usuario o detalle" value={texto} onChange={(e) => filtrar(() => setTexto(e.target.value))} className="min-w-[12rem] flex-1" />
+          </>
+        }
+        pie={
+          <>
+            <span className="tabular-nums">{respuesta ? `${respuesta.total} registros` : "Cargando…"}</span>
+            {respuesta && <Paginador pagina={pagina} total={respuesta.total} porPagina={POR_PAGINA} alCambiar={setPagina} />}
+          </>
+        }
+      >
+        {respuesta?.entradas.length === 0 ? (
+          <SinDatos icono={ScrollText} titulo="No hay registros con esos filtros" />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -183,49 +175,29 @@ export function VistaBitacora({ laboratorio, c }: PropsDeVista) {
                 <TableHead>Usuario</TableHead>
                 <TableHead>Acción</TableHead>
                 <TableHead>Detalles</TableHead>
-                <TableHead>Dirección</TableHead>
+                <TableHead className="hidden lg:table-cell">Dirección</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(respuesta?.entradas ?? []).map((entrada) => (
                 <TableRow key={entrada.id}>
-                  <TableCell className="whitespace-nowrap">{fechaHora(entrada.fecha)}</TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{fechaHora(entrada.fecha)}</TableCell>
                   <TableCell>
-                    {entrada.usuario} {entrada.rol && <span className="opacity-60">({entrada.rol})</span>}
+                    <span className="font-medium">{entrada.usuario}</span>
+                    {entrada.rol && <span className="block text-xs text-muted-foreground">{entrada.rol}</span>}
                   </TableCell>
                   <TableCell>
                     {ACCIONES[entrada.accion] ?? entrada.accion}
-                    {entrada.entidad && <span className="opacity-60"> · {TABLAS[entrada.entidad] ?? entrada.entidad}</span>}
+                    {entrada.entidad && <span className="block text-xs text-muted-foreground">{TABLAS[entrada.entidad] ?? entrada.entidad}</span>}
                   </TableCell>
-                  <TableCell className="max-w-md">{entrada.detalles}</TableCell>
-                  <TableCell className="opacity-70">{entrada.ip}</TableCell>
+                  <TableCell className="max-w-md text-muted-foreground">{entrada.detalles}</TableCell>
+                  <TableCell className="hidden font-mono text-xs text-muted-foreground lg:table-cell">{entrada.ip}</TableCell>
                 </TableRow>
               ))}
-              {respuesta?.entradas.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 opacity-60">
-                    No hay registros con esos filtros
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      {paginas > 1 && (
-        <div className="flex items-center justify-center gap-3">
-          <Button type="button" variant="outline" disabled={pagina <= 1} onClick={() => setPagina(pagina - 1)}>
-            Anterior
-          </Button>
-          <span className="text-sm">
-            Página {pagina} de {paginas}
-          </span>
-          <Button type="button" variant="outline" disabled={pagina >= paginas} onClick={() => setPagina(pagina + 1)}>
-            Siguiente
-          </Button>
-        </div>
-      )}
+        )}
+      </Listado>
     </div>
   )
 }

@@ -2,103 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
+/*
+ * Los colores de la aplicación. El guinda del Tecnológico es el color principal en los
+ * dos temas; el verde se reserva para lo que está bien ("libre", "dentro", "listo"),
+ * el ámbar para lo que pide atención y el rojo para lo que no tiene vuelta atrás.
+ * Cada valor es "matiz saturación luminosidad", para que Tailwind pueda darle opacidad.
+ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 30 20% 97%;
+    --foreground: 340 18% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 340 18% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --popover-foreground: 340 18% 12%;
+    --primary: 334 72% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 16% 93%;
+    --secondary-foreground: 340 18% 16%;
+    --muted: 30 16% 94%;
+    --muted-foreground: 340 6% 40%;
+    --accent: 334 45% 95%;
+    --accent-foreground: 334 72% 28%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 63% 25%;
+    --success-foreground: 0 0% 100%;
+    --warning: 30 95% 29%;
+    --warning-foreground: 0 0% 100%;
+    --info: 210 75% 40%;
+    --info-foreground: 0 0% 100%;
+    --border: 30 12% 87%;
+    --input: 30 12% 82%;
+    --ring: 334 72% 30%;
+    --radius: 0.625rem;
+    color-scheme: light;
   }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
 
-@layer base {
+  .dark {
+    --background: 340 10% 7%;
+    --foreground: 30 15% 94%;
+    --card: 340 8% 10%;
+    --card-foreground: 30 15% 94%;
+    --popover: 340 8% 11%;
+    --popover-foreground: 30 15% 94%;
+    --primary: 334 62% 66%;
+    --primary-foreground: 340 40% 9%;
+    --secondary: 340 6% 16%;
+    --secondary-foreground: 30 15% 94%;
+    --muted: 340 6% 15%;
+    --muted-foreground: 30 6% 66%;
+    --accent: 334 28% 19%;
+    --accent-foreground: 334 75% 84%;
+    --destructive: 0 80% 67%;
+    --destructive-foreground: 0 40% 8%;
+    --success: 145 52% 52%;
+    --success-foreground: 145 60% 7%;
+    --warning: 38 92% 58%;
+    --warning-foreground: 32 60% 8%;
+    --info: 210 85% 66%;
+    --info-foreground: 210 60% 8%;
+    --border: 340 6% 19%;
+    --input: 340 6% 25%;
+    --ring: 334 62% 66%;
+    color-scheme: dark;
+  }
+
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Las cifras se alinean en tablas, contadores y horas. */
+  table,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-/* Agregados estilos para SweetAlert2 */
-.swal2-container {
-  z-index: 10000 !important;
-}
-
-/* Los avisos de SweetAlert se agregan al final de <body>. Con un panel lateral o un
-   diálogo de Radix abierto, Radix pone pointer-events: none en <body> y el aviso no
-   recibía clics: no se podía apretar "OK" (por ejemplo, al aprobar una solicitud
-   desde el panel de solicitudes del administrador). */
-.swal2-container,
-.swal-overlay--show-modal {
-  pointer-events: auto !important;
+/* Quien pidió menos movimiento en su sistema no ve animaciones ni transiciones. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

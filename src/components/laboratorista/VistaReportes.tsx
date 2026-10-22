@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { FileDown, FileText, RefreshCw, Settings } from "lucide-react"
+import { BookOpen, CalendarDays, FileSpreadsheet, FileText, Presentation, RefreshCw, Settings2, Users } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,7 +10,9 @@ import { api, type Clase } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { hojaDeClase, hojaDeRegistroExcel, hojaDeRegistroPdf, reporteDeUsoExcel, reporteDeUsoPdf } from "../../lib/exportar"
 import { fecha, hora, hoy, inicioDeMes } from "../../lib/formato"
-import { encabezadoDeTarjeta, type PropsDeVista } from "./vista"
+import { CampoDeBusqueda, Campo, Cifra, Listado, Panel, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
+import type { PropsDeVista } from "./vista"
 
 /** Las clases de un laboratorio en un rango de fechas, con quiénes asistieron. */
 function useClases(laboratorio: string, desde: string, hasta: string) {
@@ -35,21 +36,21 @@ function useClases(laboratorio: string, desde: string, hasta: string) {
 export function VistaReportes(props: PropsDeVista) {
   return (
     <Tabs defaultValue="hoy">
-      <TabsList className="mb-4">
+      <TabsList>
         <TabsTrigger value="hoy">Hoy</TabsTrigger>
         <TabsTrigger value="periodo">Por periodo</TabsTrigger>
       </TabsList>
-      <TabsContent value="hoy">
+      <TabsContent value="hoy" className="mt-6">
         <ReporteDeHoy {...props} />
       </TabsContent>
-      <TabsContent value="periodo">
+      <TabsContent value="periodo" className="mt-6">
         <ReporteDePeriodo {...props} />
       </TabsContent>
     </Tabs>
   )
 }
 
-function ReporteDeHoy({ laboratorio, oscuro, c }: PropsDeVista) {
+function ReporteDeHoy({ laboratorio }: PropsDeVista) {
   const dia = hoy()
   const { clases, cargar } = useClases(laboratorio.clave, dia, dia)
   const [filtro, setFiltro] = useState("")
@@ -61,60 +62,82 @@ function ReporteDeHoy({ laboratorio, oscuro, c }: PropsDeVista) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          ["Clases hoy", clases?.length ?? 0],
-          ["Materias", new Set((clases ?? []).map((cl) => cl.materia)).size],
-          ["Personas atendidas", personas],
-        ].map(([titulo, valor]) => (
-          <Card key={titulo} className={`${c.tarjeta} border-none shadow-lg`}>
-            <CardHeader className={`${encabezadoDeTarjeta(oscuro)} py-3`}>
-              <CardTitle className="text-sm font-medium">{titulo}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 text-3xl font-bold text-[#1BB827]">{valor}</CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Cifra etiqueta="Clases hoy" valor={clases?.length} icono={Presentation} />
+        <Cifra etiqueta="Materias" valor={clases ? new Set(clases.map((cl) => cl.materia)).size : undefined} icono={BookOpen} />
+        <Cifra etiqueta="Personas atendidas" valor={clases ? personas : undefined} icono={Users} />
       </div>
 
-      <div className="flex gap-2">
-        <Input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Buscar por materia, práctica o docente" aria-label="Buscar por materia, práctica o docente" />
-        <Button type="button" variant="outline" onClick={cargar} title="Actualizar">
-          <RefreshCw className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {clases && visibles.length === 0 && <p className={c.textoSuave}>No hay clases {filtro ? "que coincidan" : "hoy en este laboratorio"}.</p>}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {visibles.map((clase) => (
-          <Card key={clase.id} className={`${c.tarjeta} border-none shadow-lg`}>
-            <CardContent className="pt-6 space-y-2">
-              <div className="flex justify-between gap-2">
-                <div>
-                  <p className={`font-bold ${c.titulo}`}>
-                    {clase.materia} {clase.grupo ? `(${clase.grupo})` : ""}
-                  </p>
-                  <p className={`text-sm ${c.textoSuave}`}>
-                    {clase.practica?.titulo ?? "Sin práctica"} · {clase.docente ?? "Sin docente"}
-                  </p>
-                </div>
-                <span className={`h-fit px-2 py-1 rounded-full text-xs ${clase.abierta ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                  {clase.abierta ? "En curso" : `${hora(clase.abiertaEn)}–${hora(clase.cerradaEn)}`}
-                </span>
-              </div>
-              <p className="text-sm">{clase.asistentes} asistentes</p>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" onClick={() => hojaDeRegistroPdf(hojaDeClase(clase))} className={c.botonSecundario}>
-                  <FileText className="w-4 h-4 mr-1" /> PDF
-                </Button>
-                <Button type="button" size="sm" onClick={() => hojaDeRegistroExcel(hojaDeClase(clase))} className={c.botonPrimario}>
-                  <FileDown className="w-4 h-4 mr-1" /> Excel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Listado
+        filtros={
+          <>
+            <CampoDeBusqueda etiqueta="Buscar por materia, práctica o docente" value={filtro} onChange={(e) => setFiltro(e.target.value)} className="min-w-[14rem] flex-1" />
+            <Button type="button" variant="outline" onClick={cargar}>
+              <RefreshCw /> Actualizar
+            </Button>
+          </>
+        }
+      >
+        {clases && visibles.length === 0 ? (
+          <SinDatos icono={CalendarDays} titulo={filtro ? "No hay clases que coincidan" : "No hay clases hoy en este laboratorio"} />
+        ) : (
+          <TablaDeClases clases={visibles} conFecha={false} />
+        )}
+      </Listado>
     </div>
+  )
+}
+
+/** Las clases con su horario, asistentes y la descarga de su hoja de registro. */
+function TablaDeClases({ clases, conFecha }: { clases: Clase[]; conFecha: boolean }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {conFecha && <TableHead>Fecha</TableHead>}
+          <TableHead>Materia</TableHead>
+          <TableHead className="hidden md:table-cell">Docente</TableHead>
+          <TableHead>Horario</TableHead>
+          <TableHead className="text-right">Asistentes</TableHead>
+          <TableHead className="w-12">
+            <span className="sr-only">Acciones</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {clases.map((clase) => (
+          <TableRow key={clase.id}>
+            {conFecha && <TableCell className="whitespace-nowrap">{fecha(clase.abiertaEn)}</TableCell>}
+            <TableCell>
+              <p className="font-medium">
+                {clase.materia} {clase.grupo && <span className="font-normal text-muted-foreground">· {clase.grupo}</span>}
+              </p>
+              <p className="text-xs text-muted-foreground">{clase.practica?.titulo ?? "Sin práctica"}</p>
+            </TableCell>
+            <TableCell className="hidden text-muted-foreground md:table-cell">{clase.docente ?? "Sin docente"}</TableCell>
+            <TableCell className="whitespace-nowrap tabular-nums">
+              {clase.abierta ? (
+                <Badge variant="success">En curso</Badge>
+              ) : (
+                <>
+                  {hora(clase.abiertaEn)} – {hora(clase.cerradaEn)}
+                </>
+              )}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">{clase.asistentes}</TableCell>
+            <TableCell>
+              <MenuDeAcciones
+                etiqueta={`Descargar la hoja de ${clase.materia}`}
+                acciones={[
+                  { texto: "Hoja en PDF", icono: FileText, alElegir: () => hojaDeRegistroPdf(hojaDeClase(clase)) },
+                  { texto: "Hoja en Excel", icono: FileSpreadsheet, alElegir: () => hojaDeRegistroExcel(hojaDeClase(clase)) },
+                ]}
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
 
@@ -139,7 +162,7 @@ const RANGOS: Record<string, () => [string, string]> = {
   "Últimos 3 meses": () => [mesAnterior(hoy(), 2), hoy()],
 }
 
-function ReporteDePeriodo({ laboratorio, oscuro, c }: PropsDeVista) {
+function ReporteDePeriodo({ laboratorio }: PropsDeVista) {
   const [desde, setDesde] = useState(inicioDeMes())
   const [hasta, setHasta] = useState(hoy())
   const { clases } = useClases(laboratorio.clave, desde, hasta)
@@ -154,13 +177,21 @@ function ReporteDePeriodo({ laboratorio, oscuro, c }: PropsDeVista) {
 
   // Lo que la persona escribió en el encabezado se recuerda en esta computadora.
   useEffect(() => {
-    const guardado = localStorage.getItem("encabezadoDeReporte")
-    if (guardado) setEncabezado((actual) => ({ ...actual, ...JSON.parse(guardado) }))
+    try {
+      const guardado = localStorage.getItem("encabezadoDeReporte")
+      if (guardado) setEncabezado((actual) => ({ ...actual, ...JSON.parse(guardado) }))
+    } catch {
+      // Sin almacenamiento o con un valor dañado: se queda el de siempre.
+    }
   }, [])
   const cambiarEncabezado = (cambios: Partial<typeof encabezado>) => {
     const nuevo = { ...encabezado, ...cambios }
     setEncabezado(nuevo)
-    localStorage.setItem("encabezadoDeReporte", JSON.stringify(nuevo))
+    try {
+      localStorage.setItem("encabezadoDeReporte", JSON.stringify(nuevo))
+    } catch {
+      // No pasa nada si no se recuerda.
+    }
   }
 
   const cerradas = useMemo(() => (clases ?? []).filter((clase) => !clase.abierta), [clases])
@@ -176,14 +207,30 @@ function ReporteDePeriodo({ laboratorio, oscuro, c }: PropsDeVista) {
 
   return (
     <div className="space-y-6">
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="pt-6 space-y-4">
+      <Panel
+        titulo="Reporte de uso"
+        descripcion="Con el formato del ITSPP: las prácticas del periodo y cuántos alumnos atendió el laboratorio."
+        acciones={
+          <>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setConfigurar(!configurar)} aria-expanded={configurar}>
+              <Settings2 /> Encabezado
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => reporteDeUsoExcel(datos, filtradas)} disabled={filtradas.length === 0}>
+              <FileSpreadsheet /> Excel
+            </Button>
+            <Button type="button" size="sm" onClick={() => reporteDeUsoPdf(datos, filtradas)} disabled={filtradas.length === 0}>
+              <FileText /> PDF
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {Object.entries(RANGOS).map(([nombre, rango]) => (
               <Button
                 key={nombre}
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => {
                   const [d, h] = rango()
@@ -195,22 +242,19 @@ function ReporteDePeriodo({ laboratorio, oscuro, c }: PropsDeVista) {
               </Button>
             ))}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="desde-reporte">Desde</Label>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Campo etiqueta="Desde" htmlFor="desde-reporte">
               <Input id="desde-reporte" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="hasta-reporte">Hasta</Label>
+            </Campo>
+            <Campo etiqueta="Hasta" htmlFor="hasta-reporte">
               <Input id="hasta-reporte" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Docente</Label>
+            </Campo>
+            <Campo etiqueta="Docente" htmlFor="docente-reporte">
               <Select value={docente} onValueChange={setDocente}>
-                <SelectTrigger>
+                <SelectTrigger id="docente-reporte">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className={c.menu}>
+                <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
                   {docentes.map((d) => (
                     <SelectItem key={d} value={d}>
@@ -219,14 +263,13 @@ function ReporteDePeriodo({ laboratorio, oscuro, c }: PropsDeVista) {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Materia</Label>
+            </Campo>
+            <Campo etiqueta="Materia" htmlFor="materia-reporte">
               <Select value={materia} onValueChange={setMateria}>
-                <SelectTrigger>
+                <SelectTrigger id="materia-reporte">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className={c.menu}>
+                <SelectContent>
                   <SelectItem value="todas">Todas</SelectItem>
                   {materias.map((m) => (
                     <SelectItem key={m} value={m}>
@@ -235,85 +278,33 @@ function ReporteDePeriodo({ laboratorio, oscuro, c }: PropsDeVista) {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => reporteDeUsoPdf(datos, filtradas)} disabled={filtradas.length === 0} className={c.botonSecundario}>
-              <FileText className="w-4 h-4 mr-2" /> Reporte en PDF
-            </Button>
-            <Button type="button" onClick={() => reporteDeUsoExcel(datos, filtradas)} disabled={filtradas.length === 0} className={c.botonPrimario}>
-              <FileDown className="w-4 h-4 mr-2" /> Reporte en Excel
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setConfigurar(!configurar)}>
-              <Settings className="w-4 h-4 mr-2" /> Encabezado del reporte
-            </Button>
+            </Campo>
           </div>
           {configurar && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Input value={encabezado.division} onChange={(e) => cambiarEncabezado({ division: e.target.value })} placeholder="División" aria-label="División" />
-              <Input value={encabezado.subdireccion} onChange={(e) => cambiarEncabezado({ subdireccion: e.target.value })} placeholder="Subdirección" aria-label="Subdirección" />
-              <Input value={encabezado.responsable} onChange={(e) => cambiarEncabezado({ responsable: e.target.value })} placeholder="Responsable del laboratorio" aria-label="Responsable del laboratorio" />
+            <div className="grid gap-4 rounded-lg border bg-muted/40 p-4 md:grid-cols-3">
+              <Campo etiqueta="División" htmlFor="division-reporte">
+                <Input id="division-reporte" value={encabezado.division} onChange={(e) => cambiarEncabezado({ division: e.target.value })} />
+              </Campo>
+              <Campo etiqueta="Subdirección" htmlFor="subdireccion-reporte">
+                <Input id="subdireccion-reporte" value={encabezado.subdireccion} onChange={(e) => cambiarEncabezado({ subdireccion: e.target.value })} />
+              </Campo>
+              <Campo etiqueta="Responsable del laboratorio" htmlFor="responsable-reporte">
+                <Input id="responsable-reporte" value={encabezado.responsable} onChange={(e) => cambiarEncabezado({ responsable: e.target.value })} />
+              </Campo>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          ["Prácticas", filtradas.length],
-          ["Alumnos atendidos", total],
-          ["Promedio por práctica", filtradas.length ? (total / filtradas.length).toFixed(1) : "0"],
-        ].map(([titulo, valor]) => (
-          <Card key={titulo} className={`${c.tarjeta} border-none shadow-lg`}>
-            <CardHeader className={`${encabezadoDeTarjeta(oscuro)} py-3`}>
-              <CardTitle className="text-sm font-medium">{titulo}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 text-3xl font-bold text-[#1BB827]">{valor}</CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Cifra etiqueta="Prácticas" valor={clases ? filtradas.length : undefined} icono={Presentation} />
+        <Cifra etiqueta="Alumnos atendidos" valor={clases ? total : undefined} icono={Users} />
+        <Cifra etiqueta="Promedio por práctica" valor={clases ? (filtradas.length ? (total / filtradas.length).toFixed(1) : "0") : undefined} detalle={porMateria[0] ? `Más prácticas: ${porMateria[0][0]}` : undefined} />
       </div>
 
-      {porMateria.length > 0 && (
-        <p className={`text-sm ${c.textoSuave}`}>
-          Más prácticas: {porMateria.slice(0, 5).map(([m, n]) => `${m} (${n})`).join(", ")}
-        </p>
-      )}
-
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Docente</TableHead>
-                <TableHead>Materia</TableHead>
-                <TableHead>Práctica</TableHead>
-                <TableHead>Grupo</TableHead>
-                <TableHead className="text-right">Alumnos</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtradas.map((clase) => (
-                <TableRow key={clase.id}>
-                  <TableCell>{fecha(clase.abiertaEn)}</TableCell>
-                  <TableCell>{clase.docente}</TableCell>
-                  <TableCell>{clase.materia}</TableCell>
-                  <TableCell>{clase.practica?.titulo}</TableCell>
-                  <TableCell>{clase.grupo}</TableCell>
-                  <TableCell className="text-right">{clase.asistentes}</TableCell>
-                </TableRow>
-              ))}
-              {clases && filtradas.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 opacity-60">
-                    No hay clases cerradas en ese periodo
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Listado pie={porMateria.length > 1 ? <span>Por materia: {porMateria.slice(0, 5).map(([m, n]) => `${m} (${n})`).join(", ")}</span> : undefined}>
+        {clases && filtradas.length === 0 ? <SinDatos icono={CalendarDays} titulo="No hay clases cerradas en ese periodo" /> : <TablaDeClases clases={filtradas} conFecha />}
+      </Listado>
     </div>
   )
 }

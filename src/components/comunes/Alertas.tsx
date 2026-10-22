@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, HelpCircle, Info, XCircle, type LucideIcon
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import { estadoDeLasAlertas, suscribirse, type Alerta, type AvisoBreve } from "../../lib/alertas"
 
 const ICONO: Record<Alerta["tipo"], LucideIcon | null> = {
@@ -17,18 +18,13 @@ const ICONO: Record<Alerta["tipo"], LucideIcon | null> = {
 }
 
 const COLOR_DEL_ICONO: Record<Alerta["tipo"], string> = {
-  exito: "text-[#1BB827]",
-  info: "text-sky-500",
-  aviso: "text-amber-500",
-  error: "text-red-500",
-  confirmar: "text-amber-500",
+  exito: "bg-success/15 text-success",
+  info: "bg-info/15 text-info",
+  aviso: "bg-warning/15 text-warning",
+  error: "bg-destructive/15 text-destructive",
+  confirmar: "bg-accent text-accent-foreground",
   texto: "",
 }
-
-const BOTON = "px-6 py-5 rounded-xl text-base font-medium text-white"
-const VERDE = "bg-[#1d5631] hover:bg-[#153d23]"
-const GUINDA = "bg-[#800040] hover:bg-[#5c002e]"
-const ROJO = "bg-red-600 hover:bg-red-700"
 
 /** Muestra lo que las pantallas piden con lib/alertas.ts. Se monta una sola vez, en _app. */
 export function Alertas() {
@@ -48,6 +44,7 @@ function Dialogo({ alerta }: { alerta: Alerta }) {
   const primerFoco = useRef<HTMLElement | null>(null)
   const Icono = ICONO[alerta.tipo]
   const descripcion = alerta.tipo === "texto" ? undefined : alerta.texto
+  const peligro = alerta.tipo === "confirmar" && alerta.peligro
 
   const cancelar = () => {
     if (alerta.tipo === "confirmar") {
@@ -74,13 +71,12 @@ function Dialogo({ alerta }: { alerta: Alerta }) {
     }
   }
 
-  const colorDeAceptar = alerta.tipo === "confirmar" && alerta.peligro ? ROJO : alerta.tipo === "error" || alerta.tipo === "aviso" ? GUINDA : VERDE
   const conCancelar = alerta.tipo === "confirmar" || alerta.tipo === "texto"
 
   return (
     <AlertDialog.Root open onOpenChange={(abierto) => !abierto && cancelar()}>
       <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-[100] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <AlertDialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <AlertDialog.Content
           data-tipo={alerta.tipo}
           // Al abrir, el foco va a lo que se usa primero: el campo, o Cancelar si la acción es peligrosa.
@@ -88,64 +84,72 @@ function Dialogo({ alerta }: { alerta: Alerta }) {
             e.preventDefault()
             primerFoco.current?.focus()
           }}
-          className="fixed left-1/2 top-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 text-center text-gray-800 shadow-xl dark:bg-[#1a2e25] dark:text-white data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="fixed left-1/2 top-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 text-card-foreground shadow-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <form onSubmit={aceptar}>
-            {Icono && <Icono className={`mx-auto mb-3 h-14 w-14 ${COLOR_DEL_ICONO[alerta.tipo]}`} aria-hidden />}
-            <AlertDialog.Title className="text-xl font-semibold">{alerta.titulo}</AlertDialog.Title>
-            {/* Una alerta siempre lleva descripción para los lectores de pantalla; si no hay texto, repite el título sin mostrarlo. */}
-            {alerta.tipo !== "texto" && (
-              <AlertDialog.Description className={descripcion ? "mt-2 whitespace-pre-line text-gray-600 dark:text-gray-300" : "sr-only"}>{descripcion ?? alerta.titulo}</AlertDialog.Description>
-            )}
-
-            {alerta.tipo === "texto" && (
-              <div className="mt-4 space-y-1 text-left">
-                <AlertDialog.Description asChild>
-                  <label htmlFor="texto-de-la-alerta" className={alerta.etiqueta ? "text-sm text-gray-600 dark:text-gray-300" : "sr-only"}>
-                    {alerta.etiqueta ?? alerta.titulo}
-                  </label>
-                </AlertDialog.Description>
-                {alerta.largo ? (
-                  <Textarea
-                    id="texto-de-la-alerta"
-                    ref={(e) => {
-                      primerFoco.current = e
-                    }}
-                    value={texto}
-                    onChange={(e) => {
-                      setTexto(e.target.value)
-                      setFalta(false)
-                    }}
-                    rows={3}
-                  />
-                ) : (
-                  <Input
-                    id="texto-de-la-alerta"
-                    ref={(e) => {
-                      primerFoco.current = e
-                    }}
-                    value={texto}
-                    onChange={(e) => {
-                      setTexto(e.target.value)
-                      setFalta(false)
-                    }}
-                    autoComplete="off"
-                  />
+            <div className="flex gap-4">
+              {Icono && (
+                <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", peligro ? "bg-destructive/15 text-destructive" : COLOR_DEL_ICONO[alerta.tipo])}>
+                  <Icono className="h-5 w-5" aria-hidden />
+                </div>
+              )}
+              <div className="min-w-0 flex-1 pt-1.5">
+                <AlertDialog.Title className="text-lg font-semibold leading-tight">{alerta.titulo}</AlertDialog.Title>
+                {/* Una alerta siempre lleva descripción para los lectores de pantalla; si no hay texto, repite el título sin mostrarlo. */}
+                {alerta.tipo !== "texto" && (
+                  <AlertDialog.Description className={descripcion ? "mt-2 whitespace-pre-line text-sm text-muted-foreground" : "sr-only"}>{descripcion ?? alerta.titulo}</AlertDialog.Description>
                 )}
-                {falta && <p className="text-sm text-red-600">Escribe algo para continuar</p>}
-              </div>
-            )}
 
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
+                {alerta.tipo === "texto" && (
+                  <div className="mt-3 space-y-1.5">
+                    <AlertDialog.Description asChild>
+                      <label htmlFor="texto-de-la-alerta" className={alerta.etiqueta ? "text-sm text-muted-foreground" : "sr-only"}>
+                        {alerta.etiqueta ?? alerta.titulo}
+                      </label>
+                    </AlertDialog.Description>
+                    {alerta.largo ? (
+                      <Textarea
+                        id="texto-de-la-alerta"
+                        ref={(e) => {
+                          primerFoco.current = e
+                        }}
+                        value={texto}
+                        onChange={(e) => {
+                          setTexto(e.target.value)
+                          setFalta(false)
+                        }}
+                        rows={3}
+                      />
+                    ) : (
+                      <Input
+                        id="texto-de-la-alerta"
+                        ref={(e) => {
+                          primerFoco.current = e
+                        }}
+                        value={texto}
+                        onChange={(e) => {
+                          setTexto(e.target.value)
+                          setFalta(false)
+                        }}
+                        autoComplete="off"
+                        aria-invalid={falta}
+                      />
+                    )}
+                    {falta && <p className="text-sm text-destructive">Escribe algo para continuar</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               {conCancelar && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={cancelar}
                   data-accion="cancelar"
-                  className="px-6 py-5 rounded-xl text-base dark:bg-transparent dark:text-white"
                   ref={(e) => {
-                    if (alerta.tipo === "confirmar" && alerta.peligro) primerFoco.current = e
+                    if (peligro) primerFoco.current = e
                   }}
                 >
                   Cancelar
@@ -154,9 +158,10 @@ function Dialogo({ alerta }: { alerta: Alerta }) {
               <Button
                 type="submit"
                 data-accion="aceptar"
-                className={`${BOTON} ${colorDeAceptar}`}
+                variant={peligro ? "destructive" : "default"}
+                className="sm:min-w-24"
                 ref={(e) => {
-                  if (alerta.tipo !== "texto" && !(alerta.tipo === "confirmar" && alerta.peligro)) primerFoco.current = e
+                  if (alerta.tipo !== "texto" && !peligro) primerFoco.current = e
                 }}
               >
                 {alerta.tipo === "confirmar" ? alerta.aceptar : "Aceptar"}
@@ -170,24 +175,26 @@ function Dialogo({ alerta }: { alerta: Alerta }) {
 }
 
 /**
- * Los avisos breves, arriba al centro. Van fuera de la página y con aria-live: los
- * diálogos de Radix no ocultan esas regiones, así que se anuncian aunque haya uno abierto.
+ * Los avisos breves, abajo a la derecha (abajo al centro en el teléfono), donde no tapan
+ * el encabezado. Van fuera de la página y con aria-live: los diálogos de Radix no
+ * ocultan esas regiones, así que se anuncian aunque haya uno abierto.
  */
 function AvisosBreves({ breves }: { breves: AvisoBreve[] }) {
   const [montado, setMontado] = useState(false)
   useEffect(() => setMontado(true), [])
   if (!montado) return null
   return createPortal(
-    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-4 z-[110] flex flex-col items-center gap-2 px-4">
+    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-4 z-[110] flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-6 sm:items-end">
       {breves.map((breve) => {
         const Icono = ICONO[breve.tipo]
         return (
-          <div
-            key={breve.id}
-            className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 text-gray-800 shadow-lg animate-in fade-in-0 slide-in-from-top-2 dark:border-[#1d5631]/50 dark:bg-[#1a2e25] dark:text-white"
-          >
-            {Icono && <Icono className={`h-5 w-5 shrink-0 ${COLOR_DEL_ICONO[breve.tipo]}`} aria-hidden />}
-            <span className="font-medium">{breve.titulo}</span>
+          <div key={breve.id} className="flex items-center gap-3 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-2">
+            {Icono && (
+              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", COLOR_DEL_ICONO[breve.tipo])}>
+                <Icono className="h-4 w-4" aria-hidden />
+              </span>
+            )}
+            <span className="text-sm font-medium">{breve.titulo}</span>
           </div>
         )
       })}

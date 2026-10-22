@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
-import { X } from "lucide-react"
+import { CheckCircle2, XCircle } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import { api, mensajeDeError } from "../../lib/api"
 
 /**
@@ -8,7 +10,7 @@ import { api, mensajeDeError } from "../../lib/api"
  * que escribe la matrícula y un Enter como si fuera un teclado. Quien entra así trae
  * su propio equipo.
  */
-export function EscanerDeCredencial({ laboratorio, hayClase, oscuro, alCerrar }: { laboratorio: string; hayClase: boolean; oscuro: boolean; alCerrar: () => void }) {
+export function EscanerDeCredencial({ laboratorio, hayClase, alCerrar }: { laboratorio: string; hayClase: boolean; alCerrar: () => void }) {
   const [lectura, setLectura] = useState("")
   const [mensaje, setMensaje] = useState<{ texto: string; bien: boolean } | null>(null)
   const ocupado = useRef(false)
@@ -23,9 +25,9 @@ export function EscanerDeCredencial({ laboratorio, hayClase, oscuro, alCerrar }:
     setTimeout(() => (ultima.current = ""), 3000)
     try {
       const respuesta = await api.registro.entrar({ laboratorio, matricula, equipoPropio: true })
-      setMensaje({ texto: `Asistencia registrada: ${respuesta.nombre}`, bien: true })
+      setMensaje({ texto: `Entrada registrada: ${respuesta.nombre}`, bien: true })
     } catch (error) {
-      setMensaje({ texto: mensajeDeError(error, "No se pudo registrar la asistencia"), bien: false })
+      setMensaje({ texto: mensajeDeError(error, "No se pudo registrar la entrada"), bien: false })
     } finally {
       ocupado.current = false
       setTimeout(() => setMensaje(null), 3000)
@@ -37,8 +39,8 @@ export function EscanerDeCredencial({ laboratorio, hayClase, oscuro, alCerrar }:
     let escaner: { clear: () => Promise<void> } | null = null
     let vigente = true
     import("html5-qrcode").then(({ Html5QrcodeScanner }) => {
-      if (!vigente) return
-      const nuevo = new Html5QrcodeScanner("lector-qr", { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 }, false)
+      if (!vigente || !document.getElementById("lector-qr")) return
+      const nuevo = new Html5QrcodeScanner("lector-qr", { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1 }, false)
       nuevo.render((texto) => registrar(texto.split(",")[0]?.trim().toUpperCase() ?? ""), () => undefined)
       escaner = nuevo
     })
@@ -63,29 +65,23 @@ export function EscanerDeCredencial({ laboratorio, hayClase, oscuro, alCerrar }:
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className={`relative w-full max-w-md mx-4 p-6 rounded-2xl shadow-2xl ${oscuro ? "bg-[#0f1b18] text-white" : "bg-white text-gray-900"}`}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">Registro con credencial</h3>
-          <button type="button" onClick={alCerrar} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Cerrar">
-            <X className="h-6 w-6" />
-          </button>
+    <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Registro con credencial</DialogTitle>
+          <DialogDescription>{hayClase ? "Acerca el código de tu credencial a la cámara o pásala por el lector. Se registra que traes tu propio equipo." : "No hay ninguna clase abierta."}</DialogDescription>
+        </DialogHeader>
+        <div id="lector-qr" className="w-full overflow-hidden rounded-lg [&_img]:inline [&_button]:rounded-md [&_button]:border [&_button]:px-2 [&_button]:py-1" />
+        <Input ref={campo} value={lectura} onChange={(e) => setLectura(e.target.value)} onKeyDown={alTeclear} placeholder="Esperando la credencial…" aria-label="Lectura de la credencial" autoFocus />
+        <div role="status" aria-live="polite" className="min-h-[3rem]">
+          {mensaje && (
+            <p className={cn("flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium", mensaje.bien ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
+              {mensaje.bien ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden /> : <XCircle className="h-4 w-4 shrink-0" aria-hidden />}
+              {mensaje.texto}
+            </p>
+          )}
         </div>
-        <div id="lector-qr" className="w-full mb-4" />
-        <Input
-          ref={campo}
-          value={lectura}
-          onChange={(e) => setLectura(e.target.value)}
-          onKeyDown={alTeclear}
-          placeholder="Escanea tu credencial..."
-          autoFocus
-          className={`${oscuro ? "bg-[#153731] text-white" : "bg-[#f0fff4] text-[#1C4A3F]"} border-[#1BB827]/30 rounded-xl border-2 mb-4`}
-        />
-        {mensaje && <div className={`p-3 rounded-lg text-center font-semibold ${mensaje.bien ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{mensaje.texto}</div>}
-        <p className={`text-sm text-center mt-4 ${oscuro ? "text-gray-400" : "text-gray-600"}`}>
-          {hayClase ? "Escanea tu credencial para registrar tu entrada con tu propio equipo" : "No hay clases iniciadas."}
-        </p>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

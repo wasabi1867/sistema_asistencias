@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from "react"
-import { ClipboardList, Edit, Plus, Search, Trash2 } from "lucide-react"
+import { BookOpen, ClipboardList, Pencil, Plus, Power, PowerOff, Trash2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,12 +11,13 @@ import { api, type Carrera, type Materia, type Practica } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { duracion } from "../../lib/formato"
 import { useDatos } from "../../hooks/useDatos"
-import type { PropsDeSeccion } from "./seccion"
+import { CampoDeBusqueda, Campo, Listado, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
 
 const NINGUNA = "ninguna"
 
 /** El catálogo de materias y sus prácticas comunes. */
-export function Materias({ c }: PropsDeSeccion) {
+export function Materias() {
   const { datos: carreras } = useDatos(() => api.carreras.listar(), [])
   const [texto, setTexto] = useState("")
   const [carrera, setCarrera] = useState(NINGUNA)
@@ -32,6 +32,7 @@ export function Materias({ c }: PropsDeSeccion) {
   const cambiarActiva = async (materia: Materia) => {
     try {
       await api.materias.editar(materia.id, { activa: !materia.activa })
+      alertas.breve(materia.activa ? "Materia desactivada" : "Materia activada")
       await recargar()
     } catch (error) {
       await alertas.error("No se pudo cambiar la materia", error)
@@ -50,78 +51,88 @@ export function Materias({ c }: PropsDeSeccion) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[14rem]">
-          <Search className="w-4 h-4 absolute left-2 top-3 opacity-50" />
-          <Input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Buscar por nombre o clave" aria-label="Buscar por nombre o clave" className="pl-8" />
-        </div>
-        <Select value={carrera} onValueChange={setCarrera}>
-          <SelectTrigger className="w-64">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className={c.menu}>
-            <SelectItem value={NINGUNA}>Todas las carreras</SelectItem>
-            {(carreras ?? []).map((carr) => (
-              <SelectItem key={carr.clave} value={carr.clave}>
-                {carr.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="button" variant={inactivas ? "default" : "outline"} onClick={() => setInactivas(!inactivas)}>
-          {inactivas ? "Viendo desactivadas" : "Ver desactivadas"}
-        </Button>
-        <Button type="button" onClick={() => setEditando("nueva")} className={c.botonSecundario}>
-          <Plus className="w-4 h-4 mr-2" /> Nueva materia
+      <div className="flex justify-end">
+        <Button type="button" onClick={() => setEditando("nueva")}>
+          <Plus /> Nueva materia
         </Button>
       </div>
 
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="p-0 overflow-x-auto">
+      <Listado
+        filtros={
+          <>
+            <CampoDeBusqueda etiqueta="Buscar por nombre o clave" value={texto} onChange={(e) => setTexto(e.target.value)} className="min-w-[14rem] flex-1" />
+            <Select value={carrera} onValueChange={setCarrera}>
+              <SelectTrigger className="w-full sm:w-64" aria-label="Carrera">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NINGUNA}>Todas las carreras</SelectItem>
+                {(carreras ?? []).map((carr) => (
+                  <SelectItem key={carr.clave} value={carr.clave}>
+                    {carr.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={inactivas ? "desactivadas" : "activas"} onValueChange={(v) => setInactivas(v === "desactivadas")}>
+              <SelectTrigger className="w-full sm:w-40" aria-label="Estado">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="activas">Activas</SelectItem>
+                <SelectItem value="desactivadas">Desactivadas</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        }
+        pie={materias ? <span className="tabular-nums">{materias.length} materias</span> : undefined}
+      >
+        {materias?.length === 0 ? (
+          <SinDatos icono={BookOpen} titulo="No hay materias con esos filtros" />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Clave</TableHead>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Carrera</TableHead>
+                <TableHead className="hidden md:table-cell">Carrera</TableHead>
                 <TableHead>Semestre</TableHead>
-                <TableHead />
+                <TableHead className="w-12">
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(materias ?? []).map((materia) => (
-                <TableRow key={materia.id}>
-                  <TableCell className="font-mono">{materia.clave}</TableCell>
-                  <TableCell>{materia.nombre}</TableCell>
-                  <TableCell>{materia.carrera?.nombre ?? ""}</TableCell>
+                <TableRow key={materia.id} className="cursor-pointer" onClick={() => setPracticas(materia)}>
+                  <TableCell className="font-mono text-[13px] text-muted-foreground">{materia.clave ?? "—"}</TableCell>
+                  <TableCell className="font-medium">
+                    {materia.nombre}
+                    {!materia.activa && (
+                      <Badge className="ml-2" variant="neutral">
+                        Desactivada
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">{materia.carrera?.nombre ?? "Varias"}</TableCell>
                   <TableCell>{materia.semestre ? `${materia.semestre}°` : ""}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setPracticas(materia)} title="Prácticas">
-                      <ClipboardList className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditando(materia)} title="Editar">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => cambiarActiva(materia)}>
-                      {materia.activa ? "Desactivar" : "Activar"}
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => eliminar(materia)} title="Eliminar" className="text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  <TableCell>
+                    <MenuDeAcciones
+                      etiqueta={`Acciones para ${materia.nombre}`}
+                      acciones={[
+                        { texto: "Prácticas", icono: ClipboardList, alElegir: () => setPracticas(materia) },
+                        { texto: "Editar", icono: Pencil, alElegir: () => setEditando(materia) },
+                        { texto: materia.activa ? "Desactivar" : "Activar", icono: materia.activa ? PowerOff : Power, alElegir: () => cambiarActiva(materia) },
+                        { texto: "Eliminar", icono: Trash2, peligro: true, alElegir: () => eliminar(materia) },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
-              {materias?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 opacity-60">
-                    No hay materias con esos filtros
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        )}
+      </Listado>
 
       {editando && (
         <FormularioDeMateria
@@ -161,6 +172,7 @@ function FormularioDeMateria({ materia, carreras, alCerrar, alGuardar }: { mater
       } else {
         await api.materias.crear(cuerpo)
       }
+      alertas.breve(materia ? "Materia actualizada" : "Materia agregada")
       alGuardar()
     } catch (error) {
       await alertas.error("No se pudo guardar la materia", error)
@@ -169,23 +181,21 @@ function FormularioDeMateria({ materia, carreras, alCerrar, alGuardar }: { mater
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{materia ? "Editar materia" : "Nueva materia"}</DialogTitle>
+          <DialogDescription>Las materias son el catálogo; cada curso del periodo es una materia con su grupo.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={guardar} className="grid grid-cols-2 gap-3">
-          <div className="space-y-1 col-span-2">
-            <Label htmlFor="nombre-materia">Nombre</Label>
+        <form onSubmit={guardar} className="grid grid-cols-2 gap-4">
+          <Campo etiqueta="Nombre" htmlFor="nombre-materia" className="col-span-2">
             <Input id="nombre-materia" value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} required />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="clave-materia">Clave oficial (opcional)</Label>
+          </Campo>
+          <Campo etiqueta="Clave oficial (opcional)" htmlFor="clave-materia">
             <Input id="clave-materia" value={datos.clave} onChange={(e) => setDatos({ ...datos, clave: e.target.value.toUpperCase() })} placeholder="Ej. AED-1286" />
-          </div>
-          <div className="space-y-1">
-            <Label>Semestre</Label>
+          </Campo>
+          <Campo etiqueta="Semestre" htmlFor="semestre-materia">
             <Select value={datos.semestre} onValueChange={(v) => setDatos({ ...datos, semestre: v })}>
-              <SelectTrigger>
+              <SelectTrigger id="semestre-materia">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -197,11 +207,10 @@ function FormularioDeMateria({ materia, carreras, alCerrar, alGuardar }: { mater
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1 col-span-2">
-            <Label>Carrera</Label>
+          </Campo>
+          <Campo etiqueta="Carrera" htmlFor="carrera-materia" className="col-span-2">
             <Select value={datos.carrera} onValueChange={(v) => setDatos({ ...datos, carrera: v })}>
-              <SelectTrigger>
+              <SelectTrigger id="carrera-materia">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -213,10 +222,13 @@ function FormularioDeMateria({ materia, carreras, alCerrar, alGuardar }: { mater
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <Button type="submit" className="col-span-2 bg-[#1d5631] hover:bg-[#153d23] text-white">
-            Guardar
-          </Button>
+          </Campo>
+          <DialogFooter className="col-span-2">
+            <Button type="button" variant="outline" onClick={alCerrar}>
+              Cancelar
+            </Button>
+            <Button type="submit">Guardar</Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
@@ -266,51 +278,59 @@ function PracticasDeLaMateria({ materia, alCerrar }: { materia: Materia; alCerra
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Prácticas de {materia.nombre}</DialogTitle>
+          <DialogDescription>Las comunes las ven todos los docentes de la materia; cada docente además captura las suyas.</DialogDescription>
         </DialogHeader>
         {editando ? (
-          <form onSubmit={guardar} className="space-y-3">
-            <Input value={formulario.titulo} onChange={(e) => setFormulario({ ...formulario, titulo: e.target.value })} placeholder="Título" aria-label="Título" required />
-            <Textarea value={formulario.descripcion} onChange={(e) => setFormulario({ ...formulario, descripcion: e.target.value })} placeholder="Descripción" aria-label="Descripción" rows={3} />
-            <Input type="number" min={1} value={formulario.minutos} onChange={(e) => setFormulario({ ...formulario, minutos: e.target.value })} placeholder="Duración en minutos" aria-label="Duración en minutos" />
-            <div className="flex gap-2">
-              <Button type="submit" className="bg-[#1d5631] hover:bg-[#153d23] text-white">
-                Guardar
-              </Button>
+          <form onSubmit={guardar} className="space-y-4 rounded-lg border p-4">
+            <p className="text-sm font-semibold">{editando === "nueva" ? "Nueva práctica común" : `Práctica ${editando.numero}`}</p>
+            <Campo etiqueta="Título" htmlFor="titulo-comun">
+              <Input id="titulo-comun" value={formulario.titulo} onChange={(e) => setFormulario({ ...formulario, titulo: e.target.value })} required />
+            </Campo>
+            <Campo etiqueta="Descripción" htmlFor="descripcion-comun">
+              <Textarea id="descripcion-comun" value={formulario.descripcion} onChange={(e) => setFormulario({ ...formulario, descripcion: e.target.value })} rows={3} />
+            </Campo>
+            <Campo etiqueta="Duración en minutos" htmlFor="minutos-comun" className="max-w-[12rem]">
+              <Input id="minutos-comun" type="number" min={1} value={formulario.minutos} onChange={(e) => setFormulario({ ...formulario, minutos: e.target.value })} />
+            </Campo>
+            <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setEditando(null)}>
                 Cancelar
               </Button>
+              <Button type="submit">Guardar</Button>
             </div>
           </form>
         ) : (
-          <Button type="button" onClick={() => abrir("nueva")} className="bg-[#1d5631] hover:bg-[#153d23] text-white w-fit">
-            <Plus className="w-4 h-4 mr-2" /> Práctica común
+          <Button type="button" variant="outline" onClick={() => abrir("nueva")} className="w-fit">
+            <Plus /> Práctica común
           </Button>
         )}
-        <p className="text-xs opacity-70">Las comunes las ven todos los docentes de la materia; cada docente además captura las suyas.</p>
-        <ul className="space-y-2">
-          {(practicas ?? []).map((p) => (
-            <li key={p.id} className="flex justify-between gap-2 p-3 rounded-xl bg-[#e6ffe9] dark:bg-[#153731]/60">
-              <div>
-                <p className="font-medium">
-                  {p.numero}. {p.titulo}
-                </p>
-                <p className="text-xs opacity-70">{[p.comun ? "Común" : `De ${p.docente?.nombre}`, duracion(p.duracionMinutos)].filter(Boolean).join(" · ")}</p>
-              </div>
-              <div className="flex gap-1 shrink-0">
-                <button type="button" onClick={() => abrir(p)} title="Editar" className="p-1">
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button type="button" onClick={() => eliminar(p)} title="Eliminar" className="p-1 text-red-500">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </li>
-          ))}
-          {practicas?.length === 0 && <p className="text-sm opacity-70">La materia todavía no tiene prácticas.</p>}
-        </ul>
+        {practicas?.length === 0 ? (
+          <div className="rounded-lg border">
+            <SinDatos icono={ClipboardList} titulo="La materia todavía no tiene prácticas" className="py-6" />
+          </div>
+        ) : (
+          <ul className="max-h-80 divide-y overflow-y-auto rounded-lg border">
+            {(practicas ?? []).map((p) => (
+              <li key={p.id} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums">{p.numero}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{p.titulo}</p>
+                  <p className="text-xs text-muted-foreground">{[p.comun ? "Común" : `De ${p.docente?.nombre}`, duracion(p.duracionMinutos)].filter(Boolean).join(" · ")}</p>
+                </div>
+                <MenuDeAcciones
+                  etiqueta={`Acciones para ${p.titulo}`}
+                  acciones={[
+                    { texto: "Editar", icono: Pencil, alElegir: () => abrir(p) },
+                    { texto: "Eliminar", icono: Trash2, peligro: true, alElegir: () => eliminar(p) },
+                  ]}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </DialogContent>
     </Dialog>
   )

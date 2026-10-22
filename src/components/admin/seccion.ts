@@ -1,9 +1,10 @@
 import type { Cuenta } from "../../lib/api"
-import type { Colores } from "../../lib/tema"
+
+export type IdDeSeccion = "tablero" | "alumnos" | "cursos" | "materias" | "cuentas" | "catalogos"
 
 /** Lo que recibe cada sección del panel del administrador. */
 export interface PropsDeSeccion {
   usuario: Cuenta
-  oscuro: boolean
-  c: Colores
+  /** Lleva a otra sección del panel, por ejemplo desde una cifra del tablero. */
+  irA: (seccion: IdDeSeccion) => void
 }

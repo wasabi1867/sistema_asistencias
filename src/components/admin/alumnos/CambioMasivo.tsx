@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react"
+import { ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, type Carrera, type Turno } from "../../../lib/api"
 import { alertas } from "../../../lib/alertas"
+import { Campo } from "../../comunes/Bloques"
 
 const IGUAL = "igual"
 
@@ -49,81 +50,83 @@ export function CambioMasivo({ carreras, alCerrar, alCambiar }: { carreras: Carr
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Cambio masivo</DialogTitle>
-          <DialogDescription>Cambia a todos los alumnos activos de una carrera y semestre (y, si se indica, de un grupo).</DialogDescription>
+          <DialogDescription>Cambia a todos los alumnos activos de una carrera y semestre (y, si se indica, de un grupo). Sirve para pasarlos de semestre.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={aplicar} className="grid grid-cols-2 gap-3">
-          <p className="col-span-2 font-medium">Quiénes</p>
-          <div className="space-y-1 col-span-2">
-            <Label>Carrera</Label>
-            <Select value={carrera} onValueChange={setCarrera}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {carreras.map((c) => (
-                  <SelectItem key={c.clave} value={c.clave}>
-                    {c.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Semestre</Label>
-            <Select value={semestre} onValueChange={setSemestre}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {semestres.map((s) => (
-                  <SelectItem key={s} value={String(s)}>
-                    {s}°
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="grupo-masivo">Grupo (opcional)</Label>
-            <Input id="grupo-masivo" value={grupo} onChange={(e) => setGrupo(e.target.value)} />
-          </div>
-          <p className="col-span-2 font-medium pt-2">Pasan a</p>
-          <div className="space-y-1">
-            <Label>Semestre</Label>
-            <Select value={nuevoSemestre} onValueChange={setNuevoSemestre}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={IGUAL}>Sin cambio</SelectItem>
-                {semestres.map((s) => (
-                  <SelectItem key={s} value={String(s)}>
-                    {s}°
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="nuevo-grupo">Grupo</Label>
-            <Input id="nuevo-grupo" value={nuevoGrupo} onChange={(e) => setNuevoGrupo(e.target.value)} placeholder="Sin cambio" />
-          </div>
-          <div className="space-y-1">
-            <Label>Turno</Label>
-            <Select value={nuevoTurno} onValueChange={setNuevoTurno}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={IGUAL}>Sin cambio</SelectItem>
-                <SelectItem value="matutino">Matutino</SelectItem>
-                <SelectItem value="vespertino">Vespertino</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button type="submit" className="col-span-2 bg-[#800040] hover:bg-[#5c002e] text-white">
-            Aplicar
-          </Button>
+        <form onSubmit={aplicar} className="space-y-4">
+          <fieldset className="grid grid-cols-2 gap-4 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-semibold">Quiénes</legend>
+            <Campo etiqueta="Carrera" htmlFor="masivo-carrera" className="col-span-2">
+              <Select value={carrera} onValueChange={setCarrera}>
+                <SelectTrigger id="masivo-carrera">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {carreras.map((c) => (
+                    <SelectItem key={c.clave} value={c.clave}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Campo>
+            <Campo etiqueta="Semestre" htmlFor="masivo-semestre">
+              <Select value={semestre} onValueChange={setSemestre}>
+                <SelectTrigger id="masivo-semestre">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {semestres.map((s) => (
+                    <SelectItem key={s} value={String(s)}>
+                      {s}°
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Campo>
+            <Campo etiqueta="Grupo (opcional)" htmlFor="grupo-masivo">
+              <Input id="grupo-masivo" value={grupo} onChange={(e) => setGrupo(e.target.value)} />
+            </Campo>
+          </fieldset>
+          <ArrowDown className="mx-auto h-4 w-4 text-muted-foreground" aria-hidden />
+          <fieldset className="grid grid-cols-3 gap-4 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-semibold">Pasan a</legend>
+            <Campo etiqueta="Semestre" htmlFor="masivo-nuevo-semestre">
+              <Select value={nuevoSemestre} onValueChange={setNuevoSemestre}>
+                <SelectTrigger id="masivo-nuevo-semestre">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={IGUAL}>Sin cambio</SelectItem>
+                  {semestres.map((s) => (
+                    <SelectItem key={s} value={String(s)}>
+                      {s}°
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Campo>
+            <Campo etiqueta="Grupo" htmlFor="nuevo-grupo">
+              <Input id="nuevo-grupo" value={nuevoGrupo} onChange={(e) => setNuevoGrupo(e.target.value)} placeholder="Sin cambio" />
+            </Campo>
+            <Campo etiqueta="Turno" htmlFor="masivo-nuevo-turno">
+              <Select value={nuevoTurno} onValueChange={setNuevoTurno}>
+                <SelectTrigger id="masivo-nuevo-turno">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={IGUAL}>Sin cambio</SelectItem>
+                  <SelectItem value="matutino">Matutino</SelectItem>
+                  <SelectItem value="vespertino">Vespertino</SelectItem>
+                </SelectContent>
+              </Select>
+            </Campo>
+          </fieldset>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={alCerrar}>
+              Cancelar
+            </Button>
+            <Button type="submit">Aplicar</Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { FileSpreadsheet, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, ErrorDeApi, type DatosDeAlumno, type Turno } from "../../../lib/api"
 import { alertas } from "../../../lib/alertas"
 import { leerHojaDeCalculo } from "../../../lib/exportar"
@@ -104,18 +104,21 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
             archivo deja vacío no borra lo que ya se sabía.
           </DialogDescription>
         </DialogHeader>
-        <label className="flex flex-col items-center gap-2 p-6 border-2 border-dashed rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
-          <FileSpreadsheet className="w-8 h-8 text-[#1d5631]" />
-          <span>{archivo || "Elegir archivo"}</span>
-          <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => leer(e.target.files?.[0])} />
+        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition-colors focus-within:border-ring hover:border-primary/50 hover:bg-accent/40">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
+            <FileSpreadsheet className="h-5 w-5" aria-hidden />
+          </span>
+          <span className="font-medium">{archivo || "Elegir archivo"}</span>
+          <span className="text-xs text-muted-foreground">.xlsx, .xls o .csv</span>
+          <input type="file" accept=".xlsx,.xls,.csv" className="sr-only" onChange={(e) => leer(e.target.files?.[0])} />
         </label>
         {alumnos && (
           <p className="text-sm">
-            {alumnos.length} alumnos en el archivo. Por ejemplo: {alumnos.slice(0, 3).map((a) => `${a.matricula} ${a.nombre} ${a.apellido}`).join("; ")}
+            <span className="font-medium">{alumnos.length} alumnos en el archivo.</span> <span className="text-muted-foreground">Por ejemplo: {alumnos.slice(0, 3).map((a) => `${a.matricula} ${a.nombre} ${a.apellido}`).join("; ")}</span>
           </p>
         )}
         {errores.length > 0 && (
-          <div className="max-h-48 overflow-y-auto p-3 rounded-lg bg-red-50 text-red-700 text-sm space-y-1">
+          <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             <p className="font-semibold">No se guardó ninguno. Corrige estos renglones y vuelve a cargar el archivo:</p>
             {errores.map((e) => (
               <p key={e.renglon}>
@@ -124,9 +127,14 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
             ))}
           </div>
         )}
-        <Button type="button" onClick={cargar} disabled={!alumnos?.length || enviando} className="bg-[#1d5631] hover:bg-[#153d23] text-white">
-          <Upload className="w-4 h-4 mr-2" /> {enviando ? "Cargando..." : "Cargar alumnos"}
-        </Button>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={alCerrar}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={cargar} disabled={!alumnos?.length || enviando}>
+            <Upload /> {enviando ? "Cargando…" : "Cargar alumnos"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
