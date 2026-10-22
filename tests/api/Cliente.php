@@ -11,10 +11,15 @@ final class Cliente
     /** @var array<string, string> */
     public array $cookies = [];
 
+    /** @param string|null $servidor dirección de otro servidor de la API (ver Entorno::url) */
+    public function __construct(private readonly ?string $servidor = null)
+    {
+    }
+
     /** @param array<string, string> $encabezados */
     public function pedir(string $metodo, string $ruta, ?array $cuerpo = null, array $encabezados = []): Respuesta
     {
-        $curl = curl_init(Entorno::url() . '/api/' . ltrim($ruta, '/'));
+        $curl = curl_init(($this->servidor ?? Entorno::url()) . '/api/' . ltrim($ruta, '/'));
         $lineas = ['Accept: application/json'];
         foreach ($encabezados as $nombre => $valor) {
             $lineas[] = "$nombre: $valor";
