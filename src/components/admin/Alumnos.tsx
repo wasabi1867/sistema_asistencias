@@ -1,8 +1,7 @@
 import { useState } from "react"
-import { Edit, Eye, FileSpreadsheet, Plus, RefreshCw, Search, Trash2, UserCheck, UserX } from "lucide-react"
+import { Eye, FileSpreadsheet, GraduationCap, Pencil, Plus, RefreshCw, Trash2, UserCheck, UserX } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, type Alumno, type Turno } from "../../lib/api"
@@ -10,6 +9,8 @@ import { alertas } from "../../lib/alertas"
 import { turno as textoDeTurno } from "../../lib/formato"
 import { useDatos } from "../../hooks/useDatos"
 import { Paginador } from "../comunes/Paginador"
+import { CampoDeBusqueda, Listado, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
 import { FormularioDeAlumno } from "./alumnos/FormularioDeAlumno"
 import { CargaDesdeArchivo } from "./alumnos/CargaDesdeArchivo"
 import { CambioMasivo } from "./alumnos/CambioMasivo"
@@ -20,7 +21,7 @@ const POR_PAGINA = 50
 const TODOS = "todos"
 
 /** Los alumnos: búsqueda, alta, edición, carga desde archivo y cambio masivo. */
-export function Alumnos({ usuario, c }: PropsDeSeccion) {
+export function Alumnos({ usuario }: PropsDeSeccion) {
   const [texto, setTexto] = useState("")
   const [busqueda, setBusqueda] = useState("")
   const [carrera, setCarrera] = useState(TODOS)
@@ -56,6 +57,7 @@ export function Alumnos({ usuario, c }: PropsDeSeccion) {
   const cambiarActivo = async (alumno: Alumno) => {
     try {
       await api.alumnos.editar(alumno.matricula, { activo: !alumno.activo })
+      alertas.breve(alumno.activo ? "Alumno desactivado" : "Alumno activado")
       await recargar()
     } catch (error) {
       await alertas.error("No se pudo cambiar el alumno", error)
@@ -72,39 +74,42 @@ export function Alumnos({ usuario, c }: PropsDeSeccion) {
     }
   }
 
+  const alumnos = respuesta?.alumnos ?? []
+
   return (
     <div className="space-y-4">
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="pt-6 space-y-3">
-          <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="outline" onClick={() => setDialogo("carga")}>
+          <FileSpreadsheet /> Cargar desde Excel
+        </Button>
+        <Button type="button" variant="outline" onClick={() => setDialogo("masivo")}>
+          <RefreshCw /> Cambio masivo
+        </Button>
+        <Button type="button" onClick={() => setEditando("nuevo")}>
+          <Plus /> Nuevo alumno
+        </Button>
+      </div>
+
+      <Listado
+        filtros={
+          <>
             <form
-              className="flex gap-2 flex-1 min-w-[16rem]"
+              className="flex w-full gap-2"
               onSubmit={(e) => {
                 e.preventDefault()
                 filtrar(() => setBusqueda(texto.trim()))
               }}
             >
-              <Input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Buscar por número de control o nombre" aria-label="Buscar por número de control o nombre" />
-              <Button type="submit" variant="outline" aria-label="Buscar" title="Buscar">
-                <Search className="w-4 h-4" />
+              <CampoDeBusqueda etiqueta="Buscar por número de control o nombre" value={texto} onChange={(e) => setTexto(e.target.value)} className="flex-1" />
+              <Button type="submit" variant="secondary">
+                Buscar
               </Button>
             </form>
-            <Button type="button" onClick={() => setEditando("nuevo")} className={c.botonSecundario}>
-              <Plus className="w-4 h-4 mr-2" /> Nuevo alumno
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setDialogo("carga")}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" /> Cargar desde Excel
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setDialogo("masivo")}>
-              <RefreshCw className="w-4 h-4 mr-2" /> Cambio masivo
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
             <Select value={carrera} onValueChange={(v) => filtrar(() => setCarrera(v))}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-full sm:w-56" aria-label="Carrera">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className={c.menu}>
+              <SelectContent>
                 <SelectItem value={TODOS}>Todas las carreras</SelectItem>
                 {(carreras ?? []).map((carr) => (
                   <SelectItem key={carr.clave} value={carr.clave}>
@@ -114,10 +119,10 @@ export function Alumnos({ usuario, c }: PropsDeSeccion) {
               </SelectContent>
             </Select>
             <Select value={semestre} onValueChange={(v) => filtrar(() => setSemestre(v))}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-48" aria-label="Semestre">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className={c.menu}>
+              <SelectContent>
                 <SelectItem value={TODOS}>Todos los semestres</SelectItem>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((s) => (
                   <SelectItem key={s} value={String(s)}>
@@ -127,80 +132,98 @@ export function Alumnos({ usuario, c }: PropsDeSeccion) {
               </SelectContent>
             </Select>
             <Select value={turno} onValueChange={(v) => filtrar(() => setTurno(v))}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-44" aria-label="Turno">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className={c.menu}>
+              <SelectContent>
                 <SelectItem value={TODOS}>Todos los turnos</SelectItem>
                 <SelectItem value="matutino">Matutino</SelectItem>
                 <SelectItem value="vespertino">Vespertino</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="button" variant={inactivos ? "default" : "outline"} onClick={() => filtrar(() => setInactivos(!inactivos))}>
-              {inactivos ? "Viendo desactivados" : "Ver desactivados"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <p className={`text-sm ${c.textoSuave}`}>{respuesta ? `${respuesta.total} alumnos` : "Cargando..."}</p>
-
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="p-0 overflow-x-auto">
+            <Select value={inactivos ? "desactivados" : "activos"} onValueChange={(v) => filtrar(() => setInactivos(v === "desactivados"))}>
+              <SelectTrigger className="w-full sm:w-40" aria-label="Estado">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="activos">Activos</SelectItem>
+                <SelectItem value="desactivados">Desactivados</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        }
+        pie={
+          <>
+            <span className="tabular-nums">{respuesta ? `${respuesta.total} ${respuesta.total === 1 ? "alumno" : "alumnos"}${inactivos ? " desactivados" : ""}` : "Cargando…"}</span>
+            {respuesta && <Paginador pagina={pagina} total={respuesta.total} porPagina={POR_PAGINA} alCambiar={setPagina} />}
+          </>
+        }
+      >
+        {respuesta && alumnos.length === 0 ? (
+          <SinDatos icono={GraduationCap} titulo="No hay alumnos con esos filtros">
+            {busqueda ? "Revisa lo que buscaste o quita algún filtro." : "Da de alta uno o cárgalos desde un archivo de Excel."}
+          </SinDatos>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Número de control</TableHead>
+                <TableHead className="hidden sm:table-cell">Número de control</TableHead>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Carrera</TableHead>
+                <TableHead className="hidden lg:table-cell">Carrera</TableHead>
                 <TableHead>Semestre</TableHead>
-                <TableHead>Grupo</TableHead>
-                <TableHead>Turno</TableHead>
-                <TableHead />
+                <TableHead className="hidden sm:table-cell">Turno</TableHead>
+                <TableHead className="w-12">
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(respuesta?.alumnos ?? []).map((alumno) => (
-                <TableRow key={alumno.id}>
-                  <TableCell className="font-mono">{alumno.matricula}</TableCell>
+              {alumnos.map((alumno) => (
+                <TableRow key={alumno.id} className="cursor-pointer" onClick={() => setViendo(alumno)}>
+                  <TableCell className="hidden font-mono text-[13px] tabular-nums sm:table-cell">{alumno.matricula}</TableCell>
                   <TableCell>
-                    {alumno.apellido} {alumno.nombre}
-                  </TableCell>
-                  <TableCell>{alumno.carrera?.nombre ?? ""}</TableCell>
-                  <TableCell>{alumno.semestre ? `${alumno.semestre}°` : ""}</TableCell>
-                  <TableCell>{alumno.grupo}</TableCell>
-                  <TableCell>{textoDeTurno(alumno.turno)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setViendo(alumno)} title="Cursos">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditando(alumno)} title="Editar">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => cambiarActivo(alumno)} title={alumno.activo ? "Desactivar" : "Activar"}>
-                      {alumno.activo ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                    </Button>
-                    {usuario.rol === "admin" && (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => eliminar(alumno)} title="Eliminar" className="text-red-500">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                    <span className="font-medium">
+                      {alumno.apellido} {alumno.nombre}
+                    </span>
+                    {!alumno.activo && (
+                      <Badge variant="neutral" className="ml-2">
+                        Desactivado
+                      </Badge>
                     )}
+                    {/* En pantallas angostas la matrícula y la carrera van bajo el nombre, para que quepa el menú del renglón. */}
+                    <span className="block text-xs text-muted-foreground lg:hidden">
+                      <span className="font-mono tabular-nums sm:hidden">{alumno.matricula}</span>
+                      {alumno.carrera && (
+                        <>
+                          <span className="sm:hidden"> · </span>
+                          <span className="sm:hidden">{alumno.carrera.clave}</span>
+                          <span className="hidden sm:inline">{alumno.carrera.nombre}</span>
+                        </>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden max-w-[16rem] truncate text-muted-foreground lg:table-cell" title={alumno.carrera?.nombre}>
+                    {alumno.carrera?.nombre ?? ""}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">{alumno.semestre ? `${alumno.semestre}° ${alumno.grupo ?? ""}` : (alumno.grupo ?? "")}</TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">{textoDeTurno(alumno.turno)}</TableCell>
+                  <TableCell>
+                    <MenuDeAcciones
+                      etiqueta={`Acciones para ${alumno.nombre} ${alumno.apellido}`}
+                      acciones={[
+                        { texto: "Ver sus cursos", icono: Eye, alElegir: () => setViendo(alumno) },
+                        { texto: "Editar", icono: Pencil, alElegir: () => setEditando(alumno) },
+                        { texto: alumno.activo ? "Desactivar" : "Activar", icono: alumno.activo ? UserX : UserCheck, alElegir: () => cambiarActivo(alumno) },
+                        { texto: "Eliminar", icono: Trash2, peligro: true, oculta: usuario.rol !== "admin", alElegir: () => eliminar(alumno) },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
-              {respuesta?.alumnos.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 opacity-60">
-                    No hay alumnos con esos filtros
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      {respuesta && <Paginador pagina={pagina} total={respuesta.total} porPagina={POR_PAGINA} alCambiar={setPagina} />}
+        )}
+      </Listado>
 
       {editando && (
         <FormularioDeAlumno
@@ -213,7 +236,16 @@ export function Alumnos({ usuario, c }: PropsDeSeccion) {
           }}
         />
       )}
-      {viendo && <DetalleDeAlumno alumno={viendo} alCerrar={() => setViendo(null)} />}
+      {viendo && (
+        <DetalleDeAlumno
+          alumno={viendo}
+          alCerrar={() => setViendo(null)}
+          alEditar={() => {
+            setEditando(viendo)
+            setViendo(null)
+          }}
+        />
+      )}
       {dialogo === "carga" && (
         <CargaDesdeArchivo
           alCerrar={() => setDialogo(null)}

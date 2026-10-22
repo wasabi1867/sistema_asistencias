@@ -1,38 +1,66 @@
-import { useState, type FormEvent } from "react"
-import { Edit, Plus, Trash2 } from "lucide-react"
+import { useState, type FormEvent, type ReactNode } from "react"
+import { CalendarRange, GraduationCap, Monitor, Pencil, Plus, Power, PowerOff, Trash2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import { api, type Carrera, type Laboratorio, type Periodo } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { fecha } from "../../lib/formato"
 import { useDatos } from "../../hooks/useDatos"
-import { encabezadoDeTarjeta } from "../laboratorista/vista"
-import type { PropsDeSeccion } from "./seccion"
+import { Campo, Panel, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
 
 /** Carreras, periodos escolares y laboratorios. */
-export function Catalogos(props: PropsDeSeccion) {
+export function Catalogos() {
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-      <Periodos {...props} />
-      <Carreras {...props} />
-      <Laboratorios {...props} />
+    <div className="grid items-start gap-6 xl:grid-cols-2">
+      <Periodos />
+      <Carreras />
+      <Laboratorios />
     </div>
   )
 }
 
-function Tarjeta({ titulo, oscuro, c, children }: { titulo: string; oscuro: boolean; c: PropsDeSeccion["c"]; children: React.ReactNode }) {
+/** Un renglón de catálogo: el texto a la izquierda y sus acciones a la derecha. */
+function Renglon({ inactivo, children, acciones }: { inactivo?: boolean; children: ReactNode; acciones: ReactNode }) {
   return (
-    <Card className={`${c.tarjeta} border-none shadow-lg h-fit`}>
-      <CardHeader className={encabezadoDeTarjeta(oscuro)}>
-        <CardTitle className="text-lg">{titulo}</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-3">{children}</CardContent>
-    </Card>
+    <li className={cn("flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5", inactivo && "opacity-60")}>
+      <div className="min-w-0">{children}</div>
+      {acciones}
+    </li>
   )
 }
 
-function Periodos({ oscuro, c }: PropsDeSeccion) {
+/** El diálogo de alta o edición de un elemento de catálogo. */
+function Formulario({ titulo, descripcion, alCerrar, alGuardar, children }: { titulo: string; descripcion?: string; alCerrar: () => void; alGuardar: () => Promise<void>; children: ReactNode }) {
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault()
+    await alGuardar()
+  }
+  return (
+    <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{titulo}</DialogTitle>
+          {descripcion ? <DialogDescription>{descripcion}</DialogDescription> : <DialogDescription className="sr-only">{titulo}</DialogDescription>}
+        </DialogHeader>
+        <form onSubmit={enviar} className="space-y-4">
+          {children}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={alCerrar}>
+              Cancelar
+            </Button>
+            <Button type="submit">Guardar</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function Periodos() {
   const { datos: periodos, recargar } = useDatos(() => api.periodos.listar(), [])
   const [editando, setEditando] = useState<Periodo | "nuevo" | null>(null)
   const [datos, setDatos] = useState({ nombre: "", fechaInicio: "", fechaFin: "" })
@@ -42,8 +70,7 @@ function Periodos({ oscuro, c }: PropsDeSeccion) {
     setDatos(periodo === "nuevo" ? { nombre: "", fechaInicio: "", fechaFin: "" } : { nombre: periodo.nombre, fechaInicio: periodo.fechaInicio, fechaFin: periodo.fechaFin })
   }
 
-  const guardar = async (e: FormEvent) => {
-    e.preventDefault()
+  const guardar = async () => {
     try {
       if (editando === "nuevo") {
         await api.periodos.crear(datos)
@@ -51,6 +78,7 @@ function Periodos({ oscuro, c }: PropsDeSeccion) {
         await api.periodos.editar(editando.id, datos)
       }
       setEditando(null)
+      alertas.breve("Periodo guardado")
       await recargar()
     } catch (error) {
       await alertas.error("No se pudo guardar el periodo", error)
@@ -68,53 +96,68 @@ function Periodos({ oscuro, c }: PropsDeSeccion) {
   }
 
   return (
-    <Tarjeta titulo="Periodos escolares" oscuro={oscuro} c={c}>
-      <p className={`text-xs ${c.textoSuave}`}>El periodo actual es el que incluye la fecha de hoy. No se pueden encimar.</p>
-      {editando ? (
-        <form onSubmit={guardar} className="grid grid-cols-3 gap-2">
-          <Input value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} placeholder="Ej. AGO-DIC 2026" aria-label="Nombre del periodo" required className="col-span-3" />
-          <Input type="date" value={datos.fechaInicio} onChange={(e) => setDatos({ ...datos, fechaInicio: e.target.value })} aria-label="Inicio del periodo" required />
-          <Input type="date" value={datos.fechaFin} onChange={(e) => setDatos({ ...datos, fechaFin: e.target.value })} aria-label="Fin del periodo" required />
-          <div className="flex gap-1">
-            <Button type="submit" className={c.botonSecundario}>
-              Guardar
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setEditando(null)} aria-label="Cancelar" title="Cancelar">
-              ✕
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <Button type="button" onClick={() => abrir("nuevo")} className={c.botonSecundario}>
-          <Plus className="w-4 h-4 mr-2" /> Nuevo periodo
+    <Panel
+      titulo="Periodos escolares"
+      descripcion="El actual es el que incluye la fecha de hoy. No se pueden encimar."
+      acciones={
+        <Button type="button" variant="outline" size="sm" onClick={() => abrir("nuevo")}>
+          <Plus /> Nuevo periodo
         </Button>
-      )}
-      <ul className="space-y-1">
-        {(periodos ?? []).map((p) => (
-          <li key={p.id} className={`flex justify-between items-center p-2 rounded-lg ${c.panel}`}>
-            <span>
-              <span className="font-medium">{p.nombre}</span> {p.actual && <span className="text-xs px-2 rounded-full bg-[#1BB827] text-white">actual</span>}
-              <span className="text-sm opacity-70">
-                {" "}
+      }
+      sinRelleno
+    >
+      {periodos?.length === 0 ? (
+        <SinDatos icono={CalendarRange} titulo="No hay periodos" className="py-8" />
+      ) : (
+        <ul className="divide-y">
+          {(periodos ?? []).map((p) => (
+            <Renglon
+              key={p.id}
+              acciones={
+                <MenuDeAcciones
+                  etiqueta={`Acciones para ${p.nombre}`}
+                  acciones={[
+                    { texto: "Editar", icono: Pencil, alElegir: () => abrir(p) },
+                    { texto: "Eliminar", icono: Trash2, peligro: true, alElegir: () => eliminar(p) },
+                  ]}
+                />
+              }
+            >
+              <p className="font-medium">
+                {p.nombre}
+                {p.actual && (
+                  <Badge variant="success" className="ml-2">
+                    Actual
+                  </Badge>
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground tabular-nums">
                 {fecha(p.fechaInicio)} – {fecha(p.fechaFin)}
-              </span>
-            </span>
-            <span className="flex gap-1">
-              <button type="button" onClick={() => abrir(p)} title="Editar">
-                <Edit className="w-4 h-4" />
-              </button>
-              <button type="button" onClick={() => eliminar(p)} title="Eliminar" className="text-red-500">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Tarjeta>
+              </p>
+            </Renglon>
+          ))}
+        </ul>
+      )}
+      {editando && (
+        <Formulario titulo={editando === "nuevo" ? "Nuevo periodo" : `Editar ${editando.nombre}`} alCerrar={() => setEditando(null)} alGuardar={guardar}>
+          <Campo etiqueta="Nombre del periodo" htmlFor="periodo-nombre">
+            <Input id="periodo-nombre" value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} placeholder="Ej. AGO-DIC 2026" required />
+          </Campo>
+          <div className="grid grid-cols-2 gap-4">
+            <Campo etiqueta="Inicio" htmlFor="periodo-inicio">
+              <Input id="periodo-inicio" type="date" value={datos.fechaInicio} onChange={(e) => setDatos({ ...datos, fechaInicio: e.target.value })} required />
+            </Campo>
+            <Campo etiqueta="Fin" htmlFor="periodo-fin">
+              <Input id="periodo-fin" type="date" value={datos.fechaFin} onChange={(e) => setDatos({ ...datos, fechaFin: e.target.value })} required />
+            </Campo>
+          </div>
+        </Formulario>
+      )}
+    </Panel>
   )
 }
 
-function Carreras({ oscuro, c }: PropsDeSeccion) {
+function Carreras() {
   const { datos: carreras, recargar } = useDatos(() => api.carreras.listar(true), [])
   const [editando, setEditando] = useState<Carrera | "nueva" | null>(null)
   const [datos, setDatos] = useState({ clave: "", nombre: "" })
@@ -124,8 +167,7 @@ function Carreras({ oscuro, c }: PropsDeSeccion) {
     setDatos(carrera === "nueva" ? { clave: "", nombre: "" } : { clave: carrera.clave, nombre: carrera.nombre })
   }
 
-  const guardar = async (e: FormEvent) => {
-    e.preventDefault()
+  const guardar = async () => {
     try {
       if (editando === "nueva") {
         await api.carreras.crear(datos)
@@ -133,6 +175,7 @@ function Carreras({ oscuro, c }: PropsDeSeccion) {
         await api.carreras.editar(editando.id, datos)
       }
       setEditando(null)
+      alertas.breve("Carrera guardada")
       await recargar()
     } catch (error) {
       await alertas.error("No se pudo guardar la carrera", error)
@@ -159,68 +202,79 @@ function Carreras({ oscuro, c }: PropsDeSeccion) {
   }
 
   return (
-    <Tarjeta titulo="Carreras" oscuro={oscuro} c={c}>
-      {editando ? (
-        <form onSubmit={guardar} className="grid grid-cols-4 gap-2">
-          <Input value={datos.clave} onChange={(e) => setDatos({ ...datos, clave: e.target.value.toUpperCase() })} placeholder="Clave" aria-label="Clave de la carrera" required />
-          <Input value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} placeholder="Nombre oficial" aria-label="Nombre de la carrera" required className="col-span-2" />
-          <Button type="submit" className={c.botonSecundario}>
-            Guardar
-          </Button>
-        </form>
-      ) : (
-        <Button type="button" onClick={() => abrir("nueva")} className={c.botonSecundario}>
-          <Plus className="w-4 h-4 mr-2" /> Nueva carrera
+    <Panel
+      titulo="Carreras"
+      acciones={
+        <Button type="button" variant="outline" size="sm" onClick={() => abrir("nueva")}>
+          <Plus /> Nueva carrera
         </Button>
+      }
+      sinRelleno
+    >
+      {carreras?.length === 0 ? (
+        <SinDatos icono={GraduationCap} titulo="No hay carreras" className="py-8" />
+      ) : (
+        <ul className="divide-y">
+          {(carreras ?? []).map((carr) => (
+            <Renglon
+              key={carr.id}
+              inactivo={!carr.activa}
+              acciones={
+                <MenuDeAcciones
+                  etiqueta={`Acciones para ${carr.nombre}`}
+                  acciones={[
+                    { texto: "Editar", icono: Pencil, alElegir: () => abrir(carr) },
+                    { texto: carr.activa ? "Desactivar" : "Activar", icono: carr.activa ? PowerOff : Power, alElegir: () => cambiarActiva(carr) },
+                    { texto: "Eliminar", icono: Trash2, peligro: true, alElegir: () => eliminar(carr) },
+                  ]}
+                />
+              }
+            >
+              <p className="font-medium">{carr.nombre}</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                {carr.clave}
+                {!carr.activa && " · desactivada"}
+              </p>
+            </Renglon>
+          ))}
+        </ul>
       )}
-      <ul className="space-y-1">
-        {(carreras ?? []).map((carr) => (
-          <li key={carr.id} className={`flex justify-between items-center p-2 rounded-lg ${c.panel} ${carr.activa ? "" : "opacity-60"}`}>
-            <span>
-              <span className="font-mono text-sm">{carr.clave}</span> {carr.nombre}
-            </span>
-            <span className="flex gap-2 items-center">
-              <button type="button" onClick={() => cambiarActiva(carr)} className="text-xs underline">
-                {carr.activa ? "Desactivar" : "Activar"}
-              </button>
-              <button type="button" onClick={() => abrir(carr)} title="Editar">
-                <Edit className="w-4 h-4" />
-              </button>
-              <button type="button" onClick={() => eliminar(carr)} title="Eliminar" className="text-red-500">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Tarjeta>
+      {editando && (
+        <Formulario titulo={editando === "nueva" ? "Nueva carrera" : `Editar ${editando.nombre}`} alCerrar={() => setEditando(null)} alGuardar={guardar}>
+          <Campo etiqueta="Clave de la carrera" htmlFor="carrera-clave">
+            <Input id="carrera-clave" value={datos.clave} onChange={(e) => setDatos({ ...datos, clave: e.target.value.toUpperCase() })} placeholder="Ej. ISC" required />
+          </Campo>
+          <Campo etiqueta="Nombre oficial" htmlFor="carrera-nombre">
+            <Input id="carrera-nombre" value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} required />
+          </Campo>
+        </Formulario>
+      )}
+    </Panel>
   )
 }
 
-function Laboratorios({ oscuro, c }: PropsDeSeccion) {
+function Laboratorios() {
   const { datos: laboratorios, recargar } = useDatos(() => api.laboratorios.listar(true), [])
-  const [nuevo, setNuevo] = useState({ clave: "", nombre: "" })
+  const [editando, setEditando] = useState<Laboratorio | "nuevo" | null>(null)
+  const [datos, setDatos] = useState({ clave: "", nombre: "", ubicacion: "" })
 
-  const crear = async (e: FormEvent) => {
-    e.preventDefault()
-    try {
-      await api.laboratorios.crear(nuevo)
-      setNuevo({ clave: "", nombre: "" })
-      await recargar()
-    } catch (error) {
-      await alertas.error("No se pudo crear el laboratorio", error)
-    }
+  const abrir = (laboratorio: Laboratorio | "nuevo") => {
+    setEditando(laboratorio)
+    setDatos(laboratorio === "nuevo" ? { clave: "", nombre: "", ubicacion: "" } : { clave: laboratorio.clave, nombre: laboratorio.nombre, ubicacion: laboratorio.ubicacion ?? "" })
   }
 
-  const renombrar = async (laboratorio: Laboratorio) => {
-    const nombre = await alertas.pedirTexto("Nombre del laboratorio", { valor: laboratorio.nombre, obligatorio: true })
-    if (!nombre) return
-    const ubicacion = await alertas.pedirTexto("Ubicación (opcional)", { valor: laboratorio.ubicacion ?? "" })
+  const guardar = async () => {
     try {
-      await api.laboratorios.editar(laboratorio.id, { nombre, ubicacion: ubicacion || null })
+      if (editando === "nuevo") {
+        await api.laboratorios.crear({ clave: datos.clave, nombre: datos.nombre, ubicacion: datos.ubicacion || null })
+      } else if (editando) {
+        await api.laboratorios.editar(editando.id, { nombre: datos.nombre, ubicacion: datos.ubicacion || null })
+      }
+      setEditando(null)
+      alertas.breve("Laboratorio guardado")
       await recargar()
     } catch (error) {
-      await alertas.error("No se pudo editar el laboratorio", error)
+      await alertas.error("No se pudo guardar el laboratorio", error)
     }
   }
 
@@ -234,32 +288,64 @@ function Laboratorios({ oscuro, c }: PropsDeSeccion) {
   }
 
   return (
-    <Tarjeta titulo="Laboratorios" oscuro={oscuro} c={c}>
-      <form onSubmit={crear} className="grid grid-cols-4 gap-2">
-        <Input value={nuevo.clave} onChange={(e) => setNuevo({ ...nuevo, clave: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })} placeholder="clave_corta" aria-label="Clave del laboratorio" required />
-        <Input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} placeholder="Nombre" aria-label="Nombre del laboratorio" required className="col-span-2" />
-        <Button type="submit" className={c.botonSecundario} aria-label="Agregar laboratorio" title="Agregar laboratorio">
-          <Plus className="w-4 h-4" />
+    <Panel
+      titulo="Laboratorios"
+      descripcion="La clave no cambia después: es la que recuerdan las computadoras de cada laboratorio."
+      acciones={
+        <Button type="button" variant="outline" size="sm" onClick={() => abrir("nuevo")}>
+          <Plus /> Nuevo laboratorio
         </Button>
-      </form>
-      <p className={`text-xs ${c.textoSuave}`}>La clave no cambia después: es la que recuerdan las computadoras de cada laboratorio.</p>
-      <ul className="space-y-1">
-        {(laboratorios ?? []).map((l) => (
-          <li key={l.id} className={`flex justify-between items-center p-2 rounded-lg ${c.panel} ${l.activo ? "" : "opacity-60"}`}>
-            <span>
-              {l.nombre} <span className="font-mono text-xs opacity-70">{l.clave}</span> {l.ubicacion && <span className="text-sm opacity-70">· {l.ubicacion}</span>}
-            </span>
-            <span className="flex gap-2 items-center">
-              <button type="button" onClick={() => cambiarActivo(l)} className="text-xs underline">
-                {l.activo ? "Desactivar" : "Activar"}
-              </button>
-              <button type="button" onClick={() => renombrar(l)} title="Editar">
-                <Edit className="w-4 h-4" />
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Tarjeta>
+      }
+      sinRelleno
+    >
+      {laboratorios?.length === 0 ? (
+        <SinDatos icono={Monitor} titulo="No hay laboratorios" className="py-8" />
+      ) : (
+        <ul className="divide-y">
+          {(laboratorios ?? []).map((l) => (
+            <Renglon
+              key={l.id}
+              inactivo={!l.activo}
+              acciones={
+                <MenuDeAcciones
+                  etiqueta={`Acciones para ${l.nombre}`}
+                  acciones={[
+                    { texto: "Editar", icono: Pencil, alElegir: () => abrir(l) },
+                    { texto: l.activo ? "Desactivar" : "Activar", icono: l.activo ? PowerOff : Power, alElegir: () => cambiarActivo(l) },
+                  ]}
+                />
+              }
+            >
+              <p className="font-medium">{l.nombre}</p>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-mono">{l.clave}</span>
+                {l.ubicacion ? ` · ${l.ubicacion}` : ""}
+                {!l.activo && " · desactivado"}
+              </p>
+            </Renglon>
+          ))}
+        </ul>
+      )}
+      {editando && (
+        <Formulario titulo={editando === "nuevo" ? "Nuevo laboratorio" : `Editar ${editando.nombre}`} alCerrar={() => setEditando(null)} alGuardar={guardar}>
+          <Campo etiqueta="Clave del laboratorio" htmlFor="laboratorio-clave" ayuda={editando === "nuevo" ? "Minúsculas, sin espacios. No se puede cambiar después." : "La clave no se puede cambiar."}>
+            <Input
+              id="laboratorio-clave"
+              value={datos.clave}
+              onChange={(e) => setDatos({ ...datos, clave: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })}
+              placeholder="clave_corta"
+              disabled={editando !== "nuevo"}
+              required
+            />
+          </Campo>
+          <Campo etiqueta="Nombre del laboratorio" htmlFor="laboratorio-nombre">
+            <Input id="laboratorio-nombre" value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} required />
+          </Campo>
+          <Campo etiqueta="Ubicación (opcional)" htmlFor="laboratorio-ubicacion">
+            <Input id="laboratorio-ubicacion" value={datos.ubicacion} onChange={(e) => setDatos({ ...datos, ubicacion: e.target.value })} placeholder="Ej. Edificio B, planta alta" />
+          </Campo>
+        </Formulario>
+      )}
+    </Panel>
   )
 }

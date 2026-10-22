@@ -51,3 +51,8 @@ export const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "
 export function turno(valor: string | null | undefined): string {
   return valor ? valor.charAt(0).toUpperCase() + valor.slice(1) : ""
 }
+
+/** "5" → "Equipo 5"; "PC-5" se queda igual. */
+export function nombreDeEquipo(etiqueta: string): string {
+  return /^\d+$/.test(etiqueta) ? `Equipo ${etiqueta}` : etiqueta
+}

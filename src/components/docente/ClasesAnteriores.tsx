@@ -1,30 +1,29 @@
 import { useCallback, useEffect, useState } from "react"
-import { FileDown, FileText, RefreshCw } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { FileSpreadsheet, FileText, History } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, type Clase } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { hojaDeClase, hojaDeRegistroExcel, hojaDeRegistroPdf } from "../../lib/exportar"
 import { fecha, hora } from "../../lib/formato"
+import { Campo, Panel, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
 
 /** Las clases ya cerradas de un curso, con quiénes asistieron, para volver a sacar su hoja. */
 export function ClasesAnteriores({ cursoId }: { cursoId: number | null }) {
-  const [clases, setClases] = useState<Clase[]>([])
+  const [clases, setClases] = useState<Clase[] | null>(null)
   const [desde, setDesde] = useState("")
   const [hasta, setHasta] = useState("")
-  const [cargando, setCargando] = useState(false)
 
   const cargar = useCallback(async () => {
     if (!cursoId) return setClases([])
-    setCargando(true)
+    setClases(null)
     try {
       const respuesta = await api.clases.listar({ curso: cursoId, estado: "cerradas", desde: desde || undefined, hasta: hasta || undefined, conAsistentes: true, porPagina: 200 })
       setClases(respuesta.clases)
     } catch (error) {
+      setClases([])
       await alertas.error("No se pudieron cargar las clases", error)
-    } finally {
-      setCargando(false)
     }
   }, [cursoId, desde, hasta])
 
@@ -32,47 +31,67 @@ export function ClasesAnteriores({ cursoId }: { cursoId: number | null }) {
     cargar()
   }, [cargar])
 
-  if (!cursoId) {
-    return <p className="text-sm text-gray-500">Elige un curso para ver sus clases anteriores.</p>
-  }
-
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label htmlFor="desde-clases">Desde</Label>
-          <Input id="desde-clases" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+    <Panel
+      titulo="Clases anteriores"
+      descripcion="Vuelve a descargar la hoja de registro de una clase ya cerrada."
+      acciones={
+        <div className="flex gap-2">
+          <Campo etiqueta="Desde" htmlFor="desde-clases" className="space-y-0.5">
+            <Input id="desde-clases" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="h-9 w-40" />
+          </Campo>
+          <Campo etiqueta="Hasta" htmlFor="hasta-clases" className="space-y-0.5">
+            <Input id="hasta-clases" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="h-9 w-40" />
+          </Campo>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="hasta-clases">Hasta</Label>
-          <Input id="hasta-clases" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
-        </div>
-      </div>
-      <Button type="button" variant="outline" onClick={cargar} className="w-full" disabled={cargando}>
-        <RefreshCw className={`w-4 h-4 mr-2 ${cargando ? "animate-spin" : ""}`} /> Actualizar
-      </Button>
-
-      {clases.length === 0 && !cargando && <p className="text-sm text-gray-500">No hay clases cerradas en esas fechas.</p>}
-      <ul className="space-y-2">
-        {clases.map((clase) => (
-          <li key={clase.id} className="p-3 rounded-xl bg-[#e6ffe9] dark:bg-[#153731]/60">
-            <p className="font-medium">
-              {fecha(clase.abiertaEn)}, {hora(clase.abiertaEn)} a {hora(clase.cerradaEn)}
-            </p>
-            <p className="text-xs opacity-70">
-              {clase.practica?.titulo ?? "Sin práctica"} · {clase.asistentes} asistentes · {clase.laboratorio.nombre}
-            </p>
-            <div className="flex gap-2 mt-2">
-              <Button type="button" size="sm" onClick={() => hojaDeRegistroPdf(hojaDeClase(clase), `lista_${clase.abiertaEn.slice(0, 10)}.pdf`)} className="bg-[#800040] hover:bg-[#5c002e] text-white">
-                <FileText className="w-4 h-4 mr-1" /> PDF
-              </Button>
-              <Button type="button" size="sm" onClick={() => hojaDeRegistroExcel(hojaDeClase(clase), `lista_${clase.abiertaEn.slice(0, 10)}.xlsx`)} className="bg-[#1d5631] hover:bg-[#153d23] text-white">
-                <FileDown className="w-4 h-4 mr-1" /> Excel
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+      }
+      sinRelleno
+    >
+      {clases === null ? (
+        <p className="p-5 text-sm text-muted-foreground">Cargando…</p>
+      ) : clases.length === 0 ? (
+        <SinDatos icono={History} titulo={cursoId ? "No hay clases cerradas en esas fechas" : "Elige un curso"} />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Horario</TableHead>
+              <TableHead>Práctica</TableHead>
+              <TableHead className="text-right">Asistentes</TableHead>
+              <TableHead className="hidden md:table-cell">Laboratorio</TableHead>
+              <TableHead className="w-12">
+                <span className="sr-only">Acciones</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {clases.map((clase) => {
+              const dia = clase.abiertaEn.slice(0, 10)
+              return (
+                <TableRow key={clase.id}>
+                  <TableCell className="whitespace-nowrap font-medium">{fecha(clase.abiertaEn)}</TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">
+                    {hora(clase.abiertaEn)} – {hora(clase.cerradaEn)}
+                  </TableCell>
+                  <TableCell>{clase.practica?.titulo ?? <span className="text-muted-foreground">Sin práctica</span>}</TableCell>
+                  <TableCell className="text-right tabular-nums">{clase.asistentes}</TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">{clase.laboratorio.nombre}</TableCell>
+                  <TableCell>
+                    <MenuDeAcciones
+                      etiqueta={`Descargar la clase del ${fecha(clase.abiertaEn)}`}
+                      acciones={[
+                        { texto: "Hoja en PDF", icono: FileText, alElegir: () => hojaDeRegistroPdf(hojaDeClase(clase), `lista_${dia}.pdf`) },
+                        { texto: "Hoja en Excel", icono: FileSpreadsheet, alElegir: () => hojaDeRegistroExcel(hojaDeClase(clase), `lista_${dia}.xlsx`) },
+                      ]}
+                    />
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      )}
+    </Panel>
   )
 }

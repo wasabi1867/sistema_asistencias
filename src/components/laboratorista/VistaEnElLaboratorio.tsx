@@ -1,25 +1,27 @@
 import { useState, type FormEvent } from "react"
-import { Check, LogOut, Trash2, UserPlus, X } from "lucide-react"
+import { Check, Clock, Inbox, LogOut, Monitor, Trash2, UserPlus, Users, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, type Asistencia, type Equipo, type Solicitud } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
-import { hora } from "../../lib/formato"
+import { hora, nombreDeEquipo } from "../../lib/formato"
 import { useConsultaPeriodica } from "../../hooks/useConsultaPeriodica"
-import { nombreDeEquipo } from "../registro/FormularioDeEntrada"
-import { encabezadoDeTarjeta, type PropsDeVista } from "./vista"
+import { Campo, Cifra, Panel, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
+import { DetalleDeEquipo, MapaDeEquipos } from "./MapaDeEquipos"
+import type { PropsDeVista } from "./vista"
 
 const PROPIO = "propio"
 
 /**
- * Lo que pasa ahora en el laboratorio: quién está dentro, el uso fuera de clase (que
- * registra el personal mientras el instituto no diga quién lo autoriza) y las
- * solicitudes de alumnos que piden usarlo.
+ * Lo que pasa ahora en el laboratorio: quién está dentro y en qué computadora, el uso
+ * fuera de clase (que registra el personal mientras el instituto no diga quién lo
+ * autoriza) y las solicitudes de alumnos que piden usarlo.
  */
-export function VistaEnElLaboratorio({ laboratorio, oscuro, c }: PropsDeVista) {
+export function VistaEnElLaboratorio({ laboratorio, usuario }: PropsDeVista) {
   const { datos: dentro, recargar } = useConsultaPeriodica(() => api.asistencias.activas(laboratorio.clave), 5000, [laboratorio.clave])
   const { datos: equipos, recargar: recargarEquipos } = useConsultaPeriodica(() => api.equipos.deLaboratorio(laboratorio.clave), 5000, [laboratorio.clave])
   const { datos: solicitudes, recargar: recargarSolicitudes } = useConsultaPeriodica(
@@ -27,12 +29,14 @@ export function VistaEnElLaboratorio({ laboratorio, oscuro, c }: PropsDeVista) {
     10000,
     [laboratorio.clave],
   )
+  const [elegido, setElegido] = useState<Equipo | null>(null)
 
   const actualizar = () => Promise.all([recargar(), recargarEquipos(), recargarSolicitudes()])
 
   const salida = async (persona: Asistencia) => {
     try {
       await api.asistencias.registrarSalida(persona.id)
+      alertas.breve("Salida registrada")
       await actualizar()
     } catch (error) {
       await alertas.error("No se pudo registrar la salida", error)
@@ -54,123 +58,125 @@ export function VistaEnElLaboratorio({ laboratorio, oscuro, c }: PropsDeVista) {
     if (comentario === null) return
     try {
       await api.solicitudes.resolver(solicitud.id, aprobar ? "aprobada_temporal" : "rechazada", comentario)
-      await alertas.breve(aprobar ? "Solicitud aprobada: ya está dentro" : "Solicitud rechazada")
+      alertas.breve(aprobar ? "Solicitud aprobada: ya está dentro" : "Solicitud rechazada")
       await actualizar()
     } catch (error) {
       await alertas.error("No se pudo resolver la solicitud", error)
     }
   }
 
-  const tarjeta = `${c.tarjeta} border-none shadow-lg`
   const deFueraDeClase = (solicitudes ?? []).filter((s) => s.clase === null)
   const deClase = (solicitudes ?? []).filter((s) => s.clase !== null)
+  const lista = equipos ?? []
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          ["Personas dentro", dentro?.length ?? 0],
-          ["Fuera de clase", dentro?.filter((p) => p.claseId === null).length ?? 0],
-          ["Equipos libres", equipos?.filter((e) => e.estado === "libre").length ?? 0],
-          ["Solicitudes pendientes", solicitudes?.length ?? 0],
-        ].map(([titulo, valor]) => (
-          <Card key={titulo} className={tarjeta}>
-            <CardContent className="pt-6 text-center">
-              <div className="text-3xl font-bold text-[#1BB827]">{valor}</div>
-              <p className={`text-sm ${c.textoSuave}`}>{titulo}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Cifra etiqueta="Personas dentro" valor={dentro?.length} icono={Users} />
+        <Cifra etiqueta="Fuera de clase" valor={dentro?.filter((p) => p.claseId === null).length} icono={Clock} />
+        <Cifra etiqueta="Equipos libres" valor={equipos ? lista.filter((e) => e.estado === "libre").length : undefined} icono={Monitor} tono="success" detalle={equipos ? `de ${lista.length}` : undefined} />
+        <Cifra etiqueta="Solicitudes" valor={solicitudes?.length} icono={Inbox} tono={solicitudes?.length ? "warning" : "neutral"} detalle={solicitudes?.length ? "Por resolver" : "Al día"} />
       </div>
 
-      <UsoFueraDeClase laboratorio={laboratorio.clave} equipos={equipos ?? []} c={c} alRegistrar={actualizar} />
-
       {deFueraDeClase.length > 0 && (
-        <Card className={tarjeta}>
-          <CardHeader className={encabezadoDeTarjeta(oscuro)}>
-            <CardTitle className="text-lg">Piden usar el laboratorio</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4 space-y-2">
+        <Panel titulo="Piden usar el laboratorio" descripcion="Alumnos que quieren entrar fuera de clase." acciones={<Badge variant="warning">{deFueraDeClase.length}</Badge>} sinRelleno>
+          <ul className="divide-y">
             {deFueraDeClase.map((s) => (
-              <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl ${c.panel}`}>
-                <div>
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
                   <p className="font-medium">
-                    {s.alumno.nombre} {s.alumno.apellido} ({s.alumno.matricula})
+                    {s.alumno.nombre} {s.alumno.apellido} <span className="font-normal text-muted-foreground tabular-nums">({s.alumno.matricula})</span>
                   </p>
-                  <p className="text-sm opacity-80">
+                  <p className="text-sm text-muted-foreground">
                     {s.motivo ?? "Sin motivo"} · {s.equipo ? nombreDeEquipo(s.equipo) : "Equipo propio"} · {hora(s.creadaEn)}
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="button" size="sm" onClick={() => resolver(s, true)} className="bg-[#1d5631] hover:bg-[#153d23] text-white">
-                    <Check className="w-4 h-4 mr-1" /> Dejar entrar
+                  <Button type="button" size="sm" variant="success" onClick={() => resolver(s, true)}>
+                    <Check /> Dejar entrar
                   </Button>
-                  <Button type="button" size="sm" variant="destructive" onClick={() => resolver(s, false)}>
-                    <X className="w-4 h-4 mr-1" /> Rechazar
+                  <Button type="button" size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => resolver(s, false)}>
+                    <X /> Rechazar
                   </Button>
                 </div>
-              </div>
+              </li>
             ))}
-          </CardContent>
-        </Card>
+          </ul>
+        </Panel>
       )}
       {deClase.length > 0 && (
-        <p className={`text-sm ${c.textoSuave}`}>
+        <p className="text-sm text-muted-foreground">
           Hay {deClase.length} {deClase.length === 1 ? "solicitud" : "solicitudes"} para entrar a una clase; esas las resuelve el administrador.
         </p>
       )}
 
-      <Card className={tarjeta}>
-        <CardHeader className={encabezadoDeTarjeta(oscuro)}>
-          <CardTitle className="text-lg">Quién está dentro</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Panel titulo="Mapa del laboratorio" descripcion="Elige una computadora para ver su detalle, sacarla de servicio o reportar una falla.">
+          {equipos && lista.length === 0 ? (
+            <SinDatos icono={Monitor} titulo="El laboratorio no tiene equipos">
+              Se configuran en la sección Equipos.
+            </SinDatos>
+          ) : (
+            <MapaDeEquipos equipos={lista} alElegir={setElegido} />
+          )}
+        </Panel>
+        <UsoFueraDeClase laboratorio={laboratorio.clave} equipos={lista} alRegistrar={actualizar} />
+      </div>
+
+      <Panel titulo="Quién está dentro" acciones={<Badge variant="primary">{dentro?.length ?? 0}</Badge>} sinRelleno>
+        {dentro?.length === 0 ? (
+          <SinDatos icono={Users} titulo="No hay nadie dentro del laboratorio" />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Persona</TableHead>
-                <TableHead>Equipo</TableHead>
+                <TableHead>Computadora</TableHead>
                 <TableHead>Desde</TableHead>
-                <TableHead>En</TableHead>
-                <TableHead />
+                <TableHead>Motivo</TableHead>
+                <TableHead className="w-12">
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(dentro ?? []).map((persona) => (
-                <TableRow key={persona.id}>
-                  <TableCell>
-                    {persona.nombre} {persona.apellido} <span className="opacity-60">{persona.matricula ?? (persona.tipo === "invitado" ? "(de fuera)" : "")}</span>
-                  </TableCell>
-                  <TableCell>{persona.equipo ? nombreDeEquipo(persona.equipo) : "Propio"}</TableCell>
-                  <TableCell>{hora(persona.horaEntrada)}</TableCell>
-                  <TableCell>{persona.claseId ? "Clase" : "Fuera de clase"}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button type="button" size="sm" variant="outline" onClick={() => salida(persona)} title="Registrar su salida">
-                      <LogOut className="w-4 h-4" />
-                    </Button>{" "}
-                    <Button type="button" size="sm" variant="destructive" onClick={() => quitar(persona)} title="Quitar la entrada">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {dentro?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 opacity-60">
-                    No hay nadie dentro del laboratorio
-                  </TableCell>
-                </TableRow>
-              )}
+              {(dentro ?? []).map((persona) => {
+                const nombre = `${persona.nombre} ${persona.apellido ?? ""}`.trim()
+                return (
+                  <TableRow key={persona.id}>
+                    <TableCell>
+                      <p className="font-medium">{nombre}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">{persona.matricula ?? (persona.tipo === "invitado" ? "De fuera" : "")}</p>
+                    </TableCell>
+                    <TableCell>{persona.equipo ? nombreDeEquipo(persona.equipo) : <span className="text-muted-foreground">Propio</span>}</TableCell>
+                    <TableCell className="tabular-nums">{hora(persona.horaEntrada)}</TableCell>
+                    <TableCell>{persona.claseId ? <Badge variant="success">Clase</Badge> : <Badge variant="info">Fuera de clase</Badge>}</TableCell>
+                    <TableCell>
+                      <MenuDeAcciones
+                        etiqueta={`Acciones para ${nombre}`}
+                        acciones={[
+                          { texto: "Registrar su salida", icono: LogOut, alElegir: () => salida(persona) },
+                          { texto: "Quitar la entrada", icono: Trash2, peligro: true, alElegir: () => quitar(persona) },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        )}
+      </Panel>
+
+      {elegido && (
+        <DetalleDeEquipo equipo={lista.find((e) => e.id === elegido.id) ?? elegido} esAdmin={usuario.rol === "admin"} alCerrar={() => setElegido(null)} alCambiar={actualizar} />
+      )}
     </div>
   )
 }
 
 /** Registrar a alguien que usa el laboratorio sin tener clase. */
-function UsoFueraDeClase({ laboratorio, equipos, c, alRegistrar }: { laboratorio: string; equipos: Equipo[]; c: PropsDeVista["c"]; alRegistrar: () => void }) {
+function UsoFueraDeClase({ laboratorio, equipos, alRegistrar }: { laboratorio: string; equipos: Equipo[]; alRegistrar: () => void }) {
   const [matricula, setMatricula] = useState("")
   const [nombre, setNombre] = useState("")
   const [apellido, setApellido] = useState("")
@@ -188,7 +194,7 @@ function UsoFueraDeClase({ laboratorio, equipos, c, alRegistrar }: { laboratorio
       setNombre("")
       setApellido("")
       setEquipo(PROPIO)
-      await alertas.breve("Entrada registrada")
+      alertas.breve("Entrada registrada")
       alRegistrar()
     } catch (error) {
       await alertas.error("No se pudo registrar la entrada", error)
@@ -196,26 +202,27 @@ function UsoFueraDeClase({ laboratorio, equipos, c, alRegistrar }: { laboratorio
   }
 
   return (
-    <Card className={`${c.tarjeta} border-none shadow-lg`}>
-      <CardContent className="pt-6">
-        <form onSubmit={registrar} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-          <div className="space-y-1 md:col-span-2">
-            <label htmlFor="matricula-libre" className="text-sm font-medium">
-              Uso fuera de clase: número de control
-            </label>
-            <Input id="matricula-libre" value={matricula} onChange={(e) => setMatricula(e.target.value.toUpperCase().trim())} placeholder="Vacío si es alguien de fuera" />
+    <Panel titulo="Uso fuera de clase" descripcion="Registra a quien entra sin tener clase.">
+      <form onSubmit={registrar} className="space-y-4">
+        <Campo etiqueta="Número de control" htmlFor="matricula-libre" ayuda="Vacío si es alguien de fuera.">
+          <Input id="matricula-libre" value={matricula} onChange={(e) => setMatricula(e.target.value.toUpperCase().trim())} />
+        </Campo>
+        {!matricula && (
+          <div className="grid grid-cols-2 gap-3">
+            <Campo etiqueta="Nombre" htmlFor="nombre-libre">
+              <Input id="nombre-libre" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+            </Campo>
+            <Campo etiqueta="Apellidos" htmlFor="apellido-libre">
+              <Input id="apellido-libre" value={apellido} onChange={(e) => setApellido(e.target.value)} required />
+            </Campo>
           </div>
-          {!matricula && (
-            <>
-              <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre" aria-label="Nombre" required />
-              <Input value={apellido} onChange={(e) => setApellido(e.target.value)} placeholder="Apellido" aria-label="Apellido" required />
-            </>
-          )}
+        )}
+        <Campo etiqueta="Computadora" htmlFor="equipo-libre">
           <Select value={equipo} onValueChange={setEquipo}>
-            <SelectTrigger>
+            <SelectTrigger id="equipo-libre">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className={c.menu}>
+            <SelectContent>
               <SelectItem value={PROPIO}>Su propio equipo</SelectItem>
               {equipos
                 .filter((e) => e.estado === "libre")
@@ -226,11 +233,11 @@ function UsoFueraDeClase({ laboratorio, equipos, c, alRegistrar }: { laboratorio
                 ))}
             </SelectContent>
           </Select>
-          <Button type="submit" className={`md:col-start-5 ${c.botonSecundario}`}>
-            <UserPlus className="w-4 h-4 mr-2" /> Registrar entrada
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        </Campo>
+        <Button type="submit" className="w-full">
+          <UserPlus /> Registrar entrada
+        </Button>
+      </form>
+    </Panel>
   )
 }

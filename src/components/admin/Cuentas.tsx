@@ -1,22 +1,23 @@
 import { useState, type FormEvent } from "react"
-import { Edit, KeyRound, Plus, Trash2, UserCheck, UserX } from "lucide-react"
+import { KeyRound, Pencil, Plus, Trash2, UserCheck, UserCog, UserX } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api, type Cuenta, type Rol } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { useDatos } from "../../hooks/useDatos"
+import { Campo, Listado, SinDatos } from "../comunes/Bloques"
+import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
 import type { PropsDeSeccion } from "./seccion"
 
 const NOMBRES: Record<Rol, string> = { docente: "Docentes", laboratorista: "Laboratoristas", admin: "Administradores" }
 const UNO: Record<Rol, string> = { docente: "docente", laboratorista: "laboratorista", admin: "administrador" }
 
 /** Las cuentas del personal. Una cuenta con historial no se borra: se desactiva. */
-export function Cuentas({ usuario, c }: PropsDeSeccion) {
+export function Cuentas({ usuario }: PropsDeSeccion) {
   const [rol, setRol] = useState<Rol>("docente")
   const { datos: cuentas, recargar } = useDatos(() => api.usuarios.listar({ rol }), [rol])
   const [editando, setEditando] = useState<Cuenta | "nueva" | null>(null)
@@ -24,6 +25,7 @@ export function Cuentas({ usuario, c }: PropsDeSeccion) {
   const cambiarActiva = async (cuenta: Cuenta) => {
     try {
       await api.usuarios.editar(cuenta.id, { activo: !cuenta.activo })
+      alertas.breve(cuenta.activo ? "Cuenta desactivada" : "Cuenta activada")
       await recargar()
     } catch (error) {
       await alertas.error("No se pudo cambiar la cuenta", error)
@@ -53,7 +55,7 @@ export function Cuentas({ usuario, c }: PropsDeSeccion) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={rol} onValueChange={(v) => setRol(v as Rol)}>
           <TabsList>
             {(Object.keys(NOMBRES) as Rol[]).map((r) => (
@@ -63,65 +65,59 @@ export function Cuentas({ usuario, c }: PropsDeSeccion) {
             ))}
           </TabsList>
         </Tabs>
-        <Button type="button" onClick={() => setEditando("nueva")} className={c.botonSecundario}>
-          <Plus className="w-4 h-4 mr-2" /> Nueva cuenta de {UNO[rol]}
+        <Button type="button" onClick={() => setEditando("nueva")}>
+          <Plus /> Nueva cuenta de {UNO[rol]}
         </Button>
       </div>
 
-      <Card className={`${c.tarjeta} border-none shadow-lg`}>
-        <CardContent className="p-0 overflow-x-auto">
+      <Listado pie={cuentas ? <span className="tabular-nums">{cuentas.length} cuentas</span> : undefined}>
+        {cuentas?.length === 0 ? (
+          <SinDatos icono={UserCog} titulo={`No hay cuentas de ${NOMBRES[rol].toLowerCase()}`} />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Matrícula</TableHead>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Correo</TableHead>
-                {rol === "docente" && <TableHead>Departamento</TableHead>}
+                <TableHead>Matrícula</TableHead>
+                <TableHead className="hidden md:table-cell">Correo</TableHead>
+                {rol === "docente" && <TableHead className="hidden lg:table-cell">Departamento</TableHead>}
                 <TableHead>Estado</TableHead>
-                <TableHead />
+                <TableHead className="w-12">
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(cuentas ?? []).map((cuenta) => (
-                <TableRow key={cuenta.id} className={cuenta.activo ? "" : "opacity-60"}>
-                  <TableCell className="font-mono">{cuenta.matricula}</TableCell>
-                  <TableCell>
-                    {cuenta.nombre} {cuenta.apellido}
-                  </TableCell>
-                  <TableCell>{cuenta.email}</TableCell>
-                  {rol === "docente" && <TableCell>{cuenta.departamento}</TableCell>}
-                  <TableCell>{cuenta.activo ? "Activa" : "Desactivada"}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditando(cuenta)} title="Editar">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => restablecer(cuenta)} title="Restablecer contraseña">
-                      <KeyRound className="w-4 h-4" />
-                    </Button>
-                    {cuenta.id !== usuario.id && (
-                      <>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => cambiarActiva(cuenta)} title={cuenta.activo ? "Desactivar" : "Activar"}>
-                          {cuenta.activo ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                        </Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => eliminar(cuenta)} title="Eliminar" className="text-red-500">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {cuentas?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 opacity-60">
-                    No hay cuentas de {NOMBRES[rol].toLowerCase()}
-                  </TableCell>
-                </TableRow>
-              )}
+              {(cuentas ?? []).map((cuenta) => {
+                const propia = cuenta.id === usuario.id
+                return (
+                  <TableRow key={cuenta.id}>
+                    <TableCell className="font-medium">
+                      {cuenta.nombre} {cuenta.apellido}
+                      {propia && <span className="ml-2 text-xs font-normal text-muted-foreground">(tú)</span>}
+                    </TableCell>
+                    <TableCell className="font-mono text-[13px] text-muted-foreground">{cuenta.matricula ?? "—"}</TableCell>
+                    <TableCell className="hidden text-muted-foreground md:table-cell">{cuenta.email ?? "—"}</TableCell>
+                    {rol === "docente" && <TableCell className="hidden text-muted-foreground lg:table-cell">{cuenta.departamento ?? "—"}</TableCell>}
+                    <TableCell>{cuenta.activo ? <Badge variant="success">Activa</Badge> : <Badge>Desactivada</Badge>}</TableCell>
+                    <TableCell>
+                      <MenuDeAcciones
+                        etiqueta={`Acciones para ${cuenta.nombre} ${cuenta.apellido}`}
+                        acciones={[
+                          { texto: "Editar", icono: Pencil, alElegir: () => setEditando(cuenta) },
+                          { texto: "Restablecer contraseña", icono: KeyRound, alElegir: () => restablecer(cuenta) },
+                          { texto: cuenta.activo ? "Desactivar" : "Activar", icono: cuenta.activo ? UserX : UserCheck, oculta: propia, alElegir: () => cambiarActiva(cuenta) },
+                          { texto: "Eliminar", icono: Trash2, peligro: true, oculta: propia, alElegir: () => eliminar(cuenta) },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        )}
+      </Listado>
 
       {editando && (
         <FormularioDeCuenta
@@ -163,6 +159,7 @@ function FormularioDeCuenta({ cuenta, rol, alCerrar, alGuardar }: { cuenta: Cuen
       } else {
         await api.usuarios.crear({ ...cuerpo, rol, contrasena: datos.contrasena })
       }
+      alertas.breve(cuenta ? "Cuenta actualizada" : "Cuenta creada")
       alGuardar()
     } catch (error) {
       await alertas.error("No se pudo guardar la cuenta", error)
@@ -170,29 +167,31 @@ function FormularioDeCuenta({ cuenta, rol, alCerrar, alGuardar }: { cuenta: Cuen
   }
 
   const campo = (clave: keyof typeof datos, etiqueta: string, tipo = "text", obligatorio = false) => (
-    <div className="space-y-1">
-      <Label htmlFor={`cuenta-${clave}`}>{etiqueta}</Label>
+    <Campo etiqueta={etiqueta} htmlFor={`cuenta-${clave}`}>
       <Input id={`cuenta-${clave}`} type={tipo} value={datos[clave]} onChange={(e) => setDatos({ ...datos, [clave]: e.target.value })} required={obligatorio} />
-    </div>
+    </Campo>
   )
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{cuenta ? `Editar a ${cuenta.nombre}` : `Nueva cuenta de ${UNO[rol]}`}</DialogTitle>
+          <DialogDescription>Se inicia sesión con la matrícula o con el correo: hace falta al menos uno de los dos.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={guardar} className="grid grid-cols-2 gap-3">
+        <form onSubmit={guardar} className="grid grid-cols-2 gap-4">
           {campo("nombre", "Nombre", "text", true)}
           {campo("apellido", "Apellidos")}
           {campo("matricula", "Matrícula o número de empleado")}
           {campo("email", "Correo", "email")}
           {rol === "docente" && <div className="col-span-2">{campo("departamento", "Departamento")}</div>}
           {!cuenta && <div className="col-span-2">{campo("contrasena", "Contraseña inicial (al menos 8 caracteres)", "password", true)}</div>}
-          <p className="col-span-2 text-xs opacity-70">Se inicia sesión con la matrícula o con el correo: hace falta al menos uno de los dos.</p>
-          <Button type="submit" className="col-span-2 bg-[#1d5631] hover:bg-[#153d23] text-white">
-            Guardar
-          </Button>
+          <DialogFooter className="col-span-2">
+            <Button type="button" variant="outline" onClick={alCerrar}>
+              Cancelar
+            </Button>
+            <Button type="submit">Guardar</Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

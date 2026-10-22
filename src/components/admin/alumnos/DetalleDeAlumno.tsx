@@ -1,15 +1,17 @@
 import { useState } from "react"
-import { Trash2, UserPlus } from "lucide-react"
+import { BookOpen, Pencil, Trash2, UserPlus } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, type Alumno } from "../../../lib/api"
 import { alertas } from "../../../lib/alertas"
 import { fecha, turno } from "../../../lib/formato"
 import { useDatos } from "../../../hooks/useDatos"
+import { SinDatos } from "../../comunes/Bloques"
 
 /** Un alumno con sus cursos: inscribirlo en otro o darlo de baja de uno. */
-export function DetalleDeAlumno({ alumno, alCerrar }: { alumno: Alumno; alCerrar: () => void }) {
+export function DetalleDeAlumno({ alumno, alCerrar, alEditar }: { alumno: Alumno; alCerrar: () => void; alEditar: () => void }) {
   const { datos: detalle, recargar } = useDatos(() => api.alumnos.uno(alumno.matricula), [alumno.matricula])
   const { datos: cursos } = useDatos(() => api.cursos.listar(), [])
   const [curso, setCurso] = useState("")
@@ -18,7 +20,7 @@ export function DetalleDeAlumno({ alumno, alCerrar }: { alumno: Alumno; alCerrar
     if (!curso) return
     try {
       const r = await api.cursos.inscribir(Number(curso), [alumno.matricula])
-      await alertas.breve(r.inscritos.length ? "Inscrito" : r.yaInscritos.length ? "Ya estaba inscrito" : "No se pudo inscribir", r.inscritos.length || r.yaInscritos.length ? "success" : "error")
+      alertas.breve(r.inscritos.length ? "Inscrito" : r.yaInscritos.length ? "Ya estaba inscrito" : "No se pudo inscribir", r.inscritos.length || r.yaInscritos.length ? "success" : "error")
       setCurso("")
       await recargar()
     } catch (error) {
@@ -37,35 +39,65 @@ export function DetalleDeAlumno({ alumno, alCerrar }: { alumno: Alumno; alCerrar
   }
 
   const suyos = new Set((detalle?.cursos ?? []).map((cu) => cu.id))
+  const escolar = [alumno.carrera?.nombre, alumno.semestre ? `${alumno.semestre}° semestre` : null, alumno.grupo ? `grupo ${alumno.grupo}` : null, turno(alumno.turno)].filter(Boolean).join(" · ")
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {alumno.nombre} {alumno.apellido} <span className="opacity-60 font-normal">({alumno.matricula})</span>
+            {alumno.nombre} {alumno.apellido}
           </DialogTitle>
+          <DialogDescription>
+            <span className="font-mono tabular-nums">{alumno.matricula}</span> · {escolar || "Sin datos escolares"}
+          </DialogDescription>
         </DialogHeader>
-        <p className="text-sm">
-          {[alumno.carrera?.nombre, alumno.semestre ? `${alumno.semestre}° semestre` : null, alumno.grupo ? `grupo ${alumno.grupo}` : null, turno(alumno.turno)].filter(Boolean).join(" · ") || "Sin datos escolares"}
-        </p>
-        <div className="space-y-2">
-          <p className="font-medium">Cursos</p>
-          {detalle?.cursos.length === 0 && <p className="text-sm opacity-70">No está inscrito en ningún curso.</p>}
-          {(detalle?.cursos ?? []).map((cu) => (
-            <div key={cu.id} className="flex justify-between items-center gap-2 p-2 rounded-lg bg-[#e6ffe9] dark:bg-[#153731]/60 text-sm">
-              <span>
-                {cu.materia} {cu.grupo} · {cu.periodo} · {cu.docente ?? "sin docente"} <span className="opacity-60">desde {fecha(cu.inscritoEn)}</span>
-              </span>
-              <button type="button" onClick={() => darDeBaja(cu.id, `${cu.materia} ${cu.grupo}`)} className="text-red-500" title="Dar de baja">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={alEditar}>
+            <Pencil /> Editar datos
+          </Button>
+          {!alumno.activo && <Badge>Desactivado</Badge>}
         </div>
+
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold">Cursos</h3>
+          {detalle?.cursos.length === 0 ? (
+            <div className="rounded-lg border">
+              <SinDatos icono={BookOpen} titulo="No está inscrito en ningún curso" className="py-6" />
+            </div>
+          ) : (
+            <ul className="divide-y rounded-lg border">
+              {(detalle?.cursos ?? []).map((cu) => (
+                <li key={cu.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {cu.materia} · {cu.grupo}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {cu.periodo} · {cu.docente ?? "sin docente"} · desde {fecha(cu.inscritoEn)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => darDeBaja(cu.id, `${cu.materia} ${cu.grupo}`)}
+                    aria-label={`Dar de baja de ${cu.materia} ${cu.grupo}`}
+                    title="Dar de baja"
+                  >
+                    <Trash2 />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <div className="flex gap-2">
           <Select value={curso} onValueChange={setCurso}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Curso para inscribirlo">
               <SelectValue placeholder="Inscribir en un curso del periodo actual" />
             </SelectTrigger>
             <SelectContent>
@@ -78,8 +110,8 @@ export function DetalleDeAlumno({ alumno, alCerrar }: { alumno: Alumno; alCerrar
                 ))}
             </SelectContent>
           </Select>
-          <Button type="button" onClick={inscribir} disabled={!curso} className="bg-[#1d5631] hover:bg-[#153d23] text-white">
-            <UserPlus className="w-4 h-4" />
+          <Button type="button" onClick={inscribir} disabled={!curso}>
+            <UserPlus /> Inscribir
           </Button>
         </div>
       </DialogContent>

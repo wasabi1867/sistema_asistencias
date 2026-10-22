@@ -1,47 +1,34 @@
-"use client"
-
 import { useEffect, useState } from "react"
-import Image from "next/image"
-import { AnimatePresence, motion } from "framer-motion"
-import { ArrowLeft, Computer, QrCode, User, UserCog, X } from "lucide-react"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
+import { ArrowLeftRight, LogIn } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { api, type ClaseAbierta, type Equipo, type Laboratorio } from "../lib/api"
+import { alertas } from "../lib/alertas"
+import { laboratorioDeEstaComputadora, recordarLaboratorio } from "../lib/rutas"
 import { useTema } from "../hooks/useTema"
 import { useConsultaPeriodica } from "../hooks/useConsultaPeriodica"
 import { Cargando } from "../components/comunes/Cargando"
 import { BotonDeTema } from "../components/comunes/BotonDeTema"
-import { CarruselDeImagenes } from "../components/registro/CarruselDeImagenes"
-import { MenuDeLaPagina } from "../components/registro/MenuDeLaPagina"
+import { Logo } from "../components/comunes/Marca"
 import { SeleccionDeLaboratorio, iconoDeLaboratorio } from "../components/registro/SeleccionDeLaboratorio"
+import { ClaseActual } from "../components/registro/ClaseActual"
 import { FormularioDeEntrada } from "../components/registro/FormularioDeEntrada"
-import { AccesoDelAdministrador, InicioDeSesionDelPersonal } from "../components/registro/InicioDeSesion"
 import { EscanerDeCredencial } from "../components/registro/EscanerDeCredencial"
-import { alertas } from "../lib/alertas"
-
-const MENSAJES = ['"Hombres y Mujeres Del Mar y Desierto', 'Unidos Por La Educación Tecnológica De Calidad."']
-const IMAGENES = [
-  { src: "/FondoItspp.png", alt: "Logotipo del ITSPP" },
-  { src: "/tecnmImagen.png", alt: "Logotipo del Tecnológico Nacional de México" },
-  { src: "/LogoSistemas.png", alt: "Logotipo de Ingeniería en Sistemas Computacionales" },
-]
-const CLAVE_GUARDADA = "laboratorio"
+import { Reloj } from "../components/registro/Reloj"
 
 /**
- * La página de la computadora del laboratorio: el alumno registra su entrada y el
- * personal inicia sesión. El laboratorio se elige una vez y se recuerda.
+ * La página de la computadora del laboratorio (y del teléfono del alumno): la clase
+ * abierta y el registro de entrada. El personal entra desde "Personal". El laboratorio
+ * se elige una vez y se recuerda.
  */
 export default function PaginaPrincipal() {
-  const { oscuro, c, alternar } = useTema()
+  const { oscuro, alternar } = useTema()
   const [laboratorios, setLaboratorios] = useState<Laboratorio[] | null>(null)
   const [clave, setClave] = useState("")
-  const [pestana, setPestana] = useState<"alumno" | "personal">("alumno")
-  const [mensaje, setMensaje] = useState(0)
-  const [accesoAdmin, setAccesoAdmin] = useState(false)
-  const [escaner, setEscaner] = useState(false)
+  const [credencial, setCredencial] = useState(false)
 
   useEffect(() => {
-    setClave(localStorage.getItem(CLAVE_GUARDADA) ?? "")
+    setClave(laboratorioDeEstaComputadora())
     api.laboratorios
       .listar()
       .then(setLaboratorios)
@@ -49,11 +36,6 @@ export default function PaginaPrincipal() {
         setLaboratorios([])
         await alertas.error("No se pudo conectar con el servidor", error)
       })
-  }, [])
-
-  useEffect(() => {
-    const intervalo = setInterval(() => setMensaje((i) => (i + 1) % MENSAJES.length), 3500)
-    return () => clearInterval(intervalo)
   }, [])
 
   // En la computadora del laboratorio, evita cerrar la página por accidente.
@@ -76,11 +58,11 @@ export default function PaginaPrincipal() {
 
   const elegir = (nueva: string) => {
     setClave(nueva)
-    if (nueva) {
-      localStorage.setItem(CLAVE_GUARDADA, nueva)
-    } else {
-      localStorage.removeItem(CLAVE_GUARDADA)
-    }
+    recordarLaboratorio(nueva)
+  }
+
+  const cambiarDeLaboratorio = async () => {
+    if (await alertas.confirmar("¿Cambiar el laboratorio de esta computadora?", "Los alumnos registran su entrada en el laboratorio que elijas.", { aceptar: "Cambiar" })) elegir("")
   }
 
   if (laboratorios === null) {
@@ -89,107 +71,56 @@ export default function PaginaPrincipal() {
 
   if (!laboratorio) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${c.fondo} transition-colors duration-300`}>
-        <BotonDeTema oscuro={oscuro} alternar={alternar} />
-        <SeleccionDeLaboratorio laboratorios={laboratorios} oscuro={oscuro} alElegir={elegir} />
+      <div className="flex min-h-dvh flex-col bg-background">
+        <div className="flex justify-end p-3">
+          <BotonDeTema oscuro={oscuro} alternar={alternar} />
+        </div>
+        <main className="flex flex-1 items-center px-4 pb-16">
+          <SeleccionDeLaboratorio laboratorios={laboratorios} alElegir={elegir} />
+        </main>
       </div>
     )
   }
 
   const IconoDelLaboratorio = iconoDeLaboratorio(laboratorio.clave)
-  const hayClase = (clases ?? []).length > 0
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 ${c.fondo} transition-colors duration-300`}>
-      <div className="fixed top-2 left-2 z-50">
-        <MenuDeLaPagina oscuro={oscuro} alEntrarComoAdministrador={() => setAccesoAdmin(true)} />
-      </div>
-      <button
-        type="button"
-        onClick={() => elegir("")}
-        title="Cambiar de laboratorio"
-        className={`fixed top-14 left-2 sm:top-4 sm:left-16 z-40 flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-300 text-xs sm:text-sm font-medium text-white ${
-          oscuro ? "bg-[#1C4A3F] hover:bg-[#153731]" : "bg-[#800040] hover:bg-[#5c002e]"
-        }`}
-      >
-        <IconoDelLaboratorio size={16} />
-        <span>{laboratorio.nombre}</span>
-        <ArrowLeft size={14} className="opacity-60" />
-      </button>
-      <BotonDeTema oscuro={oscuro} alternar={alternar} />
-      <button
-        type="button"
-        onClick={() => setEscaner(!escaner)}
-        title={escaner ? "Cerrar el registro con credencial" : "Registrar con credencial"}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all text-white ${escaner ? "bg-red-500 hover:bg-red-600" : "bg-[#1BB827] hover:bg-[#159620]"}`}
-      >
-        {escaner ? <X className="h-6 w-6" /> : <QrCode className="h-6 w-6" />}
-      </button>
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={mensaje}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.5 }}
-          className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${oscuro ? "text-white" : "text-[#1C4A3F]"} mb-6 sm:mb-8 text-center z-10 p-2 sm:p-3 rounded-xl max-w-[95%] sm:max-w-[90%] mx-auto`}
-        >
-          {MENSAJES[mensaje]}
-        </motion.div>
-      </AnimatePresence>
-
-      <Card className={`w-full max-w-[95%] sm:max-w-[90%] md:max-w-[85%] lg:max-w-[80%] xl:max-w-[75%] mx-auto overflow-hidden ${c.tarjeta} border-none relative z-10 shadow-xl rounded-2xl sm:rounded-3xl`}>
-        <div className="flex flex-col lg:flex-row min-h-[70vh] sm:min-h-[80vh] relative overflow-hidden rounded-2xl sm:rounded-3xl">
-          <div className={`lg:w-2/5 relative h-52 sm:h-72 lg:h-auto ${pestana === "personal" ? "lg:order-last" : ""}`}>
-            <CarruselDeImagenes imagenes={IMAGENES} />
+    <div className="flex min-h-dvh flex-col bg-background">
+      <header className="border-b bg-card">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:h-20 sm:px-6">
+          <Logo conTecnm className="hidden h-12 sm:flex" />
+          <Logo className="sm:hidden" />
+          <div className="min-w-0 flex-1 sm:ml-2">
+            <p className="text-xs text-muted-foreground">Control de asistencias</p>
+            <h1 className="flex items-center gap-2 truncate text-base font-semibold sm:text-lg">
+              <IconoDelLaboratorio className="hidden h-5 w-5 shrink-0 text-primary sm:block" aria-hidden />
+              <span className="truncate">{laboratorio.nombre}</span>
+            </h1>
           </div>
-
-          <div className="lg:w-3/5 relative flex flex-col">
-            <div className="absolute top-0 left-0 right-0 h-16 sm:h-20 flex justify-center items-center z-10 bg-white/80 dark:bg-[#1C4A3F]/80 backdrop-blur-sm">
-              <div className="w-28 sm:w-36 h-14 sm:h-18 relative">
-                <Image src="/logo itspp.jpeg" alt="Logos institucionales" fill className="object-contain" priority />
-              </div>
-            </div>
-            <CardHeader className={`relative z-10 ${c.encabezado} p-6 sm:p-8 pt-20 sm:pt-24`}>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold flex flex-col items-center justify-center text-white mb-2 sm:mb-3 text-center">
-                <Computer className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-2 sm:mb-3" />
-                <motion.span initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.3, ease: [0, 0.71, 0.2, 1.01] }}>
-                  {laboratorio.nombre}
-                </motion.span>
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent className={`flex-grow flex flex-col justify-center items-center p-6 sm:p-8 ${c.tarjeta}`}>
-              <Tabs value={pestana} onValueChange={(valor) => setPestana(valor as typeof pestana)} className="w-full max-w-md mx-auto">
-                <TabsList className="grid w-full grid-cols-2 mb-6 p-1 bg-[#1BB827]/10 dark:bg-[#1BB827]/20 rounded-xl">
-                  <TabsTrigger value="alumno" className="text-sm sm:text-base py-3 rounded-lg data-[state=active]:bg-[#1BB827] data-[state=active]:text-white">
-                    <User className="w-4 h-4 mr-2" />
-                    Estudiante
-                  </TabsTrigger>
-                  <TabsTrigger value="personal" className="text-sm sm:text-base py-3 rounded-lg data-[state=active]:bg-[#1BB827] data-[state=active]:text-white">
-                    <UserCog className="w-4 h-4 mr-2" />
-                    Maestro/Laboratorista
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="alumno" className="space-y-6">
-                  <FormularioDeEntrada laboratorio={laboratorio.clave} clases={clases ?? []} equipos={equipos ?? []} oscuro={oscuro} c={c} alCambiarEquipos={recargarEquipos} />
-                </TabsContent>
-                <TabsContent value="personal" className="space-y-6">
-                  <InicioDeSesionDelPersonal c={c} />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-
-            <CardFooter className={`p-4 ${oscuro ? "bg-[#153731]" : "bg-[#f0fff4]"} text-center text-sm`}>
-              <p className={`w-full ${oscuro ? "text-gray-300" : "text-[#1C4A3F]/70"}`}>Instituto Tecnológico Superior de Puerto Peñasco © {new Date().getFullYear()}</p>
-            </CardFooter>
-          </div>
+          <Reloj className="mr-2 hidden md:block" />
+          <Button type="button" variant="ghost" size="icon" onClick={cambiarDeLaboratorio} title="Cambiar de laboratorio" aria-label="Cambiar de laboratorio">
+            <ArrowLeftRight />
+          </Button>
+          <BotonDeTema oscuro={oscuro} alternar={alternar} />
+          <Button asChild variant="outline">
+            <Link href="/entrar">
+              <LogIn /> <span className="hidden sm:inline">Personal</span>
+              <span className="sr-only sm:hidden">Acceso del personal</span>
+            </Link>
+          </Button>
         </div>
-      </Card>
+      </header>
 
-      {escaner && <EscanerDeCredencial laboratorio={laboratorio.clave} hayClase={hayClase} oscuro={oscuro} alCerrar={() => setEscaner(false)} />}
-      <AccesoDelAdministrador abierto={accesoAdmin} alCambiar={setAccesoAdmin} oscuro={oscuro} c={c} />
+      <main className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-4 lg:content-center px-4 py-5 sm:gap-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-12">
+        <ClaseActual clases={clases} />
+        <FormularioDeEntrada laboratorio={laboratorio.clave} clases={clases ?? []} equipos={equipos ?? []} alCambiarEquipos={recargarEquipos} alUsarCredencial={() => setCredencial(true)} />
+      </main>
+
+      <footer className="border-t px-4 py-4 text-center text-xs text-muted-foreground">
+        Instituto Tecnológico Superior de Puerto Peñasco · <span className="italic">Hombres y Mujeres del Mar y Desierto, unidos por la educación tecnológica de calidad</span>
+      </footer>
+
+      {credencial && <EscanerDeCredencial laboratorio={laboratorio.clave} hayClase={(clases ?? []).length > 0} alCerrar={() => setCredencial(false)} />}
     </div>
   )
 }
