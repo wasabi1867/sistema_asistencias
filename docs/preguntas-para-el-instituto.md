@@ -6,7 +6,7 @@ En cada pregunta decimos qué vamos a suponer si no hay respuesta. Así solo hac
 
 **Estado.** Esta versión sustituye a la que se entregó el 10 de octubre de 2026, que nunca tuvo respuesta. Se conservan las preguntas que siguen abiertas y se agregan las que salieron del sistema actual. Las respuestas se anotan aquí mismo, debajo de cada pregunta, con su fecha.
 
-Última actualización: 22 de octubre de 2026 (se agregó "Para probar con datos reales").
+Última actualización: 23 de octubre de 2026 (Andrés no controla la aplicación anterior; A1 y A2 se piden a quien la maneja).
 
 ## Cómo funciona el sistema
 
@@ -88,15 +88,15 @@ Respuesta:
 
 ## Para probar con datos reales
 
-El sistema nuevo ya está publicado en https://laboratorios.soycorrecaminos.xyz. Hoy se usa en el instituto la versión anterior (https://asistencialaboratorios.vercel.app), que guarda todo en Firebase. Para probar el nuevo en una clase real y luego reemplazar al anterior hace falta lo siguiente. Se pidió a Andrés el 22 de octubre de 2026; lo que dependa de él se anota con su respuesta, y lo demás él lo lleva al instituto.
+El sistema nuevo ya está publicado en https://laboratorios.soycorrecaminos.xyz. Hoy se usa en el instituto la versión anterior (https://asistencialaboratorios.vercel.app), que guarda todo en Firebase. Para probar el nuevo en una clase real y luego reemplazar al anterior hace falta lo siguiente. Se pidió a Andrés el 22 de octubre de 2026. Él lo lleva al instituto, y lo de la aplicación anterior a quien la maneja: **Andrés no controla el proyecto de Vercel ni el de Firebase** (23 de octubre de 2026).
 
-**De Andrés:**
+**De quien maneja la aplicación anterior** (Andrés lo pide):
 
-**A1. ¿Quién usa hoy la aplicación de Vercel, en qué laboratorios y desde cuándo?** ¿Quién controla ese proyecto de Vercel y el de Firebase?
+**A1. ¿Quién usa hoy la aplicación de Vercel, en qué laboratorios y desde cuándo?** ¿Quién controla ese proyecto de Vercel y el de Firebase? Hace falta su nombre: con esa persona se coordina el día del cambio.
 
 Respuesta:
 
-**A2. Acceso de solo lectura al proyecto de Firebase (`integrador-7b39d`)**, como miembro con rol de lector, o una exportación desde su consola. Es para revisar los datos y simular la importación sin guardar nada.
+**A2. Acceso de solo lectura al proyecto de Firebase (`integrador-7b39d`)**, como miembro con rol de lector, o una exportación desde su consola. Es para revisar los datos y simular la importación sin guardar nada. Lo da quien controla el proyecto: en la consola de Firebase, Configuración del proyecto → Usuarios y permisos → Agregar miembro, con el correo de Google de David y el rol de lector.
 
 Respuesta:
 
