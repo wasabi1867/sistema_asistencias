@@ -1,0 +1,56 @@
+# Prueba de las pantallas en un navegador de verdad (tests/pantallas/): compila el sitio,
+# lo sirve con PHP junto con la API sobre una base nueva, y recorre lo que hace cada rol.
+# Usa la misma base que producción (MariaDB 11.8 con READ COMMITTED) y el Chrome que ya
+# trae la máquina de GitHub.
+name: Pantallas
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'public/**', 'api/**', 'db/**', 'scripts/**', 'tests/pantallas/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.github/workflows/pantallas.yml']
+  pull_request:
+    paths: ['src/**', 'public/**', 'api/**', 'db/**', 'scripts/**', 'tests/pantallas/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.github/workflows/pantallas.yml']
+  workflow_dispatch:
+
+jobs:
+  navegador:
+    name: Prueba en el navegador
+    runs-on: ubuntu-latest
+    services:
+      base:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: pruebas
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, curl, mbstring
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Aislamiento como en producción
+        run: docker exec ${{ job.services.base.id }} mariadb -uroot -ppruebas -e "SET GLOBAL transaction_isolation='READ-COMMITTED'"
+      - run: npm run prueba:pantallas
+        env:
+          ASISTENCIAS_PRUEBAS_DB_HOST: 127.0.0.1
+          ASISTENCIAS_PRUEBAS_DB_PORT: 3306
+          ASISTENCIAS_PRUEBAS_DB_USER: root
+          ASISTENCIAS_PRUEBAS_DB_PASS: pruebas
+          NAVEGADOR: chrome
+      - name: Guardar las capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-de-las-pantallas
+          path: tests/pantallas/capturas/
+          retention-days: 7
