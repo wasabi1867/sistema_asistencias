@@ -1,5 +1,7 @@
-# Pruebas de la API en PHP (api/) contra una base real. Corren en MariaDB y en MySQL
-# porque no sabemos cuál dará Hostinger: el esquema tiene que funcionar en los dos.
+# Pruebas de la API en PHP (api/) contra una base real. Producción es MariaDB 11.8 con
+# aislamiento READ COMMITTED (así viene en Hostinger), y esa combinación se prueba tal
+# cual. También corren en MariaDB 10.6 y MySQL 8.0, con su aislamiento de siempre
+# (REPEATABLE READ), para que el esquema no dependa de una sola versión.
 name: API PHP
 
 on:
@@ -12,7 +14,7 @@ on:
 
 jobs:
   pruebas:
-    name: Pruebas en ${{ matrix.base }}
+    name: Pruebas en ${{ matrix.base }} ${{ matrix.aislamiento }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -22,6 +24,7 @@ jobs:
             salud: healthcheck.sh --connect --innodb_initialized
           - base: mariadb:11.8
             salud: healthcheck.sh --connect --innodb_initialized
+            aislamiento: READ-COMMITTED
           - base: mysql:8.0
             salud: mysqladmin ping -h 127.0.0.1 -uroot -ppruebas
     services:
@@ -42,6 +45,9 @@ jobs:
           extensions: pdo_mysql, curl, mbstring
           coverage: none
       - run: composer install --no-interaction --no-progress
+      - name: Aislamiento como en producción
+        if: matrix.aislamiento
+        run: docker exec ${{ job.services.base.id }} mariadb -uroot -ppruebas -e "SET GLOBAL transaction_isolation='${{ matrix.aislamiento }}'"
       - run: vendor/bin/phpunit
         env:
           ASISTENCIAS_PRUEBAS_DB_HOST: 127.0.0.1

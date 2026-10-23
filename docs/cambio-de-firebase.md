@@ -2,7 +2,7 @@
 
 Con esta versión, todas las pantallas leen y escriben en la base de Hostinger a través de la API ([`api/`](../api)), y Firebase deja de usarse. Este documento lista lo que hay que hacer una sola vez para publicarla, en el orden en que se hace.
 
-**Estado al 22 de octubre de 2026:** los pasos 1, 2, 3, 5, 6 y 7 están hechos y el sistema está publicado. Falta el **día del cambio**: dejar la aplicación anterior, que sigue en uso en Vercel, e importar sus datos (paso 4).
+**Estado al 23 de octubre de 2026:** los pasos 1, 2, 3, 5, 6 y 7 están hechos y el sistema está publicado. Los respaldos de la base están probados (sección "Respaldos", al final). Falta el **día del cambio**: dejar la aplicación anterior, que sigue en uso en Vercel, e importar sus datos (paso 4).
 
 ## Cómo es el hospedaje
 
@@ -39,10 +39,12 @@ Lo averiguado el 22 de octubre de 2026:
 
 **El día del cambio**, sin clases abiertas:
 1. Avisar a docentes y laboratoristas la dirección nueva.
-2. Simular la importación (paso 4) y revisar el reporte.
-3. Importar en serio. Repetirla después no duplica nada, por si alguien registró algo en la anterior a última hora.
-4. Retirar la aplicación anterior: que quien controla el proyecto de Vercel la quite o la haga redirigir a la dirección nueva.
-5. Dejar Firebase unas semanas sin borrar, como respaldo, y de solo lectura.
+2. Respaldar la base nueva (sección "Respaldos").
+3. Simular la importación (paso 4) y revisar el reporte.
+4. Importar en serio. Repetirla después no duplica nada, por si alguien registró algo en la anterior a última hora.
+5. Respaldar otra vez, ya con los datos importados.
+6. Retirar la aplicación anterior: que quien controla el proyecto de Vercel la quite o la haga redirigir a la dirección nueva.
+7. Dejar Firebase unas semanas sin borrar, como respaldo, y de solo lectura.
 
 **Si el sistema nuevo ya se usó antes de importar** (por ejemplo, en un piloto), la importación busca lo que ya existe en lugar de duplicarlo, pero hay que tener en cuenta lo siguiente:
 - **Las materias se buscan por nombre exacto.** Una capturada con otro nombre que en Firebase ("Programación Web" y "Programacion web I") queda dos veces.
@@ -164,6 +166,46 @@ Las direcciones de la aplicación anterior (`/AdminPanel`, `/lista-asistencias`,
 - **Quitar la autorización de MySQL remoto** cuando ya no haga falta correr scripts desde la computadora. Se vuelve a agregar en un minuto si se necesita (por ejemplo, el día del cambio).
 - **Cambiar la contraseña del administrador** desde el sistema (menú con su nombre → Cambiar contraseña). La inicial se generó al azar y se guardó en la computadora de David.
 - **Después del día del cambio:** dejar Firebase unas semanas sin borrar y de solo lectura, y luego borrarlo junto con la aplicación de Vercel.
+- **Respaldar la base** con la frecuencia de la sección siguiente.
+
+## Respaldos
+
+**Los de Hostinger no bastan.** El plan Single hace un respaldo automático **a la semana**, de los archivos y de la base, y restaurarlo desde hPanel reemplaza la base completa: se pierde todo lo registrado desde ese respaldo. Los diarios son un complemento de pago. Por eso, además, se respalda la base desde la computadora.
+
+**Cómo.** Con la conexión cargada (paso 1, y la IP autorizada en MySQL remoto), desde la carpeta del repositorio:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\hostinger-itspp\respaldos" | Out-Null
+php scripts/exportar-datos.php "$env:USERPROFILE\hostinger-itspp\respaldos\laboratorio-$(Get-Date -Format 'yyyy-MM-dd-HHmm').sql"
+```
+
+- Lee todas las tablas como estaban en un mismo instante, aunque haya una clase abierta. No cambia nada en la base.
+- El archivo anota las migraciones que tenía la base y termina con `-- Fin del respaldo: N renglones de 19 tablas.` Si esa línea falta, el respaldo quedó cortado y no sirve.
+- **Tiene datos personales.** Va fuera del repositorio. La segunda copia, fuera de la computadora, va cifrada (por ejemplo, un `.7z` con contraseña AES-256 guardada en el gestor de contraseñas).
+
+**Cuándo:**
+- antes del piloto y antes del día del cambio, y otra vez al terminar ese día;
+- cada semana mientras el sistema esté en uso;
+- antes de aplicar una migración (`php scripts/migrar.php`) o de cualquier cambio a mano en la base.
+
+**Restaurar.** `php scripts/restaurar.php ARCHIVO.sql` crea las tablas con `db/esquema.sql` y carga el respaldo. Antes de tocar la base revisa tres cosas, y si alguna falla no hace nada:
+- que el archivo esté completo;
+- que sea de la misma versión del esquema: si el repositorio tiene migraciones que el respaldo no, se restaura desde un commit con las mismas migraciones y luego se corre `php scripts/migrar.php`;
+- que la base esté vacía. Nunca escribe sobre una base con tablas.
+
+Al terminar, compara los renglones cargados con los que dice el archivo.
+
+- **Para probar un respaldo** (conviene hacerlo cada mes), se restaura en una base vacía de la computadora, apuntando a ella con las variables `ASISTENCIAS_DB_*` en lugar de las de Hostinger, y luego se borra esa base, que tiene los datos personales.
+- **Para recuperar producción:**
+  1. Respaldar primero lo que haya, aunque esté dañado.
+  2. En phpMyAdmin, borrar todas las tablas de `u568725086_laboratorio`.
+  3. Correr `restaurar.php` con la conexión de Hostinger.
+  4. Revisar el sitio (paso 7).
+
+**Lo comprobado el 23 de octubre de 2026:**
+- **Primer respaldo de producción:** 47 renglones de 19 tablas, en la computadora de David.
+- **Restauración:** se restauró en una base vacía de la computadora, con el mismo resultado: laboratorios, carreras, equipos, el administrador y la bitácora.
+- **El aislamiento de Hostinger:** la base usa **READ COMMITTED**, no el REPEATABLE READ que MariaDB trae por omisión. Por eso el respaldo fija su propio nivel, y la integración continua prueba la MariaDB 11.8 con READ COMMITTED.
 
 ## Qué cambió para cada quien
 

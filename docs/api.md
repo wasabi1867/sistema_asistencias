@@ -195,14 +195,14 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 
 ## Pruebas
 
-Son 243 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
+Son 245 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
 
 ```bash
 composer install
 vendor/bin/phpunit
 ```
 
-Por omisión se conectan a `127.0.0.1:3306` como `root` sin contraseña; se cambia con `ASISTENCIAS_PRUEBAS_DB_HOST`, `_PORT`, `_USER` y `_PASS`. En GitHub corren en MariaDB 10.6 y 11.8 y en MySQL 8.0.
+Por omisión se conectan a `127.0.0.1:3306` como `root` sin contraseña; se cambia con `ASISTENCIAS_PRUEBAS_DB_HOST`, `_PORT`, `_USER` y `_PASS`. En GitHub corren en MariaDB 10.6 y 11.8 y en MySQL 8.0. La 11.8 corre con el aislamiento READ COMMITTED, como la base de Hostinger; las otras dos, con REPEATABLE READ, el de siempre.
 
 Para correr la API en una computadora:
 1. Instalar la base con `php scripts/instalar.php`.
@@ -213,4 +213,6 @@ Para correr la API en una computadora:
 
 [`db/esquema.sql`](../db/esquema.sql) siempre describe la base completa; [docs/modelo-de-datos.md](modelo-de-datos.md) explica cada tabla.
 
-Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: el primero será `001-lo-que-cambia.sql`. Todavía no hay ninguno, porque ninguna base con este esquema se ha instalado en producción; la carpeta se crea con el primero. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
+Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: el primero será `001-lo-que-cambia.sql`. Todavía no hay ninguno; la carpeta se crea con el primero. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
+
+Antes de aplicar una migración en producción se respalda la base. Un respaldo solo se restaura sobre el esquema de su misma versión: `scripts/restaurar.php` lo revisa. Ver "Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
