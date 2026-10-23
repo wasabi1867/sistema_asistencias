@@ -6,7 +6,7 @@ En cada pregunta decimos qué vamos a suponer si no hay respuesta. Así solo hac
 
 **Estado.** Esta versión sustituye a la que se entregó el 10 de octubre de 2026, que nunca tuvo respuesta. Se conservan las preguntas que siguen abiertas y se agregan las que salieron del sistema actual. Las respuestas se anotan aquí mismo, debajo de cada pregunta, con su fecha.
 
-Última actualización: 22 de octubre de 2026.
+Última actualización: 22 de octubre de 2026 (se agregó "Para probar con datos reales").
 
 ## Cómo funciona el sistema
 
@@ -85,6 +85,48 @@ Si no se revisa, cualquier alumno con número de control puede entrar a cualquie
 *Si no hay respuesta:* se seguirá revisando la inscripción.
 
 Respuesta:
+
+## Para probar con datos reales
+
+El sistema nuevo ya está publicado en https://laboratorios.soycorrecaminos.xyz. Hoy se usa en el instituto la versión anterior (https://asistencialaboratorios.vercel.app), que guarda todo en Firebase. Para probar el nuevo en una clase real y luego reemplazar al anterior hace falta lo siguiente. Se pidió a Andrés el 22 de octubre de 2026; lo que dependa de él se anota con su respuesta, y lo demás él lo lleva al instituto.
+
+**De Andrés:**
+
+**A1. ¿Quién usa hoy la aplicación de Vercel, en qué laboratorios y desde cuándo?** ¿Quién controla ese proyecto de Vercel y el de Firebase?
+
+Respuesta:
+
+**A2. Acceso de solo lectura al proyecto de Firebase (`integrador-7b39d`)**, como miembro con rol de lector, o una exportación desde su consola. Es para revisar los datos y simular la importación sin guardar nada.
+
+Respuesta:
+
+**A3. La fecha del cambio:** el día en que se deja la aplicación anterior y se empieza a usar la nueva. Ese día se importan los datos de Firebase. Antes no conviene usar las dos en las clases, porque los alumnos tendrían que registrarse dos veces.
+
+Respuesta:
+
+**Del instituto:**
+
+**11. Autorización por escrito** de quien sea responsable (jefatura del centro de cómputo o subdirección) para usar los datos personales de los alumnos en el sistema nuevo y pasar a él los que ya están en Firebase. ¿El aviso de privacidad del instituto ya cubre este uso, o hay que agregarlo?
+
+Respuesta:
+
+**12. La lista de alumnos del semestre en Excel**, de servicios escolares, con estas columnas en el primer renglón: **Número de control, Nombre, Apellidos, Carrera, Semestre, Turno, Grupo**. Una fila por alumno. Así se carga tal cual en el sistema.
+
+Respuesta:
+
+**13. Las materias que usan los laboratorios este semestre:** materia, grupo, docente, laboratorio, días y horario. Y la lista de alumnos de cada grupo, o la confirmación de que todos los alumnos de un grupo llevan las mismas materias.
+
+Respuesta:
+
+**14. El personal que va a usar el sistema:** de cada docente y laboratorista, nombre, correo institucional y número de empleado.
+
+Respuesta:
+
+**15. Un piloto:** un laboratorio, un docente y un grupo con los que se pueda probar en una clase real, y en qué fecha.
+
+Respuesta:
+
+Para el piloto basta con las preguntas 1, 2, 4 y 11 a 15, y solo de ese laboratorio, ese docente y ese grupo. El resto se carga después.
 
 ## Ya respondidas
 

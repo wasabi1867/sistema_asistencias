@@ -9,7 +9,8 @@ Contexto y reglas de trabajo para Claude Code u otro agente en este repositorio.
 - **Hospedaje:** Hostinger, en la cuenta de Daniel Alonso Osuna Talamantes. David entra como colaborador y publica; no puede comprar ni cambiar de plan. Cómo es el plan y cómo se publica: [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md).
 - **Quién decide lo técnico:** David Ramírez (Ozelot12100), colaborador con permiso de escritura. Lleva la base, la API y las pantallas.
 - **Repositorio anterior:** `Ozelot12100/Sistema_asignacion_academica_ITSPP` (API en .NET) ya no se usa. De ahí se tomó el diseño de la base, pero su código y su `CLAUDE.md` no aplican aquí.
-- **Estado:** [docs/estado-actual.md](docs/estado-actual.md) dice qué funciona, qué se verificó y qué falta.
+- **Publicado** en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026. **En el instituto se sigue usando la versión original**, en https://asistencialaboratorios.vercel.app, que guarda en Firebase (`integrador-7b39d`). Hasta el día del cambio, no se toca ni esa aplicación ni Firebase (ver [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md)).
+- **Estado:** [docs/estado-actual.md](docs/estado-actual.md) dice qué funciona, qué se verificó y qué falta. Las decisiones y su porqué están en [docs/decisiones.md](docs/decisiones.md).
 
 ## Tecnologías
 
@@ -45,7 +46,7 @@ npm run dev                              # pantallas en http://localhost:3000 (N
 - **Cambios a la base:** `db/esquema.sql` y, para bases ya instaladas, un archivo en `db/migraciones/` (ver [docs/api.md](docs/api.md#cambios-a-la-base)), con sus pruebas, y `docs/modelo-de-datos.md`.
 - **Cambios a una ruta:** su permiso en `tests/api/PermisosTest.php`, su tipo en `src/lib/api.ts` y su renglón en `docs/api.md`.
 - **Permisos que el instituto no ha definido:** el más restrictivo que deja operar, anotado como provisional.
-- **Documentación:** cada cambio actualiza lo que le toque de `docs/`, en especial `docs/estado-actual.md`. Lo que no se verificó se dice como no verificado.
+- **Documentación:** cada cambio actualiza lo que le toque de `docs/`, en especial `docs/estado-actual.md`. Una decisión nueva se agrega a `docs/decisiones.md`. Lo que no se verificó se dice como no verificado.
 - **Preguntas para el instituto:** van en `docs/preguntas-para-el-instituto.md`, con lo que se supone mientras tanto; la respuesta se anota ahí con su fecha.
 
 ## Documentación
@@ -54,8 +55,9 @@ npm run dev                              # pantallas en http://localhost:3000 (N
 |---|---|
 | [README.md](README.md) | Qué es, cómo correrlo y cómo publicarlo |
 | [docs/estado-actual.md](docs/estado-actual.md) | Qué funciona, qué se verificó, qué falta e historial de cambios |
+| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D14) con su fecha y su porqué |
 | [docs/api.md](docs/api.md) | Organización de la API, configuración, las 84 rutas con sus permisos, pruebas y cambios a la base |
 | [docs/modelo-de-datos.md](docs/modelo-de-datos.md) | Las 19 tablas, las reglas que garantiza la base y la conversión desde Firebase |
 | [docs/pantallas.md](docs/pantallas.md) | Las páginas, dónde está cada cosa en `src/`, diseño y convenciones |
-| [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md) | Publicar esta versión en Hostinger y traer los datos de Firebase |
+| [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md) | Cómo es el hospedaje, cómo se publica, y el día del cambio desde la aplicación de Vercel y Firebase |
 | [docs/preguntas-para-el-instituto.md](docs/preguntas-para-el-instituto.md) | Lo que falta que defina el instituto |

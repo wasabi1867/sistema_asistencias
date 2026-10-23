@@ -2,6 +2,8 @@
 
 Con esta versión, todas las pantallas leen y escriben en la base de Hostinger a través de la API ([`api/`](../api)), y Firebase deja de usarse. Este documento lista lo que hay que hacer una sola vez para publicarla, en el orden en que se hace.
 
+**Estado al 22 de octubre de 2026:** los pasos 1, 2, 3, 5, 6 y 7 están hechos y el sistema está publicado. Falta el **día del cambio**: dejar la aplicación anterior, que sigue en uso en Vercel, e importar sus datos (paso 4).
+
 ## Cómo es el hospedaje
 
 Lo averiguado el 22 de octubre de 2026:
@@ -14,17 +16,35 @@ Lo averiguado el 22 de octubre de 2026:
   - PHP 8.3.
 - **La base de datos** es MariaDB 11.8.9, en `srv827.hstgr.io`, puerto 3306. La de este sistema es `u568725086_laboratorio`, con el usuario `u568725086_lab_api`. Las demás bases de la cuenta no se tocan.
 - **El sitio** es `laboratorios.soycorrecaminos.xyz`. En Hostinger ese subdominio es la carpeta `laboratorios/` del dominio principal, así que también contesta en `soycorrecaminos.xyz/laboratorios/`. Ahí las pantallas no funcionarían: piden `/api` y `/_next` desde la raíz, que es el sitio de la carrera. Por eso el `.htaccess` manda esa dirección al subdominio.
-- **Lo que está publicado hoy** es una página de "Plataforma en desarrollo · Próximamente disponible", sin Firebase. Publicar esta versión no le quita nada a nadie.
-- **Delante del sitio hay un CDN de Hostinger** (`Server: hcdn`). Después de subir hay que vaciar su caché.
+- **Lo que había antes** en la carpeta del subdominio: una página de "Plataforma en desarrollo · Próximamente disponible", el `default.php` de Hostinger y una carpeta `frontend/` con una compilación vieja del sistema original y su API en PHP sin protección. Se retiraron al publicar, con respaldo en la computadora de David.
+- **Delante del sitio hay un CDN de Hostinger** (`Server: hcdn`). No guarda copias de las páginas ni de la API (responde `x-hcdn-cache-status: DYNAMIC`), así que no hace falta vaciarlo al subir. La primera visita sin cookie recibe una redirección 307 a la misma dirección; los navegadores la siguen solos.
 
-## Los datos de Firebase
+## La aplicación anterior y sus datos
 
-Firebase no está conectado a nada publicado: ni a este sitio ni a Firebase Hosting (`integrador-7b39d.web.app`, que solo muestra la página de bienvenida de Firebase). Antes de importar, **hay que preguntarle a Andrés si alguien usó de verdad la versión con Firebase**, por ejemplo corriéndola en las computadoras del laboratorio:
+**La que se usa hoy en el ITSPP** es la versión original del sistema, publicada en Vercel: https://asistencialaboratorios.vercel.app. Lo que se sabe, revisando solo lo que el sitio publica (22 de octubre de 2026):
+- Es la versión del primer commit de este repositorio: tiene las mismas páginas (`/`, `/AdminPanel`, `/lista-asistencias`, `/lista-asistenciasInvitado`, `/panel-laboratorista`, `/schedule-dashboard`, `/layout`).
+- Su última publicación es del 15 de octubre de 2026, según Vercel; puede estar en uso desde antes.
+- Guarda todo en el proyecto de Firebase `integrador-7b39d`, el mismo que lee `scripts/importar-de-firebase.php`. **Sus datos son reales y siguen creciendo.**
+- Compara las contraseñas en el navegador (`bcrypt` en el JavaScript publicado) y escribe en Firestore sin iniciar sesión. Eso quiere decir que las reglas de Firestore dejan leer y escribir a cualquiera que tenga la configuración web, que está en el código publicado, incluidas las contraseñas cifradas del personal. No se han revisado las reglas mismas. Es otra razón para hacer el cambio pronto.
 
-- **Si nadie la usó,** sus datos son de prueba y no se importan. Se publica con la base vacía y se cargan los datos reales desde el sistema.
-- **Si sí la usaron,** se importan con `scripts/importar-de-firebase.php` (paso 4). El script lee Firebase directamente con la configuración web del proyecto: no hay que descargar nada a mano. Son datos personales de alumnos, así que hace falta el visto bueno de Andrés.
+**Por eso los datos de Firebase se importan el día del cambio, no antes:**
+- Mientras la aplicación anterior siga en uso, cada clase agrega datos a Firebase. Lo que se importe antes quedaría incompleto.
+- Las dos aplicaciones no deben usarse a la vez en las clases: los alumnos tendrían que registrarse dos veces, y las listas quedarían repartidas.
+- Lo que haga falta para un piloto (un grupo, un docente, un laboratorio) se carga a mano en el sistema nuevo. Al importar, el script empata lo que ya exista (ver abajo).
 
-Lo mejor es importar **antes** de que se use el sistema nuevo. Importar sobre una base en uso es posible, porque el script busca lo que ya existe en lugar de duplicarlo, pero hay que tener en cuenta lo siguiente:
+**Lo que hace falta antes del día del cambio** (pedido a Andrés y al instituto; ver [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md), sección "Para probar con datos reales"):
+- La autorización por escrito del instituto para usar los datos personales de los alumnos en el sistema nuevo y pasar a él los de Firebase.
+- Acceso de lectura al proyecto de Firebase, para revisar los datos y simular la importación.
+- La fecha del cambio, acordada con quienes usan la aplicación anterior.
+
+**El día del cambio**, sin clases abiertas:
+1. Avisar a docentes y laboratoristas la dirección nueva.
+2. Simular la importación (paso 4) y revisar el reporte.
+3. Importar en serio. Repetirla después no duplica nada, por si alguien registró algo en la anterior a última hora.
+4. Retirar la aplicación anterior: que quien controla el proyecto de Vercel la quite o la haga redirigir a la dirección nueva.
+5. Dejar Firebase unas semanas sin borrar, como respaldo, y de solo lectura.
+
+**Si el sistema nuevo ya se usó antes de importar** (por ejemplo, en un piloto), la importación busca lo que ya existe en lugar de duplicarlo, pero hay que tener en cuenta lo siguiente:
 - **Las materias se buscan por nombre exacto.** Una capturada con otro nombre que en Firebase ("Programación Web" y "Programacion web I") queda dos veces.
 - **Los cursos se buscan por materia, periodo y docente.** Si el docente es otro, se crea un curso más y las inscripciones de Firebase van a ese.
 - **Los alumnos que estaban activos en Firebase se sobrescriben** con los datos de Firebase (nombre, carrera, semestre, grupo, turno) y quedan activos, aunque se hayan corregido o desactivado en el sistema nuevo.
@@ -80,7 +100,7 @@ Pide la contraseña al correrlo, para que no quede en el historial. Mientras se 
 
 También se le puede pasar por tubería (`"la contraseña" | php scripts/crear-admin.php ...`). PowerShell 5.1 antepone así una marca invisible (BOM) que el script quita; antes de esa corrección, la contraseña quedaba guardada con ella y no servía para entrar.
 
-## 4. Importar los datos de Firebase (solo si se usaron)
+## 4. Importar los datos de Firebase (el día del cambio)
 
 Siempre primero con `--simular`, que hace todo, muestra el reporte y al final lo deshace. `--respaldo` guarda cada colección tal como venía de Firebase:
 
@@ -109,11 +129,13 @@ Con el administrador de archivos de hPanel, en la carpeta `laboratorios/api/` de
 - `db_name`, `db_user` y `db_pass` son los de `u568725086_laboratorio`.
 - `db_tls` se queda en `false`, porque la conexión no sale del servidor.
 
-**No comprobado:** que el usuario de la base pueda entrar desde `localhost`. Hostinger lo permite por omisión, pero el paso 7 lo confirma.
+Comprobado el 22 de octubre: el usuario de la base entra desde `localhost` sin más configuración.
 
 ## 6. Compilar y subir el sitio
 
-1. **Respaldar lo que hay hoy** en la carpeta `laboratorios/`: descargar su contenido desde el administrador de archivos o por FTP. Es la página de "Próximamente".
+Se sube por FTP con la cuenta **`labdeploy`**, que se creó en hPanel → Archivos → Cuentas FTP con el directorio `public_html/laboratorios`: solo ve la carpeta de este sitio, no la del sitio de la carrera ni la de otros proyectos. Servidor `ftp.soycorrecaminos.xyz`, puerto 21. Acepta **FTP cifrado (FTPS explícito)**, que es como debe usarse: el FTP sin cifrar manda la contraseña tal cual. FileZilla lo hace con "Requiere FTP explícito sobre TLS". Los datos de la cuenta van en un archivo fuera del repositorio, como los de la base.
+
+1. **Respaldar lo que hay** en la carpeta, descargándola completa.
 2. **Compilar** en la computadora, sin `.env.local`, para que la API quede en `/api`:
 
    ```bash
@@ -124,9 +146,10 @@ Con el administrador de archivos de hPanel, en la carpeta `laboratorios/api/` de
 3. **Subir el contenido de `out/`** a la carpeta `laboratorios/`, reemplazando lo que había:
    - Incluye la carpeta `api/` con su `.htaccess`, que deja pasar las peticiones a `api/index.php` y no deja leer ningún otro archivo de la API.
    - **No hay que borrar `api/config.local.php` del servidor.** `npm run build` no lo copia a `out/`, para no reemplazar el del servidor con los datos de la computadora.
-4. **Vaciar la caché del CDN** en hPanel, para que nadie siga viendo la página anterior.
+   - La primera vez, además, se sube `api/config.local.php` (paso 5).
+4. **Comprobar** el sitio (paso 7). El CDN no guarda copias, así que no hace falta vaciarlo.
 
-Las direcciones de la versión con Firebase (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenciasInvitado`, `/panel-laboratorista`) nunca se publicaron aquí, pero el `.htaccess` las redirige a las nuevas por si alguien las tiene guardadas.
+Las direcciones de la aplicación anterior (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenciasInvitado`, `/panel-laboratorista`) el `.htaccess` las redirige a las nuevas. Sirve para quien cambie `asistencialaboratorios.vercel.app` por `laboratorios.soycorrecaminos.xyz` en una dirección guardada.
 
 ## 7. Probar
 
@@ -138,8 +161,9 @@ Las direcciones de la versión con Firebase (`/AdminPanel`, `/lista-asistencias`
 
 ## 8. Después de publicar
 
-- **Quitar la autorización de MySQL remoto** cuando ya no haga falta correr scripts desde la computadora. Se vuelve a agregar en un minuto si se necesita.
-- **Dejar Firebase unas semanas sin borrar,** como respaldo. Lo ideal es de solo lectura: la aplicación anterior escribía sin iniciar sesión, así que sus reglas deben permitir escribir a cualquiera que tenga la configuración web. No se han revisado las reglas mismas.
+- **Quitar la autorización de MySQL remoto** cuando ya no haga falta correr scripts desde la computadora. Se vuelve a agregar en un minuto si se necesita (por ejemplo, el día del cambio).
+- **Cambiar la contraseña del administrador** desde el sistema (menú con su nombre → Cambiar contraseña). La inicial se generó al azar y se guardó en la computadora de David.
+- **Después del día del cambio:** dejar Firebase unas semanas sin borrar y de solo lectura, y luego borrarlo junto con la aplicación de Vercel.
 
 ## Qué cambió para cada quien
 
