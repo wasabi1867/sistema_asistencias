@@ -110,7 +110,7 @@ Respuesta:
 
 Respuesta:
 
-**12. La lista de alumnos del semestre en Excel**, de servicios escolares, con estas columnas en el primer renglón: **Número de control, Nombre, Apellidos, Carrera, Semestre, Turno, Grupo**. Una fila por alumno. Así se carga tal cual en el sistema.
+**12. La lista de alumnos del semestre en Excel**, de servicios escolares, con estas columnas en el primer renglón: **Número de control, Nombre, Apellidos, Carrera, Semestre, Turno, Grupo**. Una fila por alumno. Así se carga tal cual en el sistema; hay una plantilla en [plantilla-alumnos.xlsx](plantilla-alumnos.xlsx).
 
 Respuesta:
 

@@ -90,7 +90,7 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
    - la autorización por escrito para usar los datos de los alumnos;
    - la lista de alumnos en Excel, las materias con sus horarios y el personal;
    - un piloto y la fecha del cambio.
-2. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio.
+2. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador.
 3. **Simular la importación de Firebase** en cuanto haya autorización y acceso de lectura, para conocer los datos y lo que habrá que revisar a mano.
 4. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
 5. **Quitar la autorización de MySQL remoto** en hPanel mientras no haga falta correr scripts desde la computadora.
@@ -112,3 +112,4 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 | 22 de octubre de 2026 | #6 | Documentación al día: este documento y la guía para asistentes (`CLAUDE.md`) |
 | 22 de octubre de 2026 | #7 | Conexión cifrada con la base para los scripts, redirección al subdominio, corrección del BOM en `crear-admin.php`, las pruebas que fallaban de 5 p.m. a medianoche por calcular "hoy" en UTC, y la guía de publicación con el plan real. **Publicación en Hostinger** |
 | 22 de octubre de 2026 | #8 | La aplicación anterior sigue en uso en Vercel: plan del día del cambio, lo pedido al instituto para el piloto, y el registro de decisiones ([decisiones.md](decisiones.md)) |
+| 22 de octubre de 2026 | #9 | Guía del administrador y plantilla de Excel para cargar alumnos |

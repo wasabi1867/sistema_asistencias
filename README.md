@@ -88,6 +88,7 @@ Se sube el contenido de `out/` a la carpeta del sitio y se vacía la caché del 
 
 - [docs/estado-actual.md](docs/estado-actual.md): qué funciona, qué se verificó, qué falta y el historial de cambios.
 - [docs/decisiones.md](docs/decisiones.md): las decisiones que dan forma al sistema, con su porqué.
+- [docs/guia-del-administrador.md](docs/guia-del-administrador.md): para quien administra el sistema: el periodo, las cuentas, los alumnos desde Excel ([plantilla](docs/plantilla-alumnos.xlsx)), las materias, los cursos y la primera clase.
 - [docs/api.md](docs/api.md):
   - Cómo está organizada la API, configuración y convenciones.
   - Todas las rutas y quién puede usar cada una.
