@@ -9,7 +9,7 @@ Contexto y reglas de trabajo para Claude Code u otro agente en este repositorio.
 - **Hospedaje:** Hostinger, en la cuenta de Daniel Alonso Osuna Talamantes. David entra como colaborador y publica; no puede comprar ni cambiar de plan. Cómo es el plan y cómo se publica: [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md).
 - **Quién decide lo técnico:** David Ramírez (Ozelot12100), colaborador con permiso de escritura. Lleva la base, la API y las pantallas.
 - **Repositorio anterior:** `Ozelot12100/Sistema_asignacion_academica_ITSPP` (API en .NET) ya no se usa. De ahí se tomó el diseño de la base, pero su código y su `CLAUDE.md` no aplican aquí.
-- **Publicado** en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026. **En el instituto se sigue usando la versión original**, en https://asistencialaboratorios.vercel.app, que guarda en Firebase (`integrador-7b39d`). Hasta el día del cambio, no se toca ni esa aplicación ni Firebase (ver [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md)).
+- **Publicado** en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026. **En el instituto se sigue usando la versión original**, en https://asistencialaboratorios.vercel.app, que guarda en Firebase (`integrador-7b39d`). Andrés no controla ese proyecto de Vercel ni el de Firebase: lo que haga falta de ellos lo pide a quien los maneja. Hasta el día del cambio, no se toca ni esa aplicación ni Firebase (ver [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md)).
 - **Estado:** [docs/estado-actual.md](docs/estado-actual.md) dice qué funciona, qué se verificó y qué falta. Las decisiones y su porqué están en [docs/decisiones.md](docs/decisiones.md).
 
 ## Tecnologías

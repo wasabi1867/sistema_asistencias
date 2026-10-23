@@ -2,7 +2,7 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 22 de octubre de 2026.
+Última actualización: 23 de octubre de 2026.
 
 ## En resumen
 
@@ -85,8 +85,8 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 ## Pendientes, en orden
 
 1. **Lo pedido a Andrés y al instituto** (sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)):
-   - quién usa la aplicación de Vercel;
-   - acceso de lectura a Firebase;
+   - quién usa y quién controla la aplicación de Vercel y Firebase (Andrés no los controla: los pide a quien los maneja);
+   - acceso de lectura a Firebase, que da esa persona;
    - la autorización por escrito para usar los datos de los alumnos;
    - la lista de alumnos en Excel, las materias con sus horarios y el personal;
    - un piloto y la fecha del cambio.
@@ -113,3 +113,4 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 | 22 de octubre de 2026 | #7 | Conexión cifrada con la base para los scripts, redirección al subdominio, corrección del BOM en `crear-admin.php`, las pruebas que fallaban de 5 p.m. a medianoche por calcular "hoy" en UTC, y la guía de publicación con el plan real. **Publicación en Hostinger** |
 | 22 de octubre de 2026 | #8 | La aplicación anterior sigue en uso en Vercel: plan del día del cambio, lo pedido al instituto para el piloto, y el registro de decisiones ([decisiones.md](decisiones.md)) |
 | 22 de octubre de 2026 | #9 | Guía del administrador y plantilla de Excel para cargar alumnos |
+| 23 de octubre de 2026 | #10 | Andrés no controla Vercel ni Firebase: lo de la aplicación anterior se pide a quien la maneja |
