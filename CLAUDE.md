@@ -40,7 +40,7 @@ npm run dev                              # pantallas en http://localhost:3000 (N
 - **Antes de subir:** `vendor/bin/phpunit`, `npm run lint` y `npm run build` sin errores.
 - **Commits** en español, en infinitivo, describiendo el cambio: `Detectar traslapes entre clases`. Terminan con la línea `Co-Authored-By` del agente.
 - **Secretos:** nunca escribir contraseñas ni datos de conexión en archivos versionados. Van en `api/config.local.php` (ignorado por git) o en variables de entorno. La conexión a la base de Hostinger va en un archivo fuera del repositorio (ver la guía de publicación).
-- **La base de producción:** antes de escribir en ella, confirmar con David cada paso. Las demás bases de la cuenta de Hostinger no se tocan.
+- **La base de producción:** antes de escribir en ella, confirmar con David cada paso y respaldarla (`scripts/exportar-datos.php`, sección "Respaldos" de la guía de publicación). Los respaldos tienen datos personales: van fuera del repositorio. Las demás bases de la cuenta de Hostinger no se tocan.
 - **Datos de Firebase:** son datos personales de alumnos. No descargarlos ni importarlos sin permiso explícito de David; cuando lo haya, primero con `--simular`, y el respaldo fuera del repositorio.
 - **Código:** vocabulario del dominio en español, como lo nombra el instituto. Los comentarios explican el porqué.
 - **Cambios a la base:** `db/esquema.sql` y, para bases ya instaladas, un archivo en `db/migraciones/` (ver [docs/api.md](docs/api.md#cambios-a-la-base)), con sus pruebas, y `docs/modelo-de-datos.md`.
@@ -55,10 +55,10 @@ npm run dev                              # pantallas en http://localhost:3000 (N
 |---|---|
 | [README.md](README.md) | Qué es, cómo correrlo y cómo publicarlo |
 | [docs/estado-actual.md](docs/estado-actual.md) | Qué funciona, qué se verificó, qué falta e historial de cambios |
-| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D14) con su fecha y su porqué |
+| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D15) con su fecha y su porqué |
 | [docs/guia-del-administrador.md](docs/guia-del-administrador.md) | Para el administrador, no técnica: dejar el sistema listo para una clase. Con la plantilla `docs/plantilla-alumnos.xlsx`. Si cambia una pantalla del administrador, se actualiza |
 | [docs/api.md](docs/api.md) | Organización de la API, configuración, las 84 rutas con sus permisos, pruebas y cambios a la base |
 | [docs/modelo-de-datos.md](docs/modelo-de-datos.md) | Las 19 tablas, las reglas que garantiza la base y la conversión desde Firebase |
 | [docs/pantallas.md](docs/pantallas.md) | Las páginas, dónde está cada cosa en `src/`, diseño y convenciones |
-| [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md) | Cómo es el hospedaje, cómo se publica, y el día del cambio desde la aplicación de Vercel y Firebase |
+| [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md) | Cómo es el hospedaje, cómo se publica, los respaldos de la base, y el día del cambio desde la aplicación de Vercel y Firebase |
 | [docs/preguntas-para-el-instituto.md](docs/preguntas-para-el-instituto.md) | Lo que falta que defina el instituto |

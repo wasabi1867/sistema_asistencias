@@ -20,7 +20,7 @@ Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y a
 | API | PHP 8.1 o más nuevo, sin framework ni paquetes | `api/` |
 | Base de datos | MariaDB 11.8 en producción; también funciona en MySQL 8 y MariaDB 10.6 o más nuevo | `db/` |
 | Pruebas de la API | PHPUnit, contra una base real | `tests/api/` |
-| Scripts | Instalar la base, aplicar cambios, primer administrador, importar de Firebase, exportar datos | `scripts/` |
+| Scripts | Instalar la base, aplicar cambios, primer administrador, importar de Firebase, respaldar y restaurar | `scripts/` |
 
 Todo se publica junto en Hostinger: `npm run build` deja en `out/` las páginas y la carpeta `api/`.
 
@@ -64,7 +64,7 @@ npm run lint         # pantallas
 npm run build        # compila las pantallas y revisa tipos y lint
 ```
 
-En GitHub corren solas en cada pull request (`.github/workflows/`). Las de la API corren en MariaDB 10.6 y 11.8 y en MySQL 8.0.
+En GitHub corren solas en cada pull request (`.github/workflows/`). Las de la API corren en MariaDB 10.6 y 11.8 (esta con el aislamiento READ COMMITTED, como en Hostinger) y en MySQL 8.0.
 
 ## Publicar en Hostinger
 

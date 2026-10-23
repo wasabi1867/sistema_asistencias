@@ -46,7 +46,7 @@ El alumno no tiene cuenta ni escribe sus datos: escribe su número de control y 
 
 *22 de octubre de 2026.*
 
-Hostinger da MariaDB 11.8.9. La computadora de desarrollo usa la misma versión, y la integración continua prueba en MariaDB 10.6 y 11.8 y en MySQL 8.0. No se usa nada que solo exista en uno de los dos, como `RETURNING` de MariaDB.
+Hostinger da MariaDB 11.8.9, con el aislamiento de transacciones en READ COMMITTED. La computadora de desarrollo usa la misma versión, y la integración continua prueba en MariaDB 10.6 y 11.8 (esta con READ COMMITTED, desde el 23 de octubre) y en MySQL 8.0. No se usa nada que solo exista en uno de los dos, como `RETURNING` de MariaDB.
 
 **Por qué:**
 - Probar con lo mismo que producción evita sorpresas; ya hubo una, con el `mysqldump` de MariaDB.
@@ -120,3 +120,15 @@ El reparto está en [api.md](api.md#rutas) y es provisional mientras no responda
 Contraseñas y datos de conexión van en `api/config.local.php` (que git ignora) o en variables de entorno.
 
 **Por qué:** el repositorio es público. La contraseña de la base original estuvo en el código y, aunque se quitó, sigue en el historial de git.
+
+## D15. La base se respalda desde la computadora, además de los respaldos de Hostinger
+
+*23 de octubre de 2026.*
+
+Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana mientras se use, antes de cada migración y alrededor del día del cambio. Se restaura con `scripts/restaurar.php`, solo en una base vacía y del mismo esquema. Los archivos van fuera del repositorio, y la copia fuera de la computadora, cifrada. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
+
+**Por qué:**
+- El plan Single solo respalda una vez a la semana, y restaurar desde hPanel reemplaza la base completa: se perdería hasta una semana de asistencias.
+- Un respaldo propio se puede hacer justo antes de un paso riesgoso, como importar Firebase o aplicar una migración.
+- Se puede probar restaurándolo en otra base sin tocar producción.
+- No se usa `mysqldump` por lo de D6: el de MariaDB escribe valores que MySQL rechaza.
