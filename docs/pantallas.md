@@ -79,4 +79,27 @@ npm run lint
 npm run build   # también revisa los tipos y el lint; falla si hay errores
 ```
 
-No hay pruebas automáticas de las pantallas en el repositorio. Los flujos principales se probaron en Edge contra el sitio compilado en `out/` y la API real con una base de ejemplo: 35 pasos en el pull request #4 y 47 en el #5, cuyo detalle está en la descripción de cada uno. Pasar esa prueba al repositorio está en los pendientes de [estado-actual.md](estado-actual.md).
+## Prueba de las pantallas
+
+`tests/pantallas/` recorre el sistema en un navegador de verdad, contra el sitio compilado y la API real, en 47 pasos. Cubre:
+- **Laboratorio y alumno:** elegir el laboratorio; el docente abre la clase; un alumno se registra desde el teléfono; uno no inscrito pide permiso y el administrador lo aprueba.
+- **Docente:** registra a alguien a mano, descarga la hoja en PDF y en Excel, quita una entrada y cierra la clase.
+- **Administrador:** sus secciones, la carga de alumnos desde Excel, crear cuentas y carreras, y el tema oscuro.
+- **Laboratorista:** sus vistas, reportar una falla, una clase de maestro invitado y la bitácora.
+
+En cada paso revisa además que no haya errores en la consola, respuestas 5xx de la API ni desborde horizontal en el teléfono. Deja capturas en `tests/pantallas/capturas/`, que git ignora.
+
+```bash
+npm run build
+npm run prueba:pantallas
+```
+
+`tests/pantallas/correr.js` hace todo lo demás:
+1. Crea una base nueva con la conexión de las pruebas de la API (`ASISTENCIAS_PRUEBAS_DB_*`) y la instala.
+2. Crea el administrador de la prueba y sirve `out/` con el servidor de PHP (`tests/pantallas/servidor.php` imita el `.htaccess`).
+3. Carga datos inventados por la API (`datos-de-ejemplo.php`), con un periodo alrededor de la fecha del día.
+4. Al terminar, borra la base.
+
+No descarga navegadores: usa Edge en Windows y Chrome en lo demás (variable `NAVEGADOR`). Si PHP no está en el PATH, se indica con la variable `PHP`. En GitHub corre en cada pull request que toca las pantallas, la API o la base (`.github/workflows/pantallas.yml`), con MariaDB 11.8 en READ COMMITTED como producción, y guarda las capturas.
+
+Si cambia un texto, un botón o un flujo de una pantalla, se actualiza el paso que lo usa en `tests/pantallas/prueba.js`.

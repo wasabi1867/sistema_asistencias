@@ -52,3 +52,6 @@ next-env.d.ts
 /importacion*.sql
 *.sql.gz
 /respaldo-*.sql
+
+# Prueba de las pantallas: capturas, archivos descargados y registro del servidor
+/tests/pantallas/capturas/
