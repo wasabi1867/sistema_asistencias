@@ -8,7 +8,13 @@ Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
 **El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz, con la base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
 
-Antes había una página de "Próximamente" y una compilación vieja del sistema original en `frontend/`, con su API sin protección; las dos se retiraron, con respaldo. La versión con Firebase no estaba publicada en ningún lado: falta saber si alguien la usó y, por tanto, si sus datos se importan (ver [cambio-de-firebase.md](cambio-de-firebase.md)).
+**En el instituto se sigue usando la versión anterior**, publicada en Vercel (https://asistencialaboratorios.vercel.app; su última publicación es del 15 de octubre de 2026), que guarda todo en Firebase. Sus datos son reales y siguen creciendo. El plan (decisión D12 de [decisiones.md](decisiones.md)):
+- un piloto del sistema nuevo con un grupo real;
+- luego un **día del cambio**, en que se deja la anterior y se importan sus datos.
+
+Para eso hace falta lo de la sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md), que se le pidió a Andrés el 22 de octubre. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md).
+
+En la carpeta del subdominio había una página de "Próximamente" y una compilación vieja del sistema original en `frontend/`, con su API sin protección. Las dos se retiraron al publicar, con respaldo.
 
 ## Qué funciona
 
@@ -63,8 +69,8 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 ## Qué no se ha verificado
 
 - **Una clase completa en el sitio publicado:** abrir una clase, registrar a un alumno desde un teléfono y cerrarla. Se hará al cargar los primeros datos reales, para no dejar datos de prueba en la base de producción.
-- **La importación con los datos reales de Firebase.** No se han descargado.
-- **Las reglas de seguridad de Firebase.**
+- **La importación con los datos reales de Firebase.** No se han descargado: falta la autorización del instituto.
+- **Las reglas de seguridad de Firebase.** Por cómo funciona la aplicación de Vercel (escribe sin iniciar sesión y compara las contraseñas en el navegador), lo más probable es que dejen leer y escribir a cualquiera.
 - **Un lector de pantalla** y un **lector de credencial físico**.
 - **Un teléfono real.** Se probó con el ancho de un teléfono en el navegador de la computadora.
 
@@ -78,18 +84,26 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 
 ## Pendientes, en orden
 
-1. **Cargar los datos para empezar a usarlo:** el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), las cuentas de docentes y laboratoristas, los alumnos desde Excel, las materias, los cursos y sus inscripciones. Después, probar una clase completa.
-2. **Preguntar a Andrés si alguien usó la versión con Firebase.** Si sí, importar sus datos antes de que se use el sistema, con su visto bueno ([cambio-de-firebase.md](cambio-de-firebase.md), paso 4).
-3. **Quitar la autorización de MySQL remoto** en hPanel cuando ya no haga falta correr scripts desde la computadora.
-4. **Respuestas del instituto** ([preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)): carreras, periodos, de dónde sale la lista de alumnos, permisos por rol y si el registro debe exigir que el alumno esté inscrito.
-5. **Arreglos menores:** el nombre del laboratorio cortado en el teléfono y actualizar Next.js.
-6. **Pasar la prueba de las pantallas al repositorio**, para que corra en cada pull request.
+1. **Lo pedido a Andrés y al instituto** (sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)):
+   - quién usa la aplicación de Vercel;
+   - acceso de lectura a Firebase;
+   - la autorización por escrito para usar los datos de los alumnos;
+   - la lista de alumnos en Excel, las materias con sus horarios y el personal;
+   - un piloto y la fecha del cambio.
+2. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio.
+3. **Simular la importación de Firebase** en cuanto haya autorización y acceso de lectura, para conocer los datos y lo que habrá que revisar a mano.
+4. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
+5. **Quitar la autorización de MySQL remoto** en hPanel mientras no haga falta correr scripts desde la computadora.
+6. **El resto de las respuestas del instituto:** carreras, permisos por rol, uso fuera de clase y si el registro debe exigir la inscripción.
+7. **Arreglos menores:** el nombre del laboratorio cortado en el teléfono y actualizar Next.js.
+8. **Pasar la prueba de las pantallas al repositorio**, para que corra en cada pull request.
 
 ## Historial
 
 | Fecha | Pull request | Qué cambió |
 |---|---|---|
-| 21 de octubre de 2026 | — | Andrés sube el sistema original: pantallas en Next.js que guardaban todo en Firebase, y una API en PHP sin usar |
+| 15 de octubre de 2026 | — | Última publicación en Vercel de la versión original, con Firebase (https://asistencialaboratorios.vercel.app). Es la que usa el instituto; puede estar en uso desde antes |
+| 21 de octubre de 2026 | — | Andrés sube el sistema original a este repositorio: pantallas en Next.js que guardaban todo en Firebase, y una API en PHP sin usar |
 | 22 de octubre de 2026 | #1 | La API en PHP pide sesión y revisa el rol; la contraseña de la base sale del código |
 | 22 de octubre de 2026 | #2 | Clases en la API; el servidor hace cumplir las reglas del registro |
 | 22 de octubre de 2026 | #3 | Las pantallas dejan Firebase y usan la API; script de importación de Firebase |
@@ -97,3 +111,4 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 | 22 de octubre de 2026 | #5 | Rediseño de las pantallas: colores, registro en dos pasos, `/entrar` y direcciones nuevas |
 | 22 de octubre de 2026 | #6 | Documentación al día: este documento y la guía para asistentes (`CLAUDE.md`) |
 | 22 de octubre de 2026 | #7 | Conexión cifrada con la base para los scripts, redirección al subdominio, corrección del BOM en `crear-admin.php`, las pruebas que fallaban de 5 p.m. a medianoche por calcular "hoy" en UTC, y la guía de publicación con el plan real. **Publicación en Hostinger** |
+| 22 de octubre de 2026 | #8 | La aplicación anterior sigue en uso en Vercel: plan del día del cambio, lo pedido al instituto para el piloto, y el registro de decisiones ([decisiones.md](decisiones.md)) |

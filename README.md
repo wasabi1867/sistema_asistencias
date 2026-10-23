@@ -10,7 +10,7 @@ El sistema lleva además las prácticas por materia, las clases de maestro invit
 
 Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y administrador.
 
-**Estado:** publicado en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026; falta cargar los datos reales para empezar a usarlo. Qué funciona, qué se verificó y qué falta: [docs/estado-actual.md](docs/estado-actual.md).
+**Estado:** publicado en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026. Falta cargar los datos reales para empezar a usarlo. En el instituto se sigue usando la versión anterior (https://asistencialaboratorios.vercel.app, con Firebase) hasta el día del cambio. Qué funciona, qué se verificó y qué falta: [docs/estado-actual.md](docs/estado-actual.md).
 
 ## Cómo está hecho
 
@@ -87,6 +87,7 @@ Se sube el contenido de `out/` a la carpeta del sitio y se vacía la caché del 
 ## Documentación
 
 - [docs/estado-actual.md](docs/estado-actual.md): qué funciona, qué se verificó, qué falta y el historial de cambios.
+- [docs/decisiones.md](docs/decisiones.md): las decisiones que dan forma al sistema, con su porqué.
 - [docs/api.md](docs/api.md):
   - Cómo está organizada la API, configuración y convenciones.
   - Todas las rutas y quién puede usar cada una.
