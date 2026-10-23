@@ -132,3 +132,18 @@ Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana
 - Un respaldo propio se puede hacer justo antes de un paso riesgoso, como importar Firebase o aplicar una migración.
 - Se puede probar restaurándolo en otra base sin tocar producción.
 - No se usa `mysqldump` por lo de D6: el de MariaDB escribe valores que MySQL rechaza.
+
+## D16. Next.js se queda en la 14 por ahora; las demás dependencias se actualizan
+
+*23 de octubre de 2026.*
+
+`npm audit` marca 25 avisos de seguridad en Next.js 14.2.35, la última de la 14. Ninguno aplica aquí, porque todos son de su servidor:
+- Image Optimization: se usa `images.unoptimized`.
+- Server Actions, Server Components, App Router y middleware: el sitio usa Pages Router y no tiene nada de eso.
+- Reescrituras, caché y `beforeInteractive`.
+
+En producción no hay servidor de Next: Hostinger sirve los archivos que deja `npm run build`. Los avisos de PostCSS y Tailwind son de herramientas que solo corren al compilar.
+
+Lo que sí llega al navegador se actualizó: jsPDF de la 3 a la 4.2.1 (y jspdf-autotable 5.0.9), y con `npm audit fix` DOMPurify, fflate y nanoid, entre otras.
+
+**Por qué:** pasar a Next.js 15 o 16 obliga a usar React 19 y a revisar todas las pantallas. Vale la pena, porque la 14 ya no recibe arreglos, pero no corre prisa mientras no se use su servidor. Se hará con la prueba del navegador en el repositorio, para comprobar cada pantalla.
