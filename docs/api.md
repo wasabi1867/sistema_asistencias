@@ -195,7 +195,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 
 ## Pruebas
 
-Son 242 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
+Son 243 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
 
 ```bash
 composer install

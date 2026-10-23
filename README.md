@@ -10,7 +10,7 @@ El sistema lleva además las prácticas por materia, las clases de maestro invit
 
 Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y administrador.
 
-**Estado:** la versión de este repositorio todavía no está publicada; en `laboratorios.soycorrecaminos.xyz` hay una página de "Próximamente". Qué funciona, qué se verificó y qué falta: [docs/estado-actual.md](docs/estado-actual.md).
+**Estado:** publicado en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026; falta cargar los datos reales para empezar a usarlo. Qué funciona, qué se verificó y qué falta: [docs/estado-actual.md](docs/estado-actual.md).
 
 ## Cómo está hecho
 

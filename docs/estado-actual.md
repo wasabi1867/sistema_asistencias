@@ -6,9 +6,9 @@ Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
 ## En resumen
 
-La versión nueva está completa en `main`, pero **no se ha publicado**. El sitio de Hostinger sigue siendo la versión anterior, que guarda todo en Firebase, así que hasta publicar no se pierde ningún dato.
+**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz, con la base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
 
-Antes de publicar falta decidir qué pasa con los datos de Firebase: traerlos primero, o publicar sin ellos y traerlos después. Las dos formas, y lo que implica cada una, están en [cambio-de-firebase.md](cambio-de-firebase.md).
+Antes había una página de "Próximamente" y una compilación vieja del sistema original en `frontend/`, con su API sin protección; las dos se retiraron, con respaldo. La versión con Firebase no estaba publicada en ningún lado: falta saber si alguien la usó y, por tanto, si sus datos se importan (ver [cambio-de-firebase.md](cambio-de-firebase.md)).
 
 ## Qué funciona
 
@@ -45,7 +45,12 @@ Antes de publicar falta decidir qué pasa con los datos de Firebase: traerlos pr
 
 | Qué | Cómo | Cuándo |
 |---|---|---|
-| La API | 238 pruebas de PHPUnit contra una base real, en MariaDB 10.6, 11.5 y 11.8 y en MySQL 8.0 | 22 de octubre, en cada pull request |
+| La API | 243 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo) y en MySQL 8.0 | 22 de octubre, en cada pull request |
+| La base de Hostinger | Instalada con `scripts/instalar.php` por MySQL remoto con TLS verificado; los registros de cada tabla coinciden con una base local instalada igual, más el administrador | 22 de octubre |
+| La conexión cifrada (`db_tls`) | Contra Hostinger: cifra con TLSv1.3, verifica el certificado y rechaza la conexión con una autoridad equivocada | 22 de octubre |
+| El sitio publicado | Las páginas, la API leyendo la base desde el servidor, inicio y cierre de sesión con la cookie `secure; HttpOnly; SameSite=Lax`, y 14 pasos en Edge (computadora y teléfono) sin errores. `api/config.local.php` y `api/src/` no se pueden descargar | 22 de octubre |
+| El CDN de Hostinger | No guarda copias: las páginas y `/api` salen `DYNAMIC`, y la API manda `Cache-Control: no-store` | 22 de octubre |
+| Las redirecciones en Hostinger | `soycorrecaminos.xyz/laboratorios/...` y las direcciones viejas llevan al subdominio (LiteSpeed aplica el `.htaccess`) | 22 de octubre |
 | Las reglas de la base | 35 intentos de romperlas, en MariaDB 11.5 y MySQL 8.0 | 21 de octubre |
 | La importación de Firebase | Con datos de prueba inventados que imitan las colecciones de Firebase (`tests/api/firebase/`) | 22 de octubre |
 | Las pantallas | `npm run lint` y `npm run build` sin errores | 22 de octubre, en cada pull request |
@@ -57,7 +62,7 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 
 ## Qué no se ha verificado
 
-- **Hostinger:** qué versión de PHP y qué motor de base da (MySQL o MariaDB), y si su servidor (LiteSpeed) aplica el `.htaccess` igual que Apache.
+- **Una clase completa en el sitio publicado:** abrir una clase, registrar a un alumno desde un teléfono y cerrarla. Se hará al cargar los primeros datos reales, para no dejar datos de prueba en la base de producción.
 - **La importación con los datos reales de Firebase.** No se han descargado.
 - **Las reglas de seguridad de Firebase.**
 - **Un lector de pantalla** y un **lector de credencial físico**.
@@ -73,9 +78,9 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 
 ## Pendientes, en orden
 
-1. **Decidir qué pasa con los datos de Firebase y publicar** en Hostinger. Lo publica Andrés, con [cambio-de-firebase.md](cambio-de-firebase.md).
-2. **Cambiar la contraseña de la base anterior** en el panel de Hostinger. Estuvo en el código y sigue en el historial de git.
-3. **Importar los datos de Firebase**, si no se hizo al publicar.
+1. **Cargar los datos para empezar a usarlo:** el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), las cuentas de docentes y laboratoristas, los alumnos desde Excel, las materias, los cursos y sus inscripciones. Después, probar una clase completa.
+2. **Preguntar a Andrés si alguien usó la versión con Firebase.** Si sí, importar sus datos antes de que se use el sistema, con su visto bueno ([cambio-de-firebase.md](cambio-de-firebase.md), paso 4).
+3. **Quitar la autorización de MySQL remoto** en hPanel cuando ya no haga falta correr scripts desde la computadora.
 4. **Respuestas del instituto** ([preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)): carreras, periodos, de dónde sale la lista de alumnos, permisos por rol y si el registro debe exigir que el alumno esté inscrito.
 5. **Arreglos menores:** el nombre del laboratorio cortado en el teléfono y actualizar Next.js.
 6. **Pasar la prueba de las pantallas al repositorio**, para que corra en cada pull request.
@@ -91,3 +96,4 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 | 22 de octubre de 2026 | #4 | Base rediseñada (de 12 a 19 tablas), API reescrita con 84 rutas y 238 pruebas, panel nuevo del administrador. Incluye #1 a #3 |
 | 22 de octubre de 2026 | #5 | Rediseño de las pantallas: colores, registro en dos pasos, `/entrar` y direcciones nuevas |
 | 22 de octubre de 2026 | #6 | Documentación al día: este documento y la guía para asistentes (`CLAUDE.md`) |
+| 22 de octubre de 2026 | #7 | Conexión cifrada con la base para los scripts, redirección al subdominio, corrección del BOM en `crear-admin.php`, las pruebas que fallaban de 5 p.m. a medianoche por calcular "hoy" en UTC, y la guía de publicación con el plan real. **Publicación en Hostinger** |
