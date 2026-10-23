@@ -11,6 +11,12 @@ return [
     'db_user' => 'usuario_de_la_base',
     'db_pass' => 'contraseña_de_la_base',
 
+    // Solo al conectarse desde otra computadora a la base de Hostinger (MySQL remoto):
+    // cifra la conexión y, con el archivo de autoridades, comprueba el certificado del
+    // servidor. En el servidor, con 'localhost', se deja en false.
+    'db_tls' => false,
+    'db_tls_ca' => '',
+
     // Solo si las pantallas se sirven desde otro dominio, por ejemplo durante el
     // desarrollo con `npm run dev`: 'http://localhost:3000'
     'origenes_permitidos' => '',

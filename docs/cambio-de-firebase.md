@@ -1,128 +1,145 @@
-# Publicar esta versión y dejar Firebase
+# Publicar en Hostinger y dejar Firebase
 
-Con esta versión, todas las pantallas leen y escriben en la base MySQL o MariaDB de Hostinger a través de la API ([`api/`](../api)), y Firebase deja de usarse. Este documento lista lo que hay que hacer una sola vez para publicarla.
+Con esta versión, todas las pantallas leen y escriben en la base de Hostinger a través de la API ([`api/`](../api)), y Firebase deja de usarse. Este documento lista lo que hay que hacer una sola vez para publicarla, en el orden en que se hace.
 
-## Primero: decidir qué pasa con los datos de Firebase
+## Cómo es el hospedaje
 
-El sitio publicado hoy guarda todo en Firebase. En cuanto se publique esta versión, Firebase deja de recibir datos: lo que tenga hasta ese día es lo que se puede traer.
+Lo averiguado el 22 de octubre de 2026:
 
-**No hay que descargar nada a mano.** `scripts/importar-de-firebase.php` lee Firebase directamente con la configuración web del proyecto (`projectId` y `apiKey`, las mismas que usaba el sitio anterior) y guarda una copia en una carpeta antes de importar. Lo que sí hace falta es el visto bueno de Andrés, porque son datos personales de los alumnos.
+- **La cuenta** es de Daniel Alonso Osuna Talamantes. David entra como colaborador: puede administrar, pero no comprar ni cambiar de plan.
+- **El plan** es Single Web Hosting:
+  - Un solo sitio y un número limitado de bases de datos. Para crear la de este sistema se borró la anterior, `u568725086_asistencias`, que tenía el esquema del sistema original; las pantallas de ese sistema guardaban todo en Firebase, no en ella.
+  - **Sin terminal (SSH).**
+  - **Con MySQL remoto:** la base se puede usar desde una computadora cuya IP se autorice.
+  - PHP 8.3.
+- **La base de datos** es MariaDB 11.8.9, en `srv827.hstgr.io`, puerto 3306. La de este sistema es `u568725086_laboratorio`, con el usuario `u568725086_lab_api`. Las demás bases de la cuenta no se tocan.
+- **El sitio** es `laboratorios.soycorrecaminos.xyz`. En Hostinger ese subdominio es la carpeta `laboratorios/` del dominio principal, así que también contesta en `soycorrecaminos.xyz/laboratorios/`. Ahí las pantallas no funcionarían: piden `/api` y `/_next` desde la raíz, que es el sitio de la carrera. Por eso el `.htaccess` manda esa dirección al subdominio.
+- **Lo que está publicado hoy** es una página de "Plataforma en desarrollo · Próximamente disponible", sin Firebase. Publicar esta versión no le quita nada a nadie.
+- **Delante del sitio hay un CDN de Hostinger** (`Server: hcdn`). Después de subir hay que vaciar su caché.
 
-Hay dos formas de publicar:
+## Los datos de Firebase
 
-**A. Traer los datos y luego publicar (recomendada).** Se siguen los pasos 1 a 7 de abajo en orden. Si todavía no se pueden traer, conviene esperar: mientras no se publique, el sitio anterior sigue guardando todo en Firebase y no se pierde nada.
+Firebase no está conectado a nada publicado: ni a este sitio ni a Firebase Hosting (`integrador-7b39d.web.app`, que solo muestra la página de bienvenida de Firebase). Antes de importar, **hay que preguntarle a Andrés si alguien usó de verdad la versión con Firebase**, por ejemplo corriéndola en las computadoras del laboratorio:
 
-**B. Publicar sin los datos y traerlos después.** Se saltan los pasos 1 y 2. En el paso 3 la base de Hostinger se crea vacía, importando `db/esquema.sql` y luego `db/datos-iniciales.sql`. Después se crea el primer administrador (paso 4) y el sistema se empieza a usar: el periodo, alumnos desde Excel, materias, cursos e inscripciones.
+- **Si nadie la usó,** sus datos son de prueba y no se importan. Se publica con la base vacía y se cargan los datos reales desde el sistema.
+- **Si sí la usaron,** se importan con `scripts/importar-de-firebase.php` (paso 4). El script lee Firebase directamente con la configuración web del proyecto: no hay que descargar nada a mano. Son datos personales de alumnos, así que hace falta el visto bueno de Andrés.
 
-La importación se puede correr después sobre una base en uso: busca lo que ya existe en lugar de duplicarlo. Pero hay que tener en cuenta lo siguiente:
+Lo mejor es importar **antes** de que se use el sistema nuevo. Importar sobre una base en uso es posible, porque el script busca lo que ya existe en lugar de duplicarlo, pero hay que tener en cuenta lo siguiente:
 - **Las materias se buscan por nombre exacto.** Una capturada con otro nombre que en Firebase ("Programación Web" y "Programacion web I") queda dos veces.
 - **Los cursos se buscan por materia, periodo y docente.** Si el docente es otro, se crea un curso más y las inscripciones de Firebase van a ese.
 - **Los alumnos que estaban activos en Firebase se sobrescriben** con los datos de Firebase (nombre, carrera, semestre, grupo, turno) y quedan activos, aunque se hayan corregido o desactivado en el sistema nuevo.
 - **Los equipos de cada laboratorio quedan como estaban en Firebase:** los que no estén allá se retiran, y "fuera de servicio" y las notas vuelven a los de Firebase.
 - **Los periodos se buscan por fecha.** Si ningún periodo cubre la fecha de una clase de Firebase, la importación crea "AGO-DIC" (del 1 de agosto al 31 de diciembre) o "ENE-JUL" (del 1 de enero al 31 de julio) con su año. Si ya existe uno con ese nombre pero con otras fechas, la importación entera falla sin guardar nada; si el creado a mano se llama distinto, quedan dos periodos encimados. Para evitarlo, el periodo actual se crea como **AGO-DIC 2026, del 1 de agosto al 31 de diciembre de 2026**.
 - **Las cuentas del personal se buscan por rol y por matrícula o correo.** Se actualizan sus datos, pero no su contraseña.
-- **Hay que correrla contra la base de Hostinger.** Eso pide terminal (SSH) en el servidor, o que Hostinger permita conectarse a la base desde fuera ("MySQL remoto") para correrla desde la computadora con `api/config.local.php` apuntando allá. **Ninguna de las dos se ha comprobado** con el plan actual.
 
-Siempre se corre primero con `--simular`, que hace todo, muestra el reporte y no guarda nada.
+## 1. Conectarse a la base desde la computadora
 
-## Antes de empezar
+Sin SSH, los scripts de `scripts/` se corren en una computadora y se conectan a la base de Hostinger por MySQL remoto.
 
-- **El sitio va en Hostinger, junto a la API.** Firebase Hosting no ejecuta PHP, y la sesión va en una cookie que el navegador solo manda cuando la página y la API están en el mismo sitio.
-- **PHP 8.1 o más nuevo.** Se revisa en el panel de Hostinger, en la configuración de PHP del sitio. Las pruebas corren en 8.3.
-- **Hacerlo cuando no haya clases abiertas.** Las asistencias en curso no se copian.
-- **Hace falta una computadora con PHP 8.1 o más nuevo y MySQL o MariaDB** para el respaldo y para revisar la importación. Con la PC de desarrollo basta.
+1. **Autorizar la IP** de la computadora en hPanel → Bases de datos → MySQL remoto, solo para `u568725086_laboratorio`. **Nunca "Cualquier host".** La IP pública se consulta en https://api.ipify.org; conviene consultarla varias veces, porque algunas redes alternan entre dos. Si un día falla la conexión con "Access denied", lo primero es revisar si la IP cambió.
+2. **Crear un archivo con la conexión, fuera del repositorio**, por ejemplo `C:\Users\<usuario>\hostinger-itspp\base-hostinger.env`:
 
-## 1. Respaldar Firebase y revisar la importación
-
-En la computadora, con una base local vacía configurada en `api/config.local.php` (ver [`config.ejemplo.php`](../api/config.ejemplo.php)):
-
-```bash
-php scripts/instalar.php
-php scripts/importar-de-firebase.php --proyecto=integrador-7b39d --clave=APIKEY --respaldo=respaldo-firebase --simular
-```
-
-`APIKEY` es la `apiKey` de la configuración web de Firebase.
-- **El primer comando** crea las tablas.
-- **El segundo** descarga cada colección a `respaldo-firebase/` (JSON, tal como la da Firebase) y hace la importación completa, pero al final la deshace (`--simular`): solo muestra el reporte.
-
-`respaldo-firebase/` tiene datos personales de alumnos y contraseñas cifradas. Git lo ignora: no se sube al repositorio ni al sitio.
-
-El reporte dice cuántos registros de cada cosa se importarían y qué hay que revisar a mano. Lo más común son **carreras escritas de otra forma**: la importación las busca en el catálogo sin importar mayúsculas ni acentos, pero si una no está, sus alumnos quedan sin carrera. Para corregirlo:
-1. Agregar la carrera al catálogo con [`db/datos-iniciales.sql`](../db/datos-iniciales.sql) o, después de publicar, desde la pantalla de carreras.
-2. Volver a simular con `--desde=respaldo-firebase`, que ya no descarga nada.
-
-## 2. Importar
-
-Cuando el reporte esté bien, se importa en serio:
-
-```bash
-php scripts/importar-de-firebase.php --desde=respaldo-firebase
-```
-
-Se puede repetir sin duplicar nada. Cada quien entra con su contraseña de siempre:
-- Las que venían cifradas (bcrypt) se copian tal cual y se vuelven a cifrar en el formato de PHP la primera vez que su dueño inicia sesión.
-- Las que estuvieran en texto se cifran durante la importación.
-
-## 3. Preparar la base en Hostinger
-
-1. **Crear una base nueva y vacía** en el panel de Hostinger, con su usuario. La que existe ahora tiene las tablas del esquema anterior; se deja como estaba, por si hace falta consultarla.
-2. **Crear las tablas:** en phpMyAdmin, sobre la base nueva, importar [`db/esquema.sql`](../db/esquema.sql). Está probado en MariaDB y en MySQL, así que sirve con cualquiera de los dos.
-3. **Subir los datos que se importaron en la computadora**, sin las tablas:
-   ```bash
-   php scripts/exportar-datos.php respaldo-para-hostinger.sql
    ```
-   Ese archivo se importa en la base nueva desde phpMyAdmin, en la pestaña Importar.
-   - **Ya incluye los datos iniciales** (laboratorios, carreras, equipos), así que `datos-iniciales.sql` no se carga.
-   - **Carga igual en MySQL que en MariaDB**, sin importar cuál tenga la computadora: se probó en los dos sentidos. `mysqldump` no sirve para esto, porque el de MariaDB escribe valores que MySQL rechaza.
-   - **Tiene datos personales:** se borra de la computadora después de subirlo.
+   ASISTENCIAS_DB_HOST=srv827.hstgr.io
+   ASISTENCIAS_DB_PORT=3306
+   ASISTENCIAS_DB_NAME=u568725086_laboratorio
+   ASISTENCIAS_DB_USER=u568725086_lab_api
+   ASISTENCIAS_DB_PASS=la contraseña, sin comillas
+   ASISTENCIAS_DB_TLS=1
+   ASISTENCIAS_DB_TLS_CA=C:/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt
+   ```
 
-   *Si el plan de Hostinger da terminal (SSH)*, se puede hacer en el servidor: `php scripts/instalar.php` y luego la importación con `--desde`, subiendo la carpeta del respaldo fuera de `public_html` y borrándola al terminar.
-4. **Crear `api/config.local.php` en el servidor**, con el administrador de archivos y a partir de `config.ejemplo.php`, con los datos de la base nueva.
-5. **Cambiar la contraseña de la base anterior** en el panel. Estuvo publicada en el repositorio, y quitarla del código no la borra del historial de git.
+   - **Las variables de entorno van antes que `api/config.local.php`**, así que no hace falta tocar ese archivo.
+   - **`ASISTENCIAS_DB_TLS` cifra la conexión.** Sin ella, todo, incluidos los datos de los alumnos, viajaría por internet sin cifrar.
+   - **`ASISTENCIAS_DB_TLS_CA` comprueba que del otro lado está Hostinger.** El servidor presenta un certificado de Let's Encrypt para `*.hstgr.io`, y el archivo de autoridades que trae Git para Windows lo reconoce.
+3. **Cargar el archivo en PowerShell.** Las variables quedan solo en esa ventana y desaparecen al cerrarla:
 
-## 4. Primer administrador
+   ```powershell
+   Get-Content "$env:USERPROFILE\hostinger-itspp\base-hostinger.env" | Where-Object { $_ -match '^\s*[A-Z_]+=' } | ForEach-Object { $n, $v = $_ -split '=', 2; [Environment]::SetEnvironmentVariable($n.Trim(), $v.Trim(), 'Process') }
+   ```
 
-Si las cuentas de administrador venían de Firebase, ya entran con su contraseña. Si no, o para agregar otra:
+Si algún día no hubiera MySQL remoto, se puede trabajar con una base local y subir sus datos con phpMyAdmin: `php scripts/exportar-datos.php archivo.sql` genera un archivo que carga igual en MariaDB que en MySQL, sin las tablas. `mysqldump` no sirve para esto, porque el de MariaDB escribe valores que MySQL rechaza.
 
-```bash
+## 2. Instalar la base
+
+En la misma ventana, desde la carpeta del repositorio:
+
+```powershell
+php scripts/instalar.php
+```
+
+Crea las 19 tablas y carga los datos iniciales: laboratorios, carreras y los equipos del Taller de Programación. Si la base ya tiene tablas, se niega a correr.
+
+## 3. Primer administrador
+
+```powershell
 php scripts/crear-admin.php correo@puertopenasco.tecnm.mx "Nombre" "Apellido"
 ```
 
-Sin terminal en el servidor, se corre en la computadora antes de generar el archivo de datos del paso 3. También se puede crear desde phpMyAdmin:
-1. Sacar la contraseña cifrada con `php scripts/crear-admin.php --solo-hash`.
-2. Pegarla en esta consulta:
+Pide la contraseña al correrlo, para que no quede en el historial. Mientras se escribe, se ve en pantalla. Si la cuenta ya existe, solo le pone la contraseña nueva.
 
-```sql
-INSERT INTO usuarios (rol, email, nombre, apellido, password_hash)
-VALUES ('admin', 'correo@puertopenasco.tecnm.mx', 'Nombre', 'Apellido', 'EL_HASH');
+También se le puede pasar por tubería (`"la contraseña" | php scripts/crear-admin.php ...`). PowerShell 5.1 antepone así una marca invisible (BOM) que el script quita; antes de esa corrección, la contraseña quedaba guardada con ella y no servía para entrar.
+
+## 4. Importar los datos de Firebase (solo si se usaron)
+
+Siempre primero con `--simular`, que hace todo, muestra el reporte y al final lo deshace. `--respaldo` guarda cada colección tal como venía de Firebase:
+
+```powershell
+php scripts/importar-de-firebase.php --proyecto=integrador-7b39d --clave=APIKEY --respaldo=C:\Users\<usuario>\hostinger-itspp\respaldo-firebase --simular
 ```
 
-## 5. Compilar y subir el sitio
+`APIKEY` es la `apiKey` de la configuración web de Firebase. El respaldo tiene datos personales y contraseñas cifradas: va fuera del repositorio y no se sube al sitio.
 
-```bash
-npm ci
-npm run build
+El reporte dice cuántos registros de cada cosa se importarían y qué hay que revisar a mano. Lo más común son **carreras escritas de otra forma**: la importación las busca en el catálogo sin importar mayúsculas ni acentos, pero si una no está, sus alumnos quedan sin carrera. Se agrega la carrera al catálogo y se vuelve a simular con `--desde=<carpeta del respaldo>`, que ya no descarga nada.
+
+Cuando el reporte esté bien, se importa en serio:
+
+```powershell
+php scripts/importar-de-firebase.php --desde=C:\Users\<usuario>\hostinger-itspp\respaldo-firebase
 ```
 
-Se sube el contenido de `out/` a la carpeta del sitio en Hostinger. Incluye la carpeta `api/` con su `.htaccess`, que deja pasar las peticiones a `api/index.php` y no deja leer ningún otro archivo de la API.
+Cada quien entra con su contraseña de siempre:
+- Las que venían cifradas (bcrypt) se copian tal cual y se vuelven a cifrar en el formato de PHP la primera vez que su dueño inicia sesión.
+- Las que estuvieran en texto se cifran durante la importación.
 
-Esta versión ya no trae los archivos de Firebase Hosting (`firebase.json` y su página de bienvenida en `public/index.html`). Si en el servidor quedó esa página, el `index.html` de `out/` la reemplaza al subirlo.
+## 5. Configuración de la API en el servidor
 
-Las páginas cambiaron de dirección: `/AdminPanel` ahora es `/admin`, `/lista-asistencias` es `/docente`, `/lista-asistenciasInvitado` es `/clase-invitada` y `/panel-laboratorista` es `/laboratorio`. El `.htaccess` redirige las direcciones viejas a las nuevas, así que los marcadores guardados siguen sirviendo. Los archivos viejos (`AdminPanel.html` y los demás) que queden en el servidor se pueden borrar; mientras estén, la redirección se aplica antes.
+Con el administrador de archivos de hPanel, en la carpeta `laboratorios/api/` del sitio, se crea `config.local.php` a partir de [`config.ejemplo.php`](../api/config.ejemplo.php):
+- `db_host` es `localhost`, porque la API corre en el mismo servidor que la base.
+- `db_name`, `db_user` y `db_pass` son los de `u568725086_laboratorio`.
+- `db_tls` se queda en `false`, porque la conexión no sale del servidor.
 
-**Al subir no hay que borrar `api/config.local.php` del servidor.** `npm run build` no lo copia a `out/`, para no reemplazar el del servidor con los datos de la computadora.
+**No comprobado:** que el usuario de la base pueda entrar desde `localhost`. Hostinger lo permite por omisión, pero el paso 7 lo confirma.
 
-Si el sitio queda en una subcarpeta y no en la raíz del dominio, hay que compilar con `NEXT_PUBLIC_API_URL=/subcarpeta/api` y configurar `basePath` en `next.config.mjs`.
+## 6. Compilar y subir el sitio
 
-## 6. Probar
+1. **Respaldar lo que hay hoy** en la carpeta `laboratorios/`: descargar su contenido desde el administrador de archivos o por FTP. Es la página de "Próximamente".
+2. **Compilar** en la computadora, sin `.env.local`, para que la API quede en `/api`:
+
+   ```bash
+   npm ci
+   npm run build
+   ```
+
+3. **Subir el contenido de `out/`** a la carpeta `laboratorios/`, reemplazando lo que había:
+   - Incluye la carpeta `api/` con su `.htaccess`, que deja pasar las peticiones a `api/index.php` y no deja leer ningún otro archivo de la API.
+   - **No hay que borrar `api/config.local.php` del servidor.** `npm run build` no lo copia a `out/`, para no reemplazar el del servidor con los datos de la computadora.
+4. **Vaciar la caché del CDN** en hPanel, para que nadie siga viendo la página anterior.
+
+Las direcciones de la versión con Firebase (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenciasInvitado`, `/panel-laboratorista`) nunca se publicaron aquí, pero el `.htaccess` las redirige a las nuevas por si alguien las tiene guardadas.
+
+## 7. Probar
 
 - Entrar como administrador, docente y laboratorista.
-- Abrir una clase, registrar a un alumno desde otro dispositivo y cerrarla.
-- Revisar que la clase aparezca en los reportes y que el historial importado se vea.
+- Abrir una clase, registrar a un alumno desde un teléfono y cerrarla.
+- Revisar que la clase aparezca en los reportes y, si se importó, que el historial se vea.
+- Revisar que `soycorrecaminos.xyz/laboratorios/` lleve al subdominio.
+- Revisar que el CDN no guarde respuestas de `/api`: un cambio, como registrar una entrada, debe verse al recargar.
 
-## 7. Dejar Firebase como respaldo
+## 8. Después de publicar
 
-Conviene dejarlo unas semanas sin borrar, pero de solo lectura. La aplicación escribía en Firebase sin iniciar sesión, así que sus reglas de seguridad deben permitir escribir a cualquiera que tenga la configuración web, que está en el código publicado. No revisé las reglas mismas.
+- **Quitar la autorización de MySQL remoto** cuando ya no haga falta correr scripts desde la computadora. Se vuelve a agregar en un minuto si se necesita.
+- **Dejar Firebase unas semanas sin borrar,** como respaldo. Lo ideal es de solo lectura: la aplicación anterior escribía sin iniciar sesión, así que sus reglas deben permitir escribir a cualquiera que tenga la configuración web. No se han revisado las reglas mismas.
 
 ## Qué cambió para cada quien
 

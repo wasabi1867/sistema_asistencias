@@ -37,6 +37,15 @@ final class ScriptsTest extends PruebaDeApi
         $this->assertSame(1, (int)$this->valor("SELECT COUNT(*) FROM usuarios WHERE rol = 'admin'"));
     }
 
+    public function test_crear_admin_ignora_la_marca_bom_que_antepone_powershell(): void
+    {
+        // Así llega `"contrasena-de-powershell" | php scripts/crear-admin.php ...` en PowerShell 5.1.
+        [$codigo, $salida] = Entorno::correrScript('crear-admin.php', ['jefa@pruebas.test'], "\xEF\xBB\xBFcontrasena-de-powershell\r\n");
+        $this->assertSame(0, $codigo, $salida);
+
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'jefa@pruebas.test', 'contrasena' => 'contrasena-de-powershell', 'rol' => 'admin']));
+    }
+
     public function test_crear_admin_rechaza_una_contrasena_corta(): void
     {
         [$codigo, $salida] = Entorno::correrScript('crear-admin.php', ['jefa@pruebas.test'], "corta\n");

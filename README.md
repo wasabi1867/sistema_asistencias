@@ -10,7 +10,7 @@ El sistema lleva además las prácticas por materia, las clases de maestro invit
 
 Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y administrador.
 
-**Estado:** la versión de este repositorio todavía no está publicada; el sitio en Hostinger sigue siendo la versión anterior, con Firebase. Qué funciona, qué se verificó y qué falta: [docs/estado-actual.md](docs/estado-actual.md).
+**Estado:** publicado en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026; falta cargar los datos reales para empezar a usarlo. Qué funciona, qué se verificó y qué falta: [docs/estado-actual.md](docs/estado-actual.md).
 
 ## Cómo está hecho
 
@@ -18,7 +18,7 @@ Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y a
 |---|---|---|
 | Pantallas | Next.js 14 (export estático), React 18, TypeScript, Tailwind, shadcn/ui | `src/` |
 | API | PHP 8.1 o más nuevo, sin framework ni paquetes | `api/` |
-| Base de datos | MySQL 8 o MariaDB 10.6 o más nuevo | `db/` |
+| Base de datos | MariaDB 11.8 en producción; también funciona en MySQL 8 y MariaDB 10.6 o más nuevo | `db/` |
 | Pruebas de la API | PHPUnit, contra una base real | `tests/api/` |
 | Scripts | Instalar la base, aplicar cambios, primer administrador, importar de Firebase, exportar datos | `scripts/` |
 
@@ -73,7 +73,7 @@ npm ci
 npm run build
 ```
 
-Se sube el contenido de `out/` a la carpeta del sitio. **No hay que borrar `api/config.local.php` del servidor.** La primera vez hay que seguir [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md), que también explica cómo copiar los datos que había en Firebase.
+Se sube el contenido de `out/` a la carpeta del sitio y se vacía la caché del CDN de Hostinger. **No hay que borrar `api/config.local.php` del servidor.** La primera vez hay que seguir [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md): cómo es el plan, cómo conectarse a la base desde la computadora (no hay SSH) y cómo traer los datos de Firebase si hacen falta.
 
 ## Forma de trabajo
 
