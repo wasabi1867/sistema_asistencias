@@ -158,7 +158,7 @@ Para el instituto se prepararon tres documentos:
 - el oficio de autorización (pregunta 11), en Word, dirigido al jefe de división de Sistemas Computacionales y firmado por Andrés;
 - el cuestionario (preguntas 1 a 15), en Word, con espacio para responder.
 
-Están en la computadora de David, junto con lo que los genera, fuera del repositorio. Andrés y el equipo usan los enlaces de GitHub, que siempre están al día. Las respuestas que regresen se anotan en [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md) con su fecha.
+Están en la computadora de David, junto con lo que los genera, fuera del repositorio. Desde el 24 de octubre también están en una carpeta de Google Drive de David que se comparte con enlace, junto con la documentación completa en PDF, las preguntas A1 a A3 en Word y la plantilla de alumnos. Esa carpeta está separada de la de los respaldos, que sigue siendo privada. Andrés y el equipo usan los enlaces de GitHub, que siempre están al día. Las respuestas que regresen se anotan en [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md) con su fecha.
 
 **Por qué:**
 - Casi toda la documentación de aquí es técnica.
