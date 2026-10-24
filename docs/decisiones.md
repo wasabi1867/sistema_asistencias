@@ -125,13 +125,14 @@ Contraseñas y datos de conexión van en `api/config.local.php` (que git ignora)
 
 *23 de octubre de 2026.*
 
-Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana mientras se use, antes de cada migración y alrededor del día del cambio. Se restaura con `scripts/restaurar.php`, solo en una base vacía y del mismo esquema. Los archivos van fuera del repositorio, y la copia fuera de la computadora, cifrada: desde el 24 de octubre, en el Google Drive de David con rclone `crypt`. Las claves están en su gestor de contraseñas y, en otra carpeta de Drive, cifradas con una frase que solo él conoce: tener la cuenta de Google no basta para leer los datos. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
+Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana mientras se use, antes de cada migración y alrededor del día del cambio. Se restaura con `scripts/restaurar.php`, solo en una base vacía y del mismo esquema. Los archivos van fuera del repositorio, y la copia fuera de la computadora, cifrada: desde el 24 de octubre, en el Google Drive de David con rclone `crypt`. Las claves están en otra carpeta del mismo Drive, en texto. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
 
 **Por qué:**
 - El plan Single solo respalda una vez a la semana, y restaurar desde hPanel reemplaza la base completa: se perdería hasta una semana de asistencias.
 - Un respaldo propio se puede hacer justo antes de un paso riesgoso, como importar Firebase o aplicar una migración.
 - Se puede probar restaurándolo en otra base sin tocar producción.
 - No se usa `mysqldump` por lo de D6: el de MariaDB escribe valores que MySQL rechaza.
+- Las claves en texto junto a la copia: se consideró cifrarlas con una frase, pero David prefirió no depender de recordarla. El riesgo que queda es que quien entre a su cuenta de Google pueda leer los respaldos. Se mitiga con la verificación en dos pasos de esa cuenta.
 
 ## D16. Next.js se queda en la 14 por ahora; las demás dependencias se actualizan
 
