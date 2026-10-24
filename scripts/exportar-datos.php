@@ -2,17 +2,21 @@
 
 declare(strict_types=1);
 
-// Exporta los datos de la base (sin crear tablas) a un archivo .sql que se puede cargar
-// en phpMyAdmin sobre una base creada con db/esquema.sql:
+// Exporta los datos de la base (sin crear tablas) a un archivo .sql que se carga sobre
+// una base creada con db/esquema.sql:
 //
-//   php scripts/exportar-datos.php respaldo-para-hostinger.sql
+//   php scripts/exportar-datos.php respaldo.sql
 //
-// Sirve para preparar la base en una computadora (instalar e importar de Firebase) y
-// subirla a un servidor sin terminal. No se usa mysqldump porque el de MariaDB escribe
-// los valores de las columnas calculadas y MySQL los rechaza al cargarlos; este archivo
-// las omite y carga igual en los dos.
+// Sirve para los respaldos de la base de producción (se restauran con
+// scripts/restaurar.php) y para preparar una base en una computadora y subirla por
+// phpMyAdmin. No se usa mysqldump porque el de MariaDB escribe los valores de las
+// columnas calculadas y MySQL los rechaza al cargarlos; este archivo las omite y carga
+// igual en los dos.
 //
-// El archivo tiene datos personales: no se sube al repositorio y se borra al terminar.
+// El encabezado anota las migraciones que tenía la base: el archivo solo carga sobre el
+// esquema de esa misma versión.
+//
+// El archivo tiene datos personales: no se sube al repositorio.
 
 require __DIR__ . '/comun.php';
 
@@ -23,9 +27,16 @@ if ($archivo === '') {
 }
 
 $pdo = conexion();
+// Todas las tablas se leen como estaban en un mismo instante, aunque alguien registre su
+// entrada mientras se exporta. Hostinger no usa REPEATABLE READ por omisión, y MariaDB
+// solo acepta la instantánea con ese nivel: se fija para esta transacción.
+$pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+$pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
+$migraciones = $pdo->query('SELECT nombre FROM migraciones ORDER BY nombre')->fetchAll(PDO::FETCH_COLUMN);
 $salida = fopen($archivo, 'w');
 fwrite($salida, '-- Datos exportados el ' . date('Y-m-d H:i') . " con scripts/exportar-datos.php\n"
     . "-- Se cargan sobre una base creada con db/esquema.sql.\n"
+    . '-- Migraciones aplicadas: ' . ($migraciones === [] ? '(ninguna)' : implode(', ', $migraciones)) . "\n"
     . "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n"
     . "SET SESSION sql_mode = REPLACE(@@sql_mode, 'NO_BACKSLASH_ESCAPES', '');\n\n");
 
@@ -65,6 +76,9 @@ foreach ($tablas as $tabla) {
     }
 }
 
-fwrite($salida, "\nSET FOREIGN_KEY_CHECKS = 1;\n");
+// La transacción se abrió con exec(): PDO no la conoce y su commit() fallaría.
+$pdo->exec('COMMIT');
+// scripts/restaurar.php revisa esta última línea: si falta, el archivo quedó cortado.
+fwrite($salida, "\nSET FOREIGN_KEY_CHECKS = 1;\n-- Fin del respaldo: $total renglones de " . count($tablas) . " tablas.\n");
 fclose($salida);
 echo "$total renglones de " . count($tablas) . " tablas exportados a $archivo\n";
