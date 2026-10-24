@@ -125,7 +125,7 @@ Contraseñas y datos de conexión van en `api/config.local.php` (que git ignora)
 
 *23 de octubre de 2026.*
 
-Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana mientras se use, antes de cada migración y alrededor del día del cambio. Se restaura con `scripts/restaurar.php`, solo en una base vacía y del mismo esquema. Los archivos van fuera del repositorio, y la copia fuera de la computadora, cifrada: desde el 24 de octubre, en el Google Drive de David con rclone `crypt`, con las claves en su gestor de contraseñas. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
+Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana mientras se use, antes de cada migración y alrededor del día del cambio. Se restaura con `scripts/restaurar.php`, solo en una base vacía y del mismo esquema. Los archivos van fuera del repositorio, y la copia fuera de la computadora, cifrada: desde el 24 de octubre, en el Google Drive de David con rclone `crypt`. Las claves están en su gestor de contraseñas y, en otra carpeta de Drive, cifradas con una frase que solo él conoce: tener la cuenta de Google no basta para leer los datos. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
 
 **Por qué:**
 - El plan Single solo respalda una vez a la semana, y restaurar desde hPanel reemplaza la base completa: se perdería hasta una semana de asistencias.
@@ -147,3 +147,21 @@ En producción no hay servidor de Next: Hostinger sirve los archivos que deja `n
 Lo que sí llega al navegador se actualizó: jsPDF de la 3 a la 4.2.1 (y jspdf-autotable 5.0.9), y con `npm audit fix` DOMPurify, fflate y nanoid, entre otras.
 
 **Por qué:** pasar a Next.js 15 o 16 obliga a usar React 19 y a revisar todas las pantallas. Vale la pena, porque la 14 ya no recibe arreglos, pero no corre prisa mientras no se use su servidor. Se hará con la prueba del navegador en el repositorio, para comprobar cada pantalla.
+
+## D17. Lo que se entrega al instituto va en documentos aparte, no en enlaces a este repositorio
+
+*23 de octubre de 2026.*
+
+Para el instituto se prepararon tres documentos:
+- una presentación del sistema en PDF, de dos páginas;
+- el oficio de autorización (pregunta 11), en Word, dirigido al jefe de división de Sistemas Computacionales y firmado por Andrés;
+- el cuestionario (preguntas 1 a 15), en Word, con espacio para responder.
+
+Están en la computadora de David, junto con lo que los genera, fuera del repositorio. Andrés y el equipo usan los enlaces de GitHub, que siempre están al día. Las respuestas que regresen se anotan en [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md) con su fecha.
+
+**Por qué:**
+- Casi toda la documentación de aquí es técnica.
+- Quien responde necesita escribir sus respuestas, y quien autoriza, firmar.
+- El oficio no lleva el membrete del instituto, porque ese lo usan sus oficinas y lo firma un alumno.
+- No van en el repositorio porque traen nombres de personas, y el repositorio es público.
+

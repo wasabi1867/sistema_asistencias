@@ -2,7 +2,7 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 24 de octubre de 2026 (copia cifrada de los respaldos).
+Última actualización: 24 de octubre de 2026 (respaldos automáticos y documentos para el instituto).
 
 ## En resumen
 
@@ -12,7 +12,14 @@ Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 - un piloto del sistema nuevo con un grupo real;
 - luego un **día del cambio**, en que se deja la anterior y se importan sus datos.
 
-Para eso hace falta lo de la sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md), que se le pidió a Andrés el 22 de octubre. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md).
+Para eso hace falta lo de la sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md), que se le pidió a Andrés el 22 de octubre. Para entregarlo al instituto se prepararon el 23 de octubre tres documentos, que están fuera del repositorio (D17 de [decisiones.md](decisiones.md)):
+- una presentación del sistema en PDF;
+- el oficio de autorización para usar los datos de los alumnos, dirigido al jefe de división de Sistemas Computacionales y firmado por Andrés;
+- el cuestionario en Word.
+
+Los pasos del cambio están en [cambio-de-firebase.md](cambio-de-firebase.md).
+
+**La base se respalda cada semana**, con copia cifrada en Google Drive ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)).
 
 En la carpeta del subdominio había una página de "Próximamente" y una compilación vieja del sistema original en `frontend/`, con su API sin protección. Las dos se retiraron al publicar, con respaldo.
 
@@ -87,13 +94,14 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 ## Pendientes, en orden
 
 1. **Lo pedido a Andrés y al instituto** (sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)):
+   - entregar al instituto la presentación, el oficio y el cuestionario (listos desde el 23 de octubre);
    - quién usa y quién controla la aplicación de Vercel y Firebase (Andrés no los controla: los pide a quien los maneja);
    - acceso de lectura a Firebase, que da esa persona;
    - la autorización por escrito para usar los datos de los alumnos;
    - la lista de alumnos en Excel, las materias con sus horarios y el personal;
    - un piloto y la fecha del cambio.
 2. **Respaldar la base cada semana** mientras se use, y antes del piloto y del día del cambio ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)). El primero se hizo el 23 de octubre. Desde el 24, una tarea programada en la computadora de David lo hace cada viernes, con copia cifrada en Google Drive. Solo hay que autorizar la IP en MySQL remoto ese rato y quitarla después.
-3. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador.
+3. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador: falta su correo para crearla.
 4. **Simular la importación de Firebase** en cuanto haya autorización y acceso de lectura, para conocer los datos y lo que habrá que revisar a mano.
 5. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
 6. **Quitar la autorización de MySQL remoto** en hPanel mientras no haga falta correr scripts desde la computadora. Para el respaldo semanal se autoriza la IP solo ese rato.
@@ -119,3 +127,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 23 de octubre de 2026 | #11 | Respaldos de la base: el respaldo lee todo en un mismo instante y se restaura con `scripts/restaurar.php`; la integración continua prueba con el aislamiento de Hostinger (READ COMMITTED) |
 | 23 de octubre de 2026 | #12 | jsPDF 4 y demás dependencias con fallas conocidas; el nombre del laboratorio ya no se corta en el teléfono |
 | 23 de octubre de 2026 | #13 | La prueba de las pantallas (47 pasos en el navegador) entra al repositorio y corre en cada pull request |
+| 24 de octubre de 2026 | #14 | Respaldos automáticos cada viernes con copia cifrada en Google Drive; documentos para el instituto; datos del instituto y de quién es quién |

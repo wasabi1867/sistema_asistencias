@@ -185,6 +185,7 @@ php scripts/exportar-datos.php "$env:USERPROFILE\hostinger-itspp\respaldos\labor
 - **Dónde está la copia cifrada** (desde el 24 de octubre de 2026):
   - En el Google Drive de David, con un remoto `crypt` de rclone. Cifra el contenido y los nombres; Google solo ve datos ilegibles.
   - Las dos claves del cifrado están en el gestor de contraseñas de David. Sin ellas la copia no se puede leer, ni siquiera desde su cuenta.
+  - **Las claves también están en Drive**, en una carpeta aparte, `Sistema asistencias ITSPP (claves)`, cifradas con una frase que solo conoce David. Así, si se pierde la computadora, basta la cuenta de Google y la frase. Y quien entre solo a la cuenta no puede leer los datos. En esa carpeta, un `LEEME` sin cifrar explica cómo recuperar todo en otra computadora.
   - Se comprobó que se recupera desde cero con solo esas claves y que el archivo sale idéntico.
 - **En la computadora de David lo hace un script fuera del repositorio** (`hostinger-itspp\respaldar-base.ps1`), que abre una tarea programada cada viernes:
   1. Si Hostinger rechaza la conexión, dice qué IP autorizar en MySQL remoto y espera.
