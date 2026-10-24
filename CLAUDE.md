@@ -19,7 +19,7 @@ Contexto y reglas de trabajo para Claude Code u otro agente en este repositorio.
 | Pantallas | Next.js 14 con export estático, React 18, TypeScript, Tailwind 3, shadcn/ui | `src/` |
 | API | PHP 8.1+ sin framework ni paquetes | `api/` |
 | Base | MariaDB 11.8 en producción (Hostinger). El SQL debe funcionar también en MySQL 8: se prueba en los dos | `db/` |
-| Pruebas | PHPUnit contra una base real | `tests/api/` |
+| Pruebas | PHPUnit contra una base real; las pantallas, en un navegador con playwright-core | `tests/api/`, `tests/pantallas/` |
 
 Hostinger compartido no corre Node ni .NET: por eso las pantallas son archivos estáticos y la API es PHP.
 
@@ -32,12 +32,13 @@ npm run lint
 npm run build                            # compila, revisa tipos y lint, y copia api/ a out/api
 php -S localhost:8000 api/index.php      # API local, con api/config.local.php
 npm run dev                              # pantallas en http://localhost:3000 (NEXT_PUBLIC_API_URL en .env.local)
+npm run prueba:pantallas                 # después de npm run build: 47 pasos en el navegador (PHP=... si no está en el PATH)
 ```
 
 ## Reglas
 
 - **Nada directo a `main`.** Cada cambio va en una rama de este repositorio (remoto `origin`) con un pull request. David lo acepta cuando pasan las pruebas y la integración continua (`.github/workflows/`).
-- **Antes de subir:** `vendor/bin/phpunit`, `npm run lint` y `npm run build` sin errores.
+- **Antes de subir:** `vendor/bin/phpunit`, `npm run lint` y `npm run build` sin errores; si se tocaron pantallas, también `npm run prueba:pantallas`. Un cambio de texto, botón o flujo en una pantalla actualiza su paso en `tests/pantallas/prueba.js`.
 - **Commits** en español, en infinitivo, describiendo el cambio: `Detectar traslapes entre clases`. Terminan con la línea `Co-Authored-By` del agente.
 - **Secretos:** nunca escribir contraseñas ni datos de conexión en archivos versionados. Van en `api/config.local.php` (ignorado por git) o en variables de entorno. La conexión a la base de Hostinger va en un archivo fuera del repositorio (ver la guía de publicación).
 - **La base de producción:** antes de escribir en ella, confirmar con David cada paso y respaldarla (`scripts/exportar-datos.php`, sección "Respaldos" de la guía de publicación). Los respaldos tienen datos personales: van fuera del repositorio. Las demás bases de la cuenta de Hostinger no se tocan.

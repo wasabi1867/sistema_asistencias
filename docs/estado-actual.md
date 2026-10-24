@@ -62,13 +62,12 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | Las reglas de la base | 35 intentos de romperlas, en MariaDB 11.5 y MySQL 8.0 | 21 de octubre |
 | La importación de Firebase | Con datos de prueba inventados que imitan las colecciones de Firebase (`tests/api/firebase/`) | 22 de octubre |
 | Las pantallas | `npm run lint` y `npm run build` sin errores | 22 de octubre, en cada pull request |
-| Los flujos de las pantallas | 47 pasos en Edge, a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Se repitieron con jsPDF 4, incluida la hoja de registro en PDF | 23 de octubre |
+| Los flujos de las pantallas | 47 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre |
 | Las dependencias de las pantallas | `npm audit --omit=dev`: quedan solo avisos de Next.js (de su servidor, que no se usa) y de PostCSS y Tailwind (solo corren al compilar) | 23 de octubre |
 | El encabezado del registro en el teléfono | El nombre de los cuatro laboratorios se lee completo a 360 y 390 px | 23 de octubre |
 | Las redirecciones de las direcciones anteriores | Apache 2.4, en la raíz y en una subcarpeta | 22 de octubre |
 | El contraste de los colores | Todos cumplen AA (4.5:1) en los dos temas | 22 de octubre |
 
-La prueba de los 47 pasos no está en el repositorio: se corrió con un script aparte, descrito en el pull request #5.
 
 ## Qué no se ha verificado
 
@@ -83,7 +82,6 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 - Nada impide que alguien registre la entrada de un compañero con su número de control. El código de clase (`exigir_codigo_de_clase`) lo dificulta, pero está apagado.
 - Las listas en vivo se consultan cada pocos segundos; no llegan al instante.
 - Next.js sigue en 14.2.35, que ya no recibe actualizaciones. Sus avisos de seguridad son del servidor de Next, que en producción no existe (decisión D16 de [decisiones.md](decisiones.md)), pero conviene pasar a una versión con soporte.
-- No hay pruebas automáticas de las pantallas en el repositorio.
 
 ## Pendientes, en orden
 
@@ -99,8 +97,7 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 5. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
 6. **Quitar la autorización de MySQL remoto** en hPanel mientras no haga falta correr scripts desde la computadora. Para el respaldo semanal se autoriza la IP solo ese rato.
 7. **El resto de las respuestas del instituto:** carreras, permisos por rol, uso fuera de clase y si el registro debe exigir la inscripción.
-8. **Pasar a Next.js 15 o 16** (D16), probando todas las pantallas con la prueba del navegador.
-9. **Pasar la prueba de las pantallas al repositorio**, para que corra en cada pull request.
+8. **Pasar a Next.js 15 o 16** (D16), probando todas las pantallas con `npm run prueba:pantallas`.
 
 ## Historial
 
@@ -120,3 +117,4 @@ La prueba de los 47 pasos no está en el repositorio: se corrió con un script a
 | 23 de octubre de 2026 | #10 | Andrés no controla Vercel ni Firebase: lo de la aplicación anterior se pide a quien la maneja |
 | 23 de octubre de 2026 | #11 | Respaldos de la base: el respaldo lee todo en un mismo instante y se restaura con `scripts/restaurar.php`; la integración continua prueba con el aislamiento de Hostinger (READ COMMITTED) |
 | 23 de octubre de 2026 | #12 | jsPDF 4 y demás dependencias con fallas conocidas; el nombre del laboratorio ya no se corta en el teléfono |
+| 23 de octubre de 2026 | #13 | La prueba de las pantallas (47 pasos en el navegador) entra al repositorio y corre en cada pull request |
