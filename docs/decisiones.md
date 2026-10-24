@@ -125,7 +125,7 @@ Contraseñas y datos de conexión van en `api/config.local.php` (que git ignora)
 
 *23 de octubre de 2026.*
 
-Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana mientras se use, antes de cada migración y alrededor del día del cambio. Se restaura con `scripts/restaurar.php`, solo en una base vacía y del mismo esquema. Los archivos van fuera del repositorio, y la copia fuera de la computadora, cifrada. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
+Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana mientras se use, antes de cada migración y alrededor del día del cambio. Se restaura con `scripts/restaurar.php`, solo en una base vacía y del mismo esquema. Los archivos van fuera del repositorio, y la copia fuera de la computadora, cifrada: desde el 24 de octubre, en el Google Drive de David con rclone `crypt`, con las claves en su gestor de contraseñas. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
 
 **Por qué:**
 - El plan Single solo respalda una vez a la semana, y restaurar desde hPanel reemplaza la base completa: se perdería hasta una semana de asistencias.

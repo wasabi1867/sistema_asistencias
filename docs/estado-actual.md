@@ -2,7 +2,7 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 23 de octubre de 2026 (respaldos).
+Última actualización: 24 de octubre de 2026 (copia cifrada de los respaldos).
 
 ## En resumen
 
@@ -55,6 +55,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | La API | 245 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo; la 11.8 con el aislamiento READ COMMITTED de Hostinger) y en MySQL 8.0 | 23 de octubre, en cada pull request |
 | La base de Hostinger | Instalada con `scripts/instalar.php` por MySQL remoto con TLS verificado; los registros de cada tabla coinciden con una base local instalada igual, más el administrador | 22 de octubre |
 | Los respaldos de la base | Primer respaldo de producción con `scripts/exportar-datos.php` (47 renglones de 19 tablas), restaurado con `scripts/restaurar.php` en una base vacía de la computadora con el mismo resultado. Las pruebas cubren respaldos cortados o de otra versión del esquema | 23 de octubre |
+| La copia cifrada de los respaldos | Subida a Google Drive con rclone `crypt` y comprobada con `rclone cryptcheck`. Se recuperó desde cero, con solo las claves del gestor de contraseñas, y salió idéntica | 24 de octubre |
 | La conexión cifrada (`db_tls`) | Contra Hostinger: cifra con TLSv1.3, verifica el certificado y rechaza la conexión con una autoridad equivocada | 22 de octubre |
 | El sitio publicado | Las páginas, la API leyendo la base desde el servidor, inicio y cierre de sesión con la cookie `secure; HttpOnly; SameSite=Lax`, y 14 pasos en Edge (computadora y teléfono) sin errores. `api/config.local.php` y `api/src/` no se pueden descargar | 22 de octubre |
 | El CDN de Hostinger | No guarda copias: las páginas y `/api` salen `DYNAMIC`, y la API manda `Cache-Control: no-store` | 22 de octubre |
@@ -91,7 +92,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
    - la autorización por escrito para usar los datos de los alumnos;
    - la lista de alumnos en Excel, las materias con sus horarios y el personal;
    - un piloto y la fecha del cambio.
-2. **Respaldar la base cada semana** mientras se use, y antes del piloto y del día del cambio ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)). El primero se hizo el 23 de octubre. Falta decidir dónde va la copia cifrada fuera de la computadora.
+2. **Respaldar la base cada semana** mientras se use, y antes del piloto y del día del cambio ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)). El primero se hizo el 23 de octubre. Desde el 24, una tarea programada en la computadora de David lo hace cada viernes, con copia cifrada en Google Drive. Solo hay que autorizar la IP en MySQL remoto ese rato y quitarla después.
 3. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador.
 4. **Simular la importación de Firebase** en cuanto haya autorización y acceso de lectura, para conocer los datos y lo que habrá que revisar a mano.
 5. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
