@@ -5,11 +5,12 @@ Contexto y reglas de trabajo para Claude Code u otro agente en este repositorio.
 ## El proyecto
 
 - **Qué es:** el control de asistencias a los laboratorios de cómputo del Instituto Tecnológico Superior de Puerto Peñasco (ITSPP). El docente abre la clase; el alumno registra su entrada **solo con su número de control** (sin cuenta ni datos personales) y dice qué computadora ocupa; al cerrar la clase se registra la salida de todos.
-- **Repositorio:** `wasabi1867/sistema_asistencias`. El dueño es Andrés Cárdenas (wasabi1867), el contacto con el instituto.
-- **Hospedaje:** Hostinger, en la cuenta de Daniel Alonso Osuna Talamantes. David entra como colaborador y publica; no puede comprar ni cambiar de plan. Cómo es el plan y cómo se publica: [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md).
+- **Repositorio:** `wasabi1867/sistema_asistencias`. El dueño es José Andrés Cárdenas Olivas (wasabi1867), el contacto con el instituto: lleva las preguntas y los documentos, y trae las respuestas. Va a administrar el sistema (cargar alumnos) con su propia cuenta.
+- **Hospedaje:** Hostinger, en la cuenta de Daniel Alonso Osuna Talamantes, jefe de división de la carrera de Ingeniería en Sistemas Computacionales (a él va dirigido el oficio de autorización de la pregunta 11). David entra como colaborador y publica; no puede comprar ni cambiar de plan. Cómo es el plan y cómo se publica: [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md).
 - **Quién decide lo técnico:** David Ramírez (Ozelot12100), colaborador con permiso de escritura. Lleva la base, la API y las pantallas.
 - **Repositorio anterior:** `Ozelot12100/Sistema_asignacion_academica_ITSPP` (API en .NET) ya no se usa. De ahí se tomó el diseño de la base, pero su código y su `CLAUDE.md` no aplican aquí.
 - **Publicado** en https://laboratorios.soycorrecaminos.xyz desde el 22 de octubre de 2026. **En el instituto se sigue usando la versión original**, en https://asistencialaboratorios.vercel.app, que guarda en Firebase (`integrador-7b39d`). Andrés no controla ese proyecto de Vercel ni el de Firebase: lo que haga falta de ellos lo pide a quien los maneja. Hasta el día del cambio, no se toca ni esa aplicación ni Firebase (ver [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md)).
+- **El instituto:** su sitio vigente es https://www.puertopenasco.tecnm.mx (con `www`; el viejo itspp.edu.mx está desactualizado). Su directorio dice quién ocupa cada puesto.
 - **Estado:** [docs/estado-actual.md](docs/estado-actual.md) dice qué funciona, qué se verificó y qué falta. Las decisiones y su porqué están en [docs/decisiones.md](docs/decisiones.md).
 
 ## Tecnologías
@@ -56,7 +57,7 @@ npm run prueba:pantallas                 # después de npm run build: 47 pasos e
 |---|---|
 | [README.md](README.md) | Qué es, cómo correrlo y cómo publicarlo |
 | [docs/estado-actual.md](docs/estado-actual.md) | Qué funciona, qué se verificó, qué falta e historial de cambios |
-| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D16) con su fecha y su porqué |
+| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D17) con su fecha y su porqué |
 | [docs/guia-del-administrador.md](docs/guia-del-administrador.md) | Para el administrador, no técnica: dejar el sistema listo para una clase. Con la plantilla `docs/plantilla-alumnos.xlsx`. Si cambia una pantalla del administrador, se actualiza |
 | [docs/api.md](docs/api.md) | Organización de la API, configuración, las 84 rutas con sus permisos, pruebas y cambios a la base |
 | [docs/modelo-de-datos.md](docs/modelo-de-datos.md) | Las 19 tablas, las reglas que garantiza la base y la conversión desde Firebase |

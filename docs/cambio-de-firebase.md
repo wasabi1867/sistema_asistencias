@@ -181,7 +181,17 @@ php scripts/exportar-datos.php "$env:USERPROFILE\hostinger-itspp\respaldos\labor
 
 - Lee todas las tablas como estaban en un mismo instante, aunque haya una clase abierta. No cambia nada en la base.
 - El archivo anota las migraciones que tenía la base y termina con `-- Fin del respaldo: N renglones de 19 tablas.` Si esa línea falta, el respaldo quedó cortado y no sirve.
-- **Tiene datos personales.** Va fuera del repositorio. La segunda copia, fuera de la computadora, va cifrada (por ejemplo, un `.7z` con contraseña AES-256 guardada en el gestor de contraseñas).
+- **Tiene datos personales.** Va fuera del repositorio. La segunda copia, fuera de la computadora, va cifrada.
+- **Dónde está la copia cifrada** (desde el 24 de octubre de 2026):
+  - En el Google Drive de David, con un remoto `crypt` de rclone. Cifra el contenido y los nombres; Google solo ve datos ilegibles.
+  - **Las dos claves del cifrado** están en la computadora de David y en otra carpeta del mismo Drive, `Sistema asistencias ITSPP (claves)`, en texto, junto con un `LEEME` que explica cómo recuperar todo en otra computadora. Sin ellas la copia no se puede leer.
+  - **Lo que eso implica:** con las claves en la misma cuenta, el cifrado protege los datos de Google, pero no de quien entre a la cuenta. Esa cuenta debe tener verificación en dos pasos. Así lo decidió David el 24 de octubre de 2026, para no depender de recordar una frase (D15).
+  - Se comprobó que se recupera desde cero con solo esas claves y que el archivo sale idéntico.
+- **En la computadora de David lo hace un script fuera del repositorio** (`hostinger-itspp\respaldar-base.ps1`), que abre una tarea programada cada viernes:
+  1. Si Hostinger rechaza la conexión, dice qué IP autorizar en MySQL remoto y espera.
+  2. Respalda y revisa que el archivo esté completo.
+  3. Sube la copia cifrada y la compara con `rclone cryptcheck`.
+  4. Recuerda quitar la autorización de la IP.
 
 **Cuándo:**
 - antes del piloto y antes del día del cambio, y otra vez al terminar ese día;

@@ -6,7 +6,17 @@ En cada pregunta decimos qué vamos a suponer si no hay respuesta. Así solo hac
 
 **Estado.** Esta versión sustituye a la que se entregó el 10 de octubre de 2026, que nunca tuvo respuesta. Se conservan las preguntas que siguen abiertas y se agregan las que salieron del sistema actual. Las respuestas se anotan aquí mismo, debajo de cada pregunta, con su fecha.
 
-Última actualización: 23 de octubre de 2026 (Andrés no controla la aplicación anterior; A1 y A2 se piden a quien la maneja).
+Última actualización: 24 de octubre de 2026 (versiones para entregar y a quién van).
+
+**Versiones para entregar.** Las preguntas 1 a 15 están también en un cuestionario en Word, con espacio para escribir cada respuesta. Lo acompañan una presentación del sistema en PDF y, para la pregunta 11, un oficio para firma. Se prepararon el 23 de octubre de 2026 y están fuera del repositorio (decisión D17 de [decisiones.md](decisiones.md)). Las preguntas A1 a A3 no van ahí: son para quien maneja la aplicación anterior.
+
+**A quién le toca cada cosa**, según el directorio del instituto (https://www.puertopenasco.tecnm.mx/directorio/, consultado el 23 de octubre de 2026):
+
+| Para | Puesto |
+|---|---|
+| La autorización (11) | Jefe de División de la Carrera de Ingeniería en Sistemas Computacionales: Daniel Alonso Osuna Talamantes, a quien va el oficio |
+| La lista de alumnos (12) | Jefa del Departamento de Servicios Escolares |
+| Los laboratorios y sus computadoras (4, 5, 6) | Jefe del Departamento de Centro de Cómputo |
 
 ## Cómo funciona el sistema
 
@@ -106,7 +116,7 @@ Respuesta:
 
 **Del instituto:**
 
-**11. Autorización por escrito** de quien sea responsable (jefatura del centro de cómputo o subdirección) para usar los datos personales de los alumnos en el sistema nuevo y pasar a él los que ya están en Firebase. ¿El aviso de privacidad del instituto ya cubre este uso, o hay que agregarlo?
+**11. Autorización por escrito** para usar los datos personales de los alumnos en el sistema nuevo y pasar a él los que ya están en Firebase. Se pide con el oficio dirigido al jefe de división de Sistemas Computacionales; si le corresponde a otra área (Centro de Cómputo o Subdirección Académica), el oficio le pide canalizarlo. ¿El aviso de privacidad del instituto ya cubre este uso, o hay que agregarlo?
 
 Respuesta:
 

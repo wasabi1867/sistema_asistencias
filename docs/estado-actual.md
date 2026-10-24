@@ -2,7 +2,7 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 23 de octubre de 2026 (respaldos).
+Última actualización: 24 de octubre de 2026 (respaldos automáticos y documentos para el instituto).
 
 ## En resumen
 
@@ -12,7 +12,14 @@ Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 - un piloto del sistema nuevo con un grupo real;
 - luego un **día del cambio**, en que se deja la anterior y se importan sus datos.
 
-Para eso hace falta lo de la sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md), que se le pidió a Andrés el 22 de octubre. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md).
+Para eso hace falta lo de la sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md), que se le pidió a Andrés el 22 de octubre. Para entregarlo al instituto se prepararon el 23 de octubre tres documentos, que están fuera del repositorio (D17 de [decisiones.md](decisiones.md)):
+- una presentación del sistema en PDF;
+- el oficio de autorización para usar los datos de los alumnos, dirigido al jefe de división de Sistemas Computacionales y firmado por Andrés;
+- el cuestionario en Word.
+
+Los pasos del cambio están en [cambio-de-firebase.md](cambio-de-firebase.md).
+
+**La base se respalda cada semana**, con copia cifrada en Google Drive ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)).
 
 En la carpeta del subdominio había una página de "Próximamente" y una compilación vieja del sistema original en `frontend/`, con su API sin protección. Las dos se retiraron al publicar, con respaldo.
 
@@ -55,6 +62,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | La API | 245 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo; la 11.8 con el aislamiento READ COMMITTED de Hostinger) y en MySQL 8.0 | 23 de octubre, en cada pull request |
 | La base de Hostinger | Instalada con `scripts/instalar.php` por MySQL remoto con TLS verificado; los registros de cada tabla coinciden con una base local instalada igual, más el administrador | 22 de octubre |
 | Los respaldos de la base | Primer respaldo de producción con `scripts/exportar-datos.php` (47 renglones de 19 tablas), restaurado con `scripts/restaurar.php` en una base vacía de la computadora con el mismo resultado. Las pruebas cubren respaldos cortados o de otra versión del esquema | 23 de octubre |
+| La copia cifrada de los respaldos | Subida a Google Drive con rclone `crypt` y comprobada con `rclone cryptcheck`. Se recuperó desde cero, con solo las claves del gestor de contraseñas, y salió idéntica | 24 de octubre |
 | La conexión cifrada (`db_tls`) | Contra Hostinger: cifra con TLSv1.3, verifica el certificado y rechaza la conexión con una autoridad equivocada | 22 de octubre |
 | El sitio publicado | Las páginas, la API leyendo la base desde el servidor, inicio y cierre de sesión con la cookie `secure; HttpOnly; SameSite=Lax`, y 14 pasos en Edge (computadora y teléfono) sin errores. `api/config.local.php` y `api/src/` no se pueden descargar | 22 de octubre |
 | El CDN de Hostinger | No guarda copias: las páginas y `/api` salen `DYNAMIC`, y la API manda `Cache-Control: no-store` | 22 de octubre |
@@ -86,13 +94,14 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 ## Pendientes, en orden
 
 1. **Lo pedido a Andrés y al instituto** (sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)):
+   - entregar al instituto la presentación, el oficio y el cuestionario (listos desde el 23 de octubre);
    - quién usa y quién controla la aplicación de Vercel y Firebase (Andrés no los controla: los pide a quien los maneja);
    - acceso de lectura a Firebase, que da esa persona;
    - la autorización por escrito para usar los datos de los alumnos;
    - la lista de alumnos en Excel, las materias con sus horarios y el personal;
    - un piloto y la fecha del cambio.
-2. **Respaldar la base cada semana** mientras se use, y antes del piloto y del día del cambio ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)). El primero se hizo el 23 de octubre. Falta decidir dónde va la copia cifrada fuera de la computadora.
-3. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador.
+2. **Respaldar la base cada semana** mientras se use, y antes del piloto y del día del cambio ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)). El primero se hizo el 23 de octubre. Desde el 24, una tarea programada en la computadora de David lo hace cada viernes, con copia cifrada en Google Drive. Solo hay que autorizar la IP en MySQL remoto ese rato y quitarla después.
+3. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador: falta su correo para crearla.
 4. **Simular la importación de Firebase** en cuanto haya autorización y acceso de lectura, para conocer los datos y lo que habrá que revisar a mano.
 5. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
 6. **Quitar la autorización de MySQL remoto** en hPanel mientras no haga falta correr scripts desde la computadora. Para el respaldo semanal se autoriza la IP solo ese rato.
@@ -118,3 +127,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 23 de octubre de 2026 | #11 | Respaldos de la base: el respaldo lee todo en un mismo instante y se restaura con `scripts/restaurar.php`; la integración continua prueba con el aislamiento de Hostinger (READ COMMITTED) |
 | 23 de octubre de 2026 | #12 | jsPDF 4 y demás dependencias con fallas conocidas; el nombre del laboratorio ya no se corta en el teléfono |
 | 23 de octubre de 2026 | #13 | La prueba de las pantallas (47 pasos en el navegador) entra al repositorio y corre en cada pull request |
+| 24 de octubre de 2026 | #14 | Respaldos automáticos cada viernes con copia cifrada en Google Drive; documentos para el instituto; datos del instituto y de quién es quién |
