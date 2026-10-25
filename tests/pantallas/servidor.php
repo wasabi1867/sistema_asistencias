@@ -11,6 +11,14 @@ declare(strict_types=1);
 $raiz = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']), '/');
 $ruta = rawurldecode((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 
+// Las cabeceras de seguridad del .htaccess (Header set ...), las mismas que manda Hostinger:
+// si la CSP bloqueara algo, la prueba lo ve como error en la consola y falla.
+foreach (file("$raiz/.htaccess", FILE_IGNORE_NEW_LINES) ?: [] as $linea) {
+    if (preg_match('/^\s*Header\s+(?:always\s+)?set\s+(\S+)\s+"(.*)"\s*$/', $linea, $cabecera)) {
+        header("$cabecera[1]: $cabecera[2]");
+    }
+}
+
 if ($ruta === '/api' || str_starts_with($ruta, '/api/')) {
     $_SERVER['SCRIPT_NAME'] = '/api/index.php';
     $_SERVER['SCRIPT_FILENAME'] = $raiz . '/api/index.php';

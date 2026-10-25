@@ -65,6 +65,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | La copia cifrada de los respaldos | Subida a Google Drive con rclone `crypt` y comprobada con `rclone cryptcheck`. Se recuperó desde cero, con solo las claves del gestor de contraseñas, y salió idéntica | 24 de octubre |
 | La conexión cifrada (`db_tls`) | Contra Hostinger: cifra con TLSv1.3, verifica el certificado y rechaza la conexión con una autoridad equivocada | 22 de octubre |
 | El sitio publicado | Las páginas, la API leyendo la base desde el servidor, inicio y cierre de sesión con la cookie `secure; HttpOnly; SameSite=Lax`, y 14 pasos en Edge (computadora y teléfono) sin errores. `api/config.local.php` y `api/src/` no se pueden descargar | 22 de octubre |
+| Las cabeceras de seguridad (CSP, HSTS, Referrer-Policy, Permissions-Policy) | Apache 2.4 acepta el `.htaccess` y las manda. Los 47 pasos pasan con la CSP aplicada. Con el hash del script del tema roto a propósito, la prueba falla con 10 errores en la consola. Falta publicarlas | 24 de octubre |
 | El CDN de Hostinger | No guarda copias: las páginas y `/api` salen `DYNAMIC`, y la API manda `Cache-Control: no-store` | 22 de octubre |
 | Las redirecciones en Hostinger | `soycorrecaminos.xyz/laboratorios/...` y las direcciones viejas llevan al subdominio (LiteSpeed aplica el `.htaccess`) | 22 de octubre |
 | Las reglas de la base | 35 intentos de romperlas, en MariaDB 11.5 y MySQL 8.0 | 21 de octubre |

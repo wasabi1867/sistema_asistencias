@@ -36,9 +36,23 @@
   RewriteRule ^ index.html [L]
 </IfModule>
 
-# Forzar HTTPS y cabeceras de seguridad
+# Cabeceras de seguridad. tests/pantallas/servidor.php manda estas mismas en la prueba de
+# las pantallas, así que una que rompa algo hace fallar la prueba en GitHub.
+# - Content-Security-Policy: solo se ejecuta lo que viene del propio sitio. El único script
+#   en línea es el que aplica el tema oscuro (src/pages/_document.tsx) y se permite por su
+#   hash: si ese script cambia, hay que poner aquí el hash nuevo. Los estilos en línea sí se
+#   permiten porque las páginas traen atributos style. La cámara del lector de credencial
+#   usa blob: y data:.
+# - Strict-Transport-Security: el navegador ya no intenta entrar por http (Hostinger ya
+#   redirige de http a https).
+# - Permissions-Policy: la cámara solo para este sitio (lector de credencial); nada más.
+# - X-XSS-Protection ya no se manda: los navegadores la retiraron y la CSP la sustituye.
 <IfModule mod_headers.c>
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-tgrIZrrub0xNpr6mUFciuHi4+nTpVMja+aTaer9l4l0='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
+  Header set Strict-Transport-Security "max-age=15552000"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"
+  Header set Cross-Origin-Opener-Policy "same-origin"
   Header set X-Content-Type-Options "nosniff"
   Header set X-Frame-Options "SAMEORIGIN"
-  Header set X-XSS-Protection "1; mode=block"
 </IfModule>
