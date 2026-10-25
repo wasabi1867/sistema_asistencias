@@ -135,26 +135,69 @@ Comprobado el 22 de octubre: el usuario de la base entra desde `localhost` sin m
 
 ## 6. Compilar y subir el sitio
 
-Se sube por FTP con la cuenta **`labdeploy`**, que se creó en hPanel → Archivos → Cuentas FTP con el directorio `public_html/laboratorios`: solo ve la carpeta de este sitio, no la del sitio de la carrera ni la de otros proyectos. Servidor `ftp.soycorrecaminos.xyz`, puerto 21. Acepta **FTP cifrado (FTPS explícito)**, que es como debe usarse: el FTP sin cifrar manda la contraseña tal cual. FileZilla lo hace con "Requiere FTP explícito sobre TLS". Los datos de la cuenta van en un archivo fuera del repositorio, como los de la base.
+Se sube por FTP con la cuenta **`labdeploy`**, que se creó en hPanel → Archivos → Cuentas FTP con el directorio `public_html/laboratorios`: solo ve la carpeta de este sitio, no la del sitio de la carrera ni la de otros proyectos. Servidor `ftp.soycorrecaminos.xyz`, puerto 21. Acepta **FTP cifrado (FTPS explícito)**, que es como debe usarse: el FTP sin cifrar manda la contraseña tal cual.
 
-1. **Respaldar lo que hay** en la carpeta, descargándola completa.
-2. **Compilar** en la computadora, sin `.env.local`, para que la API quede en `/api`:
+**La conexión va en un archivo fuera del repositorio**, como la de la base, por ejemplo `C:\Users\<usuario>\hostinger-itspp\ftp-hostinger.env`:
+
+```
+ASISTENCIAS_FTP_HOST=ftp.soycorrecaminos.xyz
+ASISTENCIAS_FTP_PORT=21
+ASISTENCIAS_FTP_USER=u568725086.labdeploy
+ASISTENCIAS_FTP_PASS=la contraseña, sin comillas
+```
+
+Se carga en PowerShell igual que la de la base (paso 1), cambiando el nombre del archivo. Luego, desde la carpeta del repositorio:
+
+1. **Respaldar la base** ("Respaldos", abajo) si la publicación trae una migración.
+2. **Compilar**, sin `.env.local`, para que la API quede en `/api`:
 
    ```bash
    npm ci
    npm run build
    ```
 
-3. **Subir el contenido de `out/`** a la carpeta `laboratorios/`, reemplazando lo que había:
-   - Incluye la carpeta `api/` con su `.htaccess`, que deja pasar las peticiones a `api/index.php` y no deja leer ningún otro archivo de la API.
-   - **No hay que borrar `api/config.local.php` del servidor.** `npm run build` no lo copia a `out/`, para no reemplazar el del servidor con los datos de la computadora.
-   - La primera vez, además, se sube `api/config.local.php` (paso 5).
-4. **Comprobar** el sitio (paso 7). El CDN no guarda copias, así que no hace falta vaciarlo.
+3. **Respaldar el sitio** que está publicado, en una carpeta nueva:
+
+   ```powershell
+   php -d extension=ftp scripts/publicar.php respaldar "$env:USERPROFILE\hostinger-itspp\sitio-$(Get-Date -Format 'yyyy-MM-dd-HHmm')"
+   ```
+
+4. **Subir** `out/`. Primero `--simular`, que solo dice cuántos archivos subiría:
+
+   ```powershell
+   php -d extension=ftp scripts/publicar.php subir --simular
+   php -d extension=ftp scripts/publicar.php subir
+   ```
+
+   - Sube primero `_next/` y al final las páginas: nadie recibe una página nueva que pida archivos que aún no están.
+   - **No borra nada del servidor.** Los archivos de `_next/` de publicaciones anteriores se quedan; no estorban.
+   - **Nunca sube un `api/config.local.php`.** Si existe en `out/api/`, se niega a subir: pisaría el del servidor, que tiene la conexión de producción. `npm run build` no lo copia.
+   - Solo usa FTPS; si el servidor no acepta cifrado, no se conecta.
+   - La primera vez, además, se sube `api/config.local.php` a mano (paso 5).
+5. **Comprobar** con la prueba rápida (paso 7). El CDN no guarda copias, así que no hace falta vaciarlo.
+
+**Si algo sale mal**, se sube la carpeta del respaldo del paso 3 con FileZilla, en modo "Requiere FTP explícito sobre TLS".
 
 Las direcciones de la aplicación anterior (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenciasInvitado`, `/panel-laboratorista`) el `.htaccess` las redirige a las nuevas. Sirve para quien cambie `asistencialaboratorios.vercel.app` por `laboratorios.soycorrecaminos.xyz` en una dirección guardada.
 
 ## 7. Probar
 
+**Después de cada publicación**, la prueba rápida del sitio publicado (`tests/produccion/prueba-de-humo.js`):
+- revisa la página principal y la de registro, en computadora y teléfono;
+- comprueba que la API responda;
+- con una cuenta de administrador, inicia sesión, abre cada sección del panel y cierra la sesión.
+
+No crea datos.
+
+```powershell
+$env:ASISTENCIAS_HUMO_USUARIO = "correo del administrador"
+$env:ASISTENCIAS_HUMO_CONTRASENA = "su contraseña"
+npm run prueba:produccion
+```
+
+Sin esas dos variables, solo revisa las páginas públicas. Usa Edge en Windows.
+
+**La primera vez, y cuando haya datos reales**, además a mano:
 - Entrar como administrador, docente y laboratorista.
 - Abrir una clase, registrar a un alumno desde un teléfono y cerrarla.
 - Revisar que la clase aparezca en los reportes y, si se importó, que el historial se vea.

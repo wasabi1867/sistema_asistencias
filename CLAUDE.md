@@ -34,6 +34,8 @@ npm run build                            # compila, revisa tipos y lint, y copia
 php -S localhost:8000 api/index.php      # API local, con api/config.local.php
 npm run dev                              # pantallas en http://localhost:3000 (NEXT_PUBLIC_API_URL en .env.local)
 npm run prueba:pantallas                 # después de npm run build: 47 pasos en el navegador (PHP=... si no está en el PATH)
+php -d extension=ftp scripts/publicar.php subir --simular   # publicar en Hostinger (paso 6 de la guía de publicación)
+npm run prueba:produccion                # prueba rápida del sitio publicado
 ```
 
 ## Reglas
@@ -42,6 +44,7 @@ npm run prueba:pantallas                 # después de npm run build: 47 pasos e
 - **Antes de subir:** `vendor/bin/phpunit`, `npm run lint` y `npm run build` sin errores; si se tocaron pantallas, también `npm run prueba:pantallas`. Un cambio de texto, botón o flujo en una pantalla actualiza su paso en `tests/pantallas/prueba.js`.
 - **Commits** en español, en infinitivo, describiendo el cambio: `Detectar traslapes entre clases`. Terminan con la línea `Co-Authored-By` del agente.
 - **Secretos:** nunca escribir contraseñas ni datos de conexión en archivos versionados. Van en `api/config.local.php` (ignorado por git) o en variables de entorno. La conexión a la base de Hostinger va en un archivo fuera del repositorio (ver la guía de publicación).
+- **Publicar en Hostinger** reemplaza el sitio que usa el instituto: solo con el visto bueno de David, con `scripts/publicar.php` (respaldar, `--simular`, subir) y luego `npm run prueba:produccion`.
 - **La base de producción:** antes de escribir en ella, confirmar con David cada paso y respaldarla (`scripts/exportar-datos.php`, sección "Respaldos" de la guía de publicación). Los respaldos tienen datos personales: van fuera del repositorio. Las demás bases de la cuenta de Hostinger no se tocan.
 - **Datos de Firebase:** son datos personales de alumnos. No descargarlos ni importarlos sin permiso explícito de David; cuando lo haya, primero con `--simular`, y el respaldo fuera del repositorio.
 - **Código:** vocabulario del dominio en español, como lo nombra el instituto. Los comentarios explican el porqué.

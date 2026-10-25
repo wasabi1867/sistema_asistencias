@@ -55,3 +55,4 @@ next-env.d.ts
 
 # Prueba de las pantallas: capturas, archivos descargados y registro del servidor
 /tests/pantallas/capturas/
+/tests/produccion/capturas/

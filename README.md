@@ -74,7 +74,7 @@ npm ci
 npm run build
 ```
 
-Se sube el contenido de `out/` a la carpeta del sitio y se vacía la caché del CDN de Hostinger. **No hay que borrar `api/config.local.php` del servidor.** La primera vez hay que seguir [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md): cómo es el plan, cómo conectarse a la base desde la computadora (no hay SSH) y cómo traer los datos de Firebase si hacen falta.
+Se sube `out/` por FTP cifrado con `scripts/publicar.php`, que antes respalda el sitio publicado y nunca pisa el `api/config.local.php` del servidor. Después, `npm run prueba:produccion` revisa el sitio publicado. Los pasos, la conexión y cómo se trabaja con la base desde la computadora (no hay SSH) están en [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md), pasos 6 y 7.
 
 ## Forma de trabajo
 

@@ -7,7 +7,8 @@
     "build": "next build && node scripts/publicar-api.mjs",
     "start": "next start",
     "lint": "next lint",
-    "prueba:pantallas": "node tests/pantallas/correr.js"
+    "prueba:pantallas": "node tests/pantallas/correr.js",
+    "prueba:produccion": "node tests/produccion/prueba-de-humo.js"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.2.8",
