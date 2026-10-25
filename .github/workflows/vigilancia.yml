@@ -1,0 +1,42 @@
+# Revisa cada hora que el sitio publicado responda. Si algo falla, GitHub manda un correo
+# a quien hizo el último cambio a este archivo (así avisa de los flujos programados).
+# Solo lee: no inicia sesión ni crea datos.
+#
+# Revisa que:
+# - la página principal responda 200 y sea la del sistema;
+# - la API responda 200 con los laboratorios, que vienen de la base (si la base se cae,
+#   responde 500);
+# - el certificado HTTPS venza en más de 14 días (Hostinger lo renueva solo; si no lo hizo,
+#   da tiempo de avisarle).
+#
+# GitHub desactiva los flujos programados de un repositorio público después de 60 días
+# sin actividad: si llega el correo de que se desactivó, se reactiva en Actions.
+name: Vigilancia del sitio
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+jobs:
+  revisar:
+    name: El sitio responde
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITIO: laboratorios.soycorrecaminos.xyz
+    steps:
+      - name: La página principal
+        run: |
+          html=$(curl -fsSL --retry 2 --retry-delay 20 --max-time 30 "https://$SITIO/")
+          echo "$html" | grep -q 'Control de asistencias' || { echo "La página principal no es la del sistema"; exit 1; }
+      - name: La API y la base
+        run: |
+          respuesta=$(curl -fsSL --retry 2 --retry-delay 20 --max-time 30 "https://$SITIO/api/laboratorios")
+          echo "$respuesta" | jq -e 'type == "array" and length > 0' > /dev/null || { echo "La API no devolvió laboratorios: $respuesta"; exit 1; }
+      - name: El certificado
+        run: |
+          vence=$(echo | openssl s_client -connect "$SITIO:443" -servername "$SITIO" 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+          dias=$(( ($(date -d "$vence" +%s) - $(date +%s)) / 86400 ))
+          echo "El certificado vence el $vence ($dias días)"
+          [ "$dias" -gt 14 ] || { echo "El certificado vence en $dias días"; exit 1; }

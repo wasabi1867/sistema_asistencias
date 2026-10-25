@@ -206,6 +206,13 @@ Sin esas dos variables, solo revisa las páginas públicas. Usa Edge en Windows.
 
 ## 8. Después de publicar
 
+**La vigilancia del sitio** (`.github/workflows/vigilancia.yml`) corre cada hora en GitHub, solo leyendo, y revisa tres cosas:
+- que la página principal responda;
+- que la API devuelva los laboratorios, que vienen de la base;
+- que el certificado HTTPS venza en más de 14 días.
+
+Si algo falla, GitHub manda un correo a quien hizo el último cambio a ese archivo. Se puede correr a mano en Actions → "Vigilancia del sitio" → Run workflow. GitHub desactiva los flujos programados después de 60 días sin actividad en el repositorio; si avisa que lo hizo, se reactiva ahí mismo.
+
 - **Quitar la autorización de MySQL remoto** cuando ya no haga falta correr scripts desde la computadora. Se vuelve a agregar en un minuto si se necesita (por ejemplo, el día del cambio).
 - **Cambiar la contraseña del administrador** desde el sistema (menú con su nombre → Cambiar contraseña). La inicial se generó al azar y se guardó en la computadora de David.
 - **Después del día del cambio:** dejar Firebase unas semanas sin borrar y de solo lectura, y luego borrarlo junto con la aplicación de Vercel.
