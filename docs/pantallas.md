@@ -1,6 +1,6 @@
 # Pantallas
 
-Las pantallas son un sitio de Next.js 14 que se exporta como archivos estáticos (`output: 'export'`): Hostinger solo sirve archivos y PHP, así que no hay servidor de Node. Todo lo que guarda o consulta datos pasa por la API en `/api` (ver [api.md](api.md)).
+Las pantallas son un sitio de Next.js 16 que se exporta como archivos estáticos (`output: 'export'`): Hostinger solo sirve archivos y PHP, así que no hay servidor de Node. Todo lo que guarda o consulta datos pasa por la API en `/api` (ver [api.md](api.md)).
 
 Stack: React 18, TypeScript, Tailwind, componentes de shadcn/ui (sobre Radix), lucide-react para los íconos y la letra Inter. Las hojas de registro y los reportes salen con jsPDF y SheetJS.
 
@@ -70,6 +70,8 @@ Las direcciones de antes (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenci
 - **Accesibilidad:** cada diálogo lleva `DialogTitle` y `DialogDescription` (oculta con `sr-only` si no hace falta verla). Los campos llevan etiqueta (`Campo` o `aria-label`), y los botones que solo tienen ícono llevan `aria-label`.
 - **Exportar:** jsPDF y SheetJS se cargan la primera vez que alguien exporta, no al abrir la página.
 - **Tema:** la cookie `theme` la lee `_document.tsx` antes de pintar, para que la página no parpadee en blanco en modo oscuro. Es el único script en línea, y la CSP del `.htaccess` lo permite por su hash: si se cambia, hay que poner el hash nuevo (decisión D18).
+- **Se compila con webpack, no con Turbopack** (`next build --webpack`): Turbopack, el de omisión en Next.js 16, mete un script en línea distinto en cada página y la CSP lo bloquearía (D19).
+- **Lint:** `npm run lint` corre ESLint 9 con `eslint.config.mjs`. Las reglas del compilador de React que llegaron con Next.js 16 están apagadas; las de los hooks de siempre siguen.
 - **Nada de scripts de otros sitios ni `eval`:** la CSP solo deja ejecutar lo del propio sitio. Una librería que los necesite no funcionaría en producción.
 - **Letra:** Inter, desde el paquete `@fontsource-variable/inter`. Se publica junto con el sitio; al abrir la página no se pide nada a otro servicio.
 
@@ -77,7 +79,7 @@ Las direcciones de antes (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenci
 
 ```bash
 npm run lint
-npm run build   # también revisa los tipos y el lint; falla si hay errores
+npm run build   # compila con webpack y revisa los tipos; falla si hay errores
 ```
 
 ## Prueba de las pantallas

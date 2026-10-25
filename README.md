@@ -16,7 +16,7 @@ Lo usan cuatro tipos de persona: alumno (sin cuenta), docente, laboratorista y a
 
 | Parte | Tecnología | Carpeta |
 |---|---|---|
-| Pantallas | Next.js 14 (export estático), React 18, TypeScript, Tailwind, shadcn/ui | `src/` |
+| Pantallas | Next.js 16 (export estático, compilado con webpack), React 18, TypeScript, Tailwind, shadcn/ui | `src/` |
 | API | PHP 8.1 o más nuevo, sin framework ni paquetes | `api/` |
 | Base de datos | MariaDB 11.8 en producción; también funciona en MySQL 8 y MariaDB 10.6 o más nuevo | `db/` |
 | Pruebas de la API | PHPUnit, contra una base real | `tests/api/` |
@@ -61,7 +61,7 @@ Se necesita:
 composer install
 vendor/bin/phpunit   # API; docs/api.md explica cómo apuntar a otra base
 npm run lint         # pantallas
-npm run build        # compila las pantallas y revisa tipos y lint
+npm run build        # compila las pantallas y revisa los tipos (el lint va aparte)
 npm run prueba:pantallas   # recorre el sitio compilado en un navegador; ver docs/pantallas.md
 ```
 

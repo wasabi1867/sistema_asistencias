@@ -17,7 +17,7 @@ Contexto y reglas de trabajo para Claude Code u otro agente en este repositorio.
 
 | Parte | Qué | Dónde |
 |---|---|---|
-| Pantallas | Next.js 14 con export estático, React 18, TypeScript, Tailwind 3, shadcn/ui | `src/` |
+| Pantallas | Next.js 16 con export estático (compilado con webpack, D19), React 18, TypeScript, Tailwind 3, shadcn/ui | `src/` |
 | API | PHP 8.1+ sin framework ni paquetes | `api/` |
 | Base | MariaDB 11.8 en producción (Hostinger). El SQL debe funcionar también en MySQL 8: se prueba en los dos | `db/` |
 | Pruebas | PHPUnit contra una base real; las pantallas, en un navegador con playwright-core | `tests/api/`, `tests/pantallas/` |
@@ -30,7 +30,7 @@ Hostinger compartido no corre Node ni .NET: por eso las pantallas son archivos e
 composer install && vendor/bin/phpunit   # API; ASISTENCIAS_PRUEBAS_DB_HOST/_PORT/_USER/_PASS para otra base
 npm ci
 npm run lint
-npm run build                            # compila, revisa tipos y lint, y copia api/ a out/api
+npm run build                            # compila con webpack, revisa tipos y copia api/ a out/api (no corre el lint)
 php -S localhost:8000 api/index.php      # API local, con api/config.local.php
 npm run dev                              # pantallas en http://localhost:3000 (NEXT_PUBLIC_API_URL en .env.local)
 npm run prueba:pantallas                 # después de npm run build: 47 pasos en el navegador (PHP=... si no está en el PATH)
@@ -60,7 +60,7 @@ npm run prueba:produccion                # prueba rápida del sitio publicado
 |---|---|
 | [README.md](README.md) | Qué es, cómo correrlo y cómo publicarlo |
 | [docs/estado-actual.md](docs/estado-actual.md) | Qué funciona, qué se verificó, qué falta e historial de cambios |
-| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D18) con su fecha y su porqué |
+| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D19) con su fecha y su porqué |
 | [docs/guia-del-administrador.md](docs/guia-del-administrador.md) | Para el administrador, no técnica: dejar el sistema listo para una clase. Con la plantilla `docs/plantilla-alumnos.xlsx`. Si cambia una pantalla del administrador, se actualiza |
 | [docs/api.md](docs/api.md) | Organización de la API, configuración, las 84 rutas con sus permisos, pruebas y cambios a la base |
 | [docs/modelo-de-datos.md](docs/modelo-de-datos.md) | Las 19 tablas, las reglas que garantiza la base y la conversión desde Firebase |

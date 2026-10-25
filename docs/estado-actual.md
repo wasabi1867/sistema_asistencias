@@ -65,6 +65,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | La copia cifrada de los respaldos | Subida a Google Drive con rclone `crypt` y comprobada con `rclone cryptcheck`. Se recuperó desde cero, con solo las claves del gestor de contraseñas, y salió idéntica | 24 de octubre |
 | La conexión cifrada (`db_tls`) | Contra Hostinger: cifra con TLSv1.3, verifica el certificado y rechaza la conexión con una autoridad equivocada | 22 de octubre |
 | El sitio publicado | Las páginas, la API leyendo la base desde el servidor, inicio y cierre de sesión con la cookie `secure; HttpOnly; SameSite=Lax`, y 14 pasos en Edge (computadora y teléfono) sin errores. `api/config.local.php` y `api/src/` no se pueden descargar | 22 de octubre |
+| Next.js 16.4.1 | `npm audit --omit=dev` sin avisos de Next.js (quedan 3 moderados de Tailwind, que solo corre al compilar). Los 47 pasos pasan con la CSP aplicada, compilado con webpack. Falta publicarlo | 24 de octubre |
 | Las cabeceras de seguridad (CSP, HSTS, Referrer-Policy, Permissions-Policy) | Apache 2.4 acepta el `.htaccess` y las manda. Los 47 pasos pasan con la CSP aplicada. Con el hash del script del tema roto a propósito, la prueba falla con 10 errores en la consola. Falta publicarlas | 24 de octubre |
 | El CDN de Hostinger | No guarda copias: las páginas y `/api` salen `DYNAMIC`, y la API manda `Cache-Control: no-store` | 22 de octubre |
 | Las redirecciones en Hostinger | `soycorrecaminos.xyz/laboratorios/...` y las direcciones viejas llevan al subdominio (LiteSpeed aplica el `.htaccess`) | 22 de octubre |
@@ -91,7 +92,6 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 - Nada impide que alguien registre la entrada de un compañero con su número de control. El código de clase (`exigir_codigo_de_clase`) lo dificulta, pero está apagado.
 - Las listas en vivo se consultan cada pocos segundos; no llegan al instante.
-- Next.js sigue en 14.2.35, que ya no recibe actualizaciones. Sus avisos de seguridad son del servidor de Next, que en producción no existe (decisión D16 de [decisiones.md](decisiones.md)), pero conviene pasar a una versión con soporte.
 
 ## Pendientes, en orden
 
@@ -108,7 +108,6 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 5. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
 6. **Quitar la autorización de MySQL remoto** en hPanel mientras no haga falta correr scripts desde la computadora. Para el respaldo semanal se autoriza la IP solo ese rato.
 7. **El resto de las respuestas del instituto:** carreras, permisos por rol, uso fuera de clase y si el registro debe exigir la inscripción.
-8. **Pasar a Next.js 15 o 16** (D16), probando todas las pantallas con `npm run prueba:pantallas`.
 
 ## Historial
 

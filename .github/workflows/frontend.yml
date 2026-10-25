@@ -1,12 +1,13 @@
-# Compila el frontend (export estático de Next.js) en cada cambio.
+# Revisa el estilo del código y compila el frontend (export estático de Next.js) en cada
+# cambio. Desde Next.js 16, compilar ya no corre ESLint: va en su propio paso.
 name: Frontend
 
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.eslintrc.json', '.github/workflows/frontend.yml']
+    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', 'eslint.config.mjs', '.github/workflows/frontend.yml']
   pull_request:
-    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', '.eslintrc.json', '.github/workflows/frontend.yml']
+    paths: ['src/**', 'public/**', 'package.json', 'package-lock.json', 'next.config.mjs', 'tailwind.config.ts', 'eslint.config.mjs', '.github/workflows/frontend.yml']
 
 jobs:
   compilar:
@@ -18,4 +19,5 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm run build

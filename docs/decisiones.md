@@ -136,6 +136,8 @@ Con `scripts/exportar-datos.php` por MySQL remoto: antes del piloto, cada semana
 
 ## D16. Next.js se queda en la 14 por ahora; las demás dependencias se actualizan
 
+*Sustituida por D19 el 24 de octubre de 2026.*
+
 *23 de octubre de 2026.*
 
 `npm audit` marca 25 avisos de seguridad en Next.js 14.2.35, la última de la 14. Ninguno aplica aquí, porque todos son de su servidor:
@@ -183,4 +185,21 @@ Se quitó `X-XSS-Protection`, que los navegadores ya no usan.
 - Si alguien lograra meter texto que el navegador interprete como código, por ejemplo en un nombre de alumno, la CSP impide que se ejecute o que mande datos a otro sitio.
 - El sistema maneja datos personales, y ninguna página necesita nada de fuera.
 - El hash obliga a actualizar el `.htaccess` cuando cambia ese script. Para que no se olvide, la prueba de las pantallas manda las mismas cabeceras y falla si la CSP bloquea algo.
+
+## D19. Next.js 16, con React 18 y compilado con webpack
+
+*24 de octubre de 2026. Sustituye a D16.*
+
+Las pantallas pasaron de Next.js 14.2.35, que ya no recibe arreglos, a 16.4.1. La 16.4.0 tenía tres avisos de seguridad, todos de su servidor, y la propia compilación se negaba a terminar.
+
+Los detalles:
+- **React se queda en la 18.** Next.js 16 la acepta con el Pages Router; D16 suponía que obligaba a React 19, y no es así.
+- **Se compila con webpack** (`next build --webpack`). Turbopack, el de omisión en la 16, mete en cada página un script en línea distinto en cada compilación, y la CSP de D18 lo bloquearía.
+- **ESLint 9 con `eslint.config.mjs`**, porque `next lint` ya no existe. Las reglas nuevas para el compilador de React (`react-hooks` 7) están apagadas, porque el sitio no lo usa y marcan patrones válidos del código.
+- **La integración continua corre el lint en su propio paso**, porque compilar ya no lo hace.
+
+**Por qué:**
+- Una versión sin soporte deja de recibir arreglos.
+- Mantener React 18, webpack y las mismas reglas de lint hizo que el cambio no tocara ninguna pantalla. Se comprobó con los 47 pasos de la prueba en el navegador.
+- React 19, Turbopack con hashes para la CSP y las reglas del compilador quedan como trabajo aparte, si un día hacen falta.
 
