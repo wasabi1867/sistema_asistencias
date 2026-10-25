@@ -2,11 +2,11 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 24 de octubre de 2026 (respaldos automáticos y documentos para el instituto).
+Última actualización: 24 de octubre de 2026 (segunda publicación: Next.js 16 y cabeceras de seguridad).
 
 ## En resumen
 
-**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz, con la base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
+**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #18, es del 24 de octubre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
 
 **En el instituto se sigue usando la versión anterior**, publicada en Vercel (https://asistencialaboratorios.vercel.app; su última publicación es del 15 de octubre de 2026), que guarda todo en Firebase. Sus datos son reales y siguen creciendo. El plan (decisión D12 de [decisiones.md](decisiones.md)):
 - un piloto del sistema nuevo con un grupo real;
@@ -66,8 +66,8 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | La copia cifrada de los respaldos | Subida a Google Drive con rclone `crypt` y comprobada con `rclone cryptcheck`. Se recuperó desde cero, con solo las claves del gestor de contraseñas, y salió idéntica | 24 de octubre |
 | La conexión cifrada (`db_tls`) | Contra Hostinger: cifra con TLSv1.3, verifica el certificado y rechaza la conexión con una autoridad equivocada | 22 de octubre |
 | El sitio publicado | Las páginas, la API leyendo la base desde el servidor, inicio y cierre de sesión con la cookie `secure; HttpOnly; SameSite=Lax`, y 14 pasos en Edge (computadora y teléfono) sin errores. `api/config.local.php` y `api/src/` no se pueden descargar | 22 de octubre |
-| Next.js 16.4.1 | `npm audit --omit=dev` sin avisos de Next.js (quedan 3 moderados de Tailwind, que solo corre al compilar). Los 47 pasos pasan con la CSP aplicada, compilado con webpack. Falta publicarlo | 24 de octubre |
-| Las cabeceras de seguridad (CSP, HSTS, Referrer-Policy, Permissions-Policy) | Apache 2.4 acepta el `.htaccess` y las manda. Los 47 pasos pasan con la CSP aplicada. Con el hash del script del tema roto a propósito, la prueba falla con 10 errores en la consola. Falta publicarlas | 24 de octubre |
+| Next.js 16.4.1 | `npm audit --omit=dev` sin avisos de Next.js (quedan 3 moderados de Tailwind, que solo corre al compilar). Los 47 pasos pasan con la CSP aplicada, compilado con webpack. Publicado: el sitio sirve la compilación nueva | 24 de octubre |
+| Las cabeceras de seguridad (CSP, HSTS, Referrer-Policy, Permissions-Policy) | Apache 2.4 acepta el `.htaccess` y las manda. Los 47 pasos pasan con la CSP aplicada. Con el hash del script del tema roto a propósito, la prueba falla con 10 errores en la consola. Publicadas: Hostinger las manda, y las páginas del personal y la de error cargan sin errores de la CSP | 24 de octubre |
 | El CDN de Hostinger | No guarda copias: las páginas y `/api` salen `DYNAMIC`, y la API manda `Cache-Control: no-store` | 22 de octubre |
 | Las redirecciones en Hostinger | `soycorrecaminos.xyz/laboratorios/...` y las direcciones viejas llevan al subdominio (LiteSpeed aplica el `.htaccess`) | 22 de octubre |
 | Las reglas de la base | 35 intentos de romperlas, en MariaDB 11.5 y MySQL 8.0 | 21 de octubre |
@@ -76,7 +76,8 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | Los flujos de las pantallas | 47 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre |
 | Las dependencias de las pantallas | `npm audit --omit=dev`: quedan solo avisos de Next.js (de su servidor, que no se usa) y de PostCSS y Tailwind (solo corren al compilar) | 23 de octubre |
 | El encabezado del registro en el teléfono | El nombre de los cuatro laboratorios se lee completo a 360 y 390 px | 23 de octubre |
-| La vigilancia del sitio | Sus tres revisiones, a mano contra el sitio publicado: la página responde, la API devuelve 4 laboratorios y el certificado vence el 6 de diciembre de 2026. Una dirección inexistente hace fallar la revisión | 24 de octubre |
+| La vigilancia del sitio | Sus tres revisiones, a mano contra el sitio publicado: la página responde, la API devuelve 4 laboratorios y el certificado vence el 6 de diciembre de 2026. Una dirección inexistente hace fallar la revisión. Primera corrida en GitHub, después de publicar: bien | 24 de octubre |
+| La segunda publicación | Con `scripts/publicar.php`, después de respaldar la base (49 renglones) y el sitio anterior (103 archivos, incluido el `config.local.php` del servidor): 104 archivos. `npm run prueba:produccion` pasa en las páginas públicas. Las redirecciones siguen, y `api/config.local.php` y `api/src/` siguen sin poder descargarse | 24 de octubre |
 | La publicación desde el repositorio | `scripts/publicar.php`: lista el servidor por FTPS, se niega a subir si `out/api/config.local.php` existe, y `subir --simular` cuenta 102 archivos (3.5 MB) sin subir nada. `npm run prueba:produccion` pasa contra el sitio publicado, en las páginas públicas | 24 de octubre |
 | Las redirecciones de las direcciones anteriores | Apache 2.4, en la raíz y en una subcarpeta | 22 de octubre |
 | El contraste de los colores | Todos cumplen AA (4.5:1) en los dos temas | 22 de octubre |
@@ -131,3 +132,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 23 de octubre de 2026 | #12 | jsPDF 4 y demás dependencias con fallas conocidas; el nombre del laboratorio ya no se corta en el teléfono |
 | 23 de octubre de 2026 | #13 | La prueba de las pantallas (47 pasos en el navegador) entra al repositorio y corre en cada pull request |
 | 24 de octubre de 2026 | #14 | Respaldos automáticos cada viernes con copia cifrada en Google Drive; documentos para el instituto; datos del instituto y de quién es quién |
+| 24 de octubre de 2026 | #15 | `scripts/publicar.php` (publicar por FTPS desde el repositorio) y `npm run prueba:produccion` |
+| 24 de octubre de 2026 | #16 | Vigilancia del sitio cada hora en GitHub |
+| 24 de octubre de 2026 | #17 | Cabeceras de seguridad: CSP, HSTS, Referrer-Policy y Permissions-Policy |
+| 24 de octubre de 2026 | #18 | Next.js 16.4.1 con React 18, compilado con webpack; ESLint 9. **Segunda publicación en Hostinger**, con #11 a #18 |
