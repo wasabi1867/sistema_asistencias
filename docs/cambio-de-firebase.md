@@ -2,7 +2,7 @@
 
 Con esta versión, todas las pantallas leen y escriben en la base de Hostinger a través de la API ([`api/`](../api)), y Firebase deja de usarse. Este documento lista lo que hay que hacer una sola vez para publicarla, en el orden en que se hace.
 
-**Estado al 23 de octubre de 2026:** los pasos 1, 2, 3, 5, 6 y 7 están hechos y el sistema está publicado. Los respaldos de la base están probados (sección "Respaldos", al final). Falta el **día del cambio**: dejar la aplicación anterior, que sigue en uso en Vercel, e importar sus datos (paso 4).
+**Estado al 24 de octubre de 2026:** los pasos 1, 2, 3, 5, 6 y 7 están hechos y el sistema está publicado; la segunda publicación (24 de octubre) ya se hizo con `scripts/publicar.php`. Los respaldos de la base están probados (sección "Respaldos", al final). Falta el **día del cambio**: dejar la aplicación anterior, que sigue en uso en Vercel, e importar sus datos (paso 4).
 
 ## Cómo es el hospedaje
 
