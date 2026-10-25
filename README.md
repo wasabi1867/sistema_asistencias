@@ -65,7 +65,7 @@ npm run build        # compila las pantallas y revisa tipos y lint
 npm run prueba:pantallas   # recorre el sitio compilado en un navegador; ver docs/pantallas.md
 ```
 
-En GitHub corren solas en cada pull request (`.github/workflows/`). Las de la API corren en MariaDB 10.6 y 11.8 (esta con el aislamiento READ COMMITTED, como en Hostinger) y en MySQL 8.0. La de las pantallas corre en Chrome, con MariaDB 11.8.
+En GitHub corren solas en cada pull request (`.github/workflows/`). Las de la API corren en MariaDB 10.6 y 11.8 (esta con el aislamiento READ COMMITTED, como en Hostinger) y en MySQL 8.0. La de las pantallas corre en Chrome, con MariaDB 11.8. Además, cada hora se revisa que el sitio publicado responda (`.github/workflows/vigilancia.yml`).
 
 ## Publicar en Hostinger
 

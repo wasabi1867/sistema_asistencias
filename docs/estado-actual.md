@@ -52,6 +52,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 - La API revisa la sesión y el rol en cada una de sus 84 rutas.
 - Las reglas del registro (clase abierta, alumno inscrito, computadora libre, sin entrar dos veces) las hace cumplir el servidor, y la base las garantiza aunque lleguen dos registros a la vez.
 - Todo cambio queda en la bitácora, con quién, cuándo y desde dónde.
+- GitHub revisa cada hora que el sitio, la API y la base respondan, y que el certificado no esté por vencer. Si algo falla, avisa por correo.
 - `scripts/importar-de-firebase.php` convierte los datos de Firebase a la base nueva.
 - `scripts/exportar-datos.php` respalda la base y `scripts/restaurar.php` la restaura, revisando antes que el respaldo esté completo y sea de la misma versión del esquema.
 
@@ -73,6 +74,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | Los flujos de las pantallas | 47 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre |
 | Las dependencias de las pantallas | `npm audit --omit=dev`: quedan solo avisos de Next.js (de su servidor, que no se usa) y de PostCSS y Tailwind (solo corren al compilar) | 23 de octubre |
 | El encabezado del registro en el teléfono | El nombre de los cuatro laboratorios se lee completo a 360 y 390 px | 23 de octubre |
+| La vigilancia del sitio | Sus tres revisiones, a mano contra el sitio publicado: la página responde, la API devuelve 4 laboratorios y el certificado vence el 6 de diciembre de 2026. Una dirección inexistente hace fallar la revisión | 24 de octubre |
 | La publicación desde el repositorio | `scripts/publicar.php`: lista el servidor por FTPS, se niega a subir si `out/api/config.local.php` existe, y `subir --simular` cuenta 102 archivos (3.5 MB) sin subir nada. `npm run prueba:produccion` pasa contra el sitio publicado, en las páginas públicas | 24 de octubre |
 | Las redirecciones de las direcciones anteriores | Apache 2.4, en la raíz y en una subcarpeta | 22 de octubre |
 | El contraste de los colores | Todos cumplen AA (4.5:1) en los dos temas | 22 de octubre |
