@@ -166,3 +166,21 @@ Están en la computadora de David, junto con lo que los genera, fuera del reposi
 - El oficio no lleva el membrete del instituto, porque ese lo usan sus oficinas y lo firma un alumno.
 - No van en el repositorio porque traen nombres de personas, y el repositorio es público.
 
+## D18. El sitio manda una política de contenido estricta y obliga a usar HTTPS
+
+*24 de octubre de 2026.*
+
+`public/.htaccess` manda estas cabeceras:
+- **Content-Security-Policy:** solo se ejecutan scripts del propio sitio, más el del tema oscuro, permitido por su hash. Los estilos en línea sí se permiten. Las imágenes pueden ser `data:` y `blob:`, por la cámara del lector de credencial. No hay conexiones a otros sitios.
+- **Strict-Transport-Security** por seis meses.
+- **Referrer-Policy.**
+- **Permissions-Policy:** la cámara solo para el propio sitio.
+- **Cross-Origin-Opener-Policy.**
+
+Se quitó `X-XSS-Protection`, que los navegadores ya no usan.
+
+**Por qué:**
+- Si alguien lograra meter texto que el navegador interprete como código, por ejemplo en un nombre de alumno, la CSP impide que se ejecute o que mande datos a otro sitio.
+- El sistema maneja datos personales, y ninguna página necesita nada de fuera.
+- El hash obliga a actualizar el `.htaccess` cuando cambia ese script. Para que no se olvide, la prueba de las pantallas manda las mismas cabeceras y falla si la CSP bloquea algo.
+

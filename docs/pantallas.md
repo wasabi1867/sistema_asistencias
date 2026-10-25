@@ -69,7 +69,8 @@ Las direcciones de antes (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenci
 - **Menús desplegables:** no son modales (`components/ui/dropdown-menu.tsx`). Muchas opciones abren un diálogo, y un menú modal que se cierra a la vez que se abre el diálogo puede dejar la página sin recibir clics.
 - **Accesibilidad:** cada diálogo lleva `DialogTitle` y `DialogDescription` (oculta con `sr-only` si no hace falta verla). Los campos llevan etiqueta (`Campo` o `aria-label`), y los botones que solo tienen ícono llevan `aria-label`.
 - **Exportar:** jsPDF y SheetJS se cargan la primera vez que alguien exporta, no al abrir la página.
-- **Tema:** la cookie `theme` la lee `_document.tsx` antes de pintar, para que la página no parpadee en blanco en modo oscuro.
+- **Tema:** la cookie `theme` la lee `_document.tsx` antes de pintar, para que la página no parpadee en blanco en modo oscuro. Es el único script en línea, y la CSP del `.htaccess` lo permite por su hash: si se cambia, hay que poner el hash nuevo (decisión D18).
+- **Nada de scripts de otros sitios ni `eval`:** la CSP solo deja ejecutar lo del propio sitio. Una librería que los necesite no funcionaría en producción.
 - **Letra:** Inter, desde el paquete `@fontsource-variable/inter`. Se publica junto con el sitio; al abrir la página no se pide nada a otro servicio.
 
 ## Comprobar antes de subir
@@ -93,6 +94,8 @@ En cada paso revisa además que no haya errores en la consola, respuestas 5xx de
 npm run build
 npm run prueba:pantallas
 ```
+
+El servidor de la prueba manda las mismas cabeceras de seguridad que el `.htaccess` (las lee de ahí). Si la política de contenido (CSP) bloqueara un script o un estilo, sale un error en la consola y la prueba falla.
 
 `tests/pantallas/correr.js` hace todo lo demás:
 1. Crea una base nueva con la conexión de las pruebas de la API (`ASISTENCIAS_PRUEBAS_DB_*`) y la instala.
