@@ -49,7 +49,9 @@ Una cuenta por persona: la bitácora registra quién hizo cada cosa. La contrase
    | Turno | No | `matutino` o `vespertino` |
    | Grupo | No | Por ejemplo `5A` |
 
-   Si ya tienes un Excel del sistema escolar, no hace falta copiarlo a la plantilla: basta con que el primer renglón tenga esos encabezados. También se reconocen "Matrícula", "Nombres", "Apellido" y "Programa".
+   Si ya tienes un Excel del sistema escolar, no hace falta copiarlo a la plantilla: basta con que tenga un renglón con esos encabezados. También se reconocen "Matrícula", "Nombres", "Apellido" y "Programa".
+
+   **Las listas de grupo** que dan los docentes también sirven tal como vienen: la materia, el periodo y el grupo arriba, y luego "No.", "Matrícula" y "Estudiante", con el nombre completo en una sola columna, empezando por los apellidos. El sistema separa los apellidos del nombre y te enseña cómo quedó cada uno antes de cargarlos. Con tres palabras ("Ochoa Lara Tomás") supone dos apellidos y un nombre; si alguno quedó mal, corrígelo después en el alumno. Esas listas no traen carrera ni semestre: si los quieres, usa la plantilla.
 3. En **Alumnos** → **Cargar desde Excel**, elige el archivo. El sistema muestra cuántos alumnos encontró y algunos de ejemplo; confirma.
 
 Si un renglón tiene un error (por ejemplo, una carrera que no está en el catálogo), **no se guarda ninguno** y el sistema dice qué renglones fallaron. Corrige el archivo y vuelve a subirlo. Subirlo otra vez no duplica a nadie: los que ya existen se actualizan.

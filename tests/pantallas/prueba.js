@@ -349,6 +349,34 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
       await admin.getByText("18 alumnos").waitFor({ timeout: 10000 })
     })
 
+    await paso("también carga una lista de grupo del instituto, con título arriba y el nombre completo en una columna", async () => {
+      const libro = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(
+        libro,
+        XLSX.utils.aoa_to_sheet([
+          ["Taller de Investigación 1"],
+          ["2026-2"],
+          ["S7X"],
+          ["No.", "Matrícula", "Estudiante"],
+          [1, 26303201, "Del Ángel Ruiz María José"],
+          [2, 26303202, "Ochoa Lara Tomás"],
+        ]),
+        "Hoja1",
+      )
+      const archivo = path.join(SALIDA, "lista-de-grupo.xlsx")
+      XLSX.writeFile(libro, archivo)
+      await admin.getByRole("button", { name: /Cargar desde Excel/ }).click()
+      await admin.locator('input[type="file"]').setInputFiles(archivo)
+      await admin.getByText("2 alumnos en el archivo").waitFor()
+      const separados = admin.getByRole("dialog").getByRole("row", { name: /26303201/ })
+      if ((await separados.innerText()).replace(/\s+/g, " ").trim() !== "26303201 Del Ángel Ruiz María José")
+        throw new Error(`El nombre no se separó bien: ${await separados.innerText()}`)
+      await admin.getByRole("button", { name: "Cargar alumnos" }).click()
+      await aceptar(admin, "Alumnos cargados")
+      await admin.getByText("20 alumnos").waitFor({ timeout: 10000 })
+      await admin.getByRole("button", { name: "Acciones para María José Del Ángel Ruiz" }).waitFor()
+    })
+
     await paso("el menú de un renglón abre el formulario y al cerrar la página sigue visible", async () => {
       await admin.getByRole("button", { name: "Acciones para Paola Navarro Ruiz" }).click()
       await admin.getByRole("menuitem", { name: "Editar" }).click()
@@ -416,7 +444,7 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
       await admin.waitForTimeout(800)
       await captura(admin, "13-admin-oscuro")
       await admin.locator("aside nav").getByRole("button", { name: "Alumnos" }).click()
-      await admin.getByText("18 alumnos").waitFor()
+      await admin.getByText("20 alumnos").waitFor()
       await captura(admin, "14-admin-alumnos-oscuro")
     })
 
@@ -429,7 +457,7 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
       await movil.getByRole("button", { name: "Abrir el menú" }).click()
       await movil.getByRole("dialog").getByRole("button", { name: "Alumnos" }).click()
       await movil.getByRole("heading", { name: "Alumnos", level: 1 }).waitFor()
-      await movil.getByText("18 alumnos").waitFor()
+      await movil.getByText("20 alumnos").waitFor()
       await sinDesbordeHorizontal(movil, "alumnos en el teléfono")
       await captura(movil, "16-admin-alumnos-telefono")
     })
