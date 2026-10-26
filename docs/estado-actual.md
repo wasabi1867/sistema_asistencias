@@ -2,7 +2,7 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 24 de octubre de 2026 (segunda publicación: Next.js 16 y cabeceras de seguridad).
+Última actualización: 26 de octubre de 2026 (carga de alumnos desde las listas de grupo del instituto).
 
 ## En resumen
 
@@ -73,7 +73,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | Las reglas de la base | 35 intentos de romperlas, en MariaDB 11.5 y MySQL 8.0 | 21 de octubre |
 | La importación de Firebase | Con datos de prueba inventados que imitan las colecciones de Firebase (`tests/api/firebase/`) | 22 de octubre |
 | Las pantallas | `npm run lint` y `npm run build` sin errores | 22 de octubre, en cada pull request |
-| Los flujos de las pantallas | 47 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre |
+| Los flujos de las pantallas | 48 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre |
 | Las dependencias de las pantallas | `npm audit --omit=dev`: quedan solo avisos de Next.js (de su servidor, que no se usa) y de PostCSS y Tailwind (solo corren al compilar) | 23 de octubre |
 | El encabezado del registro en el teléfono | El nombre de los cuatro laboratorios se lee completo a 360 y 390 px | 23 de octubre |
 | La vigilancia del sitio | Sus tres revisiones, a mano contra el sitio publicado: la página responde, la API devuelve 4 laboratorios y el certificado vence el 6 de diciembre de 2026. Una dirección inexistente hace fallar la revisión. Primera corrida en GitHub, después de publicar: bien | 24 de octubre |
@@ -136,3 +136,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 24 de octubre de 2026 | #16 | Vigilancia del sitio cada hora en GitHub |
 | 24 de octubre de 2026 | #17 | Cabeceras de seguridad: CSP, HSTS, Referrer-Policy y Permissions-Policy |
 | 24 de octubre de 2026 | #18 | Next.js 16.4.1 con React 18, compilado con webpack; ESLint 9. **Segunda publicación en Hostinger**, con #11 a #18 |
+| 26 de octubre de 2026 | #20 | La carga de alumnos acepta las listas de grupo del instituto tal como vienen (título arriba, "Matrícula" y "Estudiante" con el nombre completo) y enseña cómo separó cada nombre. Falta publicarlo |

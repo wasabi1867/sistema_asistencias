@@ -33,7 +33,7 @@ npm run lint
 npm run build                            # compila con webpack, revisa tipos y copia api/ a out/api (no corre el lint)
 php -S localhost:8000 api/index.php      # API local, con api/config.local.php
 npm run dev                              # pantallas en http://localhost:3000 (NEXT_PUBLIC_API_URL en .env.local)
-npm run prueba:pantallas                 # después de npm run build: 47 pasos en el navegador (PHP=... si no está en el PATH)
+npm run prueba:pantallas                 # después de npm run build: 48 pasos en el navegador (PHP=... si no está en el PATH)
 php -d extension=ftp scripts/publicar.php subir --simular   # publicar en Hostinger (paso 6 de la guía de publicación)
 npm run prueba:produccion                # prueba rápida del sitio publicado
 ```
