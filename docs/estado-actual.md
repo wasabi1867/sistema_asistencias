@@ -6,7 +6,7 @@ Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
 ## En resumen
 
-**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #18, es del 24 de octubre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
+**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #20, es del 26 de octubre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
 
 **En el instituto se sigue usando la versión anterior**, publicada en Vercel (https://asistencialaboratorios.vercel.app; su última publicación es del 15 de octubre de 2026), que guarda todo en Firebase. Sus datos son reales y siguen creciendo. El plan (decisión D12 de [decisiones.md](decisiones.md)):
 - un piloto del sistema nuevo con un grupo real;
@@ -136,4 +136,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 24 de octubre de 2026 | #16 | Vigilancia del sitio cada hora en GitHub |
 | 24 de octubre de 2026 | #17 | Cabeceras de seguridad: CSP, HSTS, Referrer-Policy y Permissions-Policy |
 | 24 de octubre de 2026 | #18 | Next.js 16.4.1 con React 18, compilado con webpack; ESLint 9. **Segunda publicación en Hostinger**, con #11 a #18 |
-| 26 de octubre de 2026 | #20 | La carga de alumnos acepta las listas de grupo del instituto tal como vienen (título arriba, "Matrícula" y "Estudiante" con el nombre completo) y enseña cómo separó cada nombre. Falta publicarlo |
+| 26 de octubre de 2026 | #20 | La carga de alumnos acepta las listas de grupo del instituto tal como vienen (título arriba, "Matrícula" y "Estudiante" con el nombre completo) y enseña cómo separó cada nombre. **Tercera publicación en Hostinger** |
