@@ -2,11 +2,11 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 2 de noviembre de 2026 (una cuenta por persona, con uno o varios roles; sin publicar todavía).
+Última actualización: 2 de noviembre de 2026 (una cuenta por persona, con uno o varios roles; cuarta publicación).
 
 ## En resumen
 
-**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #20, es del 26 de octubre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
+**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #22, es del 2 de noviembre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
 
 **En el instituto se sigue usando la versión anterior**, publicada en Vercel (https://asistencialaboratorios.vercel.app; su última publicación es del 15 de octubre de 2026), que guarda todo en Firebase. Sus datos son reales y siguen creciendo. El plan (decisión D12 de [decisiones.md](decisiones.md)):
 - un piloto del sistema nuevo con un grupo real;
@@ -62,7 +62,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | Qué | Cómo | Cuándo |
 |---|---|---|
 | La API | 252 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo; la 11.8 con el aislamiento READ COMMITTED de Hostinger) y en MySQL 8.0 | 23 de octubre, en cada pull request |
-| La primera migración (`001-cuentas-con-varios-roles`) | Una prueba crea una base con el esquema con que se instaló producción, le aplica las migraciones con `scripts/migrar.php` y la compara con una creada con `db/esquema.sql`; cada cuenta conserva su rol. Pasa en MariaDB 11.8.9 y MySQL 8.0 en la computadora. **Todavía no se aplica en producción** | 2 de noviembre |
+| La primera migración (`001-cuentas-con-varios-roles`) | Una prueba crea una base con el esquema con que se instaló producción, le aplica las migraciones con `scripts/migrar.php` y la compara con una creada con `db/esquema.sql`; cada cuenta conserva su rol. Pasa en MariaDB 11.8.9 y MySQL 8.0 en la computadora. Aplicada en producción con `scripts/migrar.php`, después de respaldar la base (50 renglones): la única cuenta quedó con el rol de administrador | 2 de noviembre |
 | La base de Hostinger | Instalada con `scripts/instalar.php` por MySQL remoto con TLS verificado; los registros de cada tabla coinciden con una base local instalada igual, más el administrador | 22 de octubre |
 | Los respaldos de la base | Primer respaldo de producción con `scripts/exportar-datos.php` (47 renglones de 19 tablas), restaurado con `scripts/restaurar.php` en una base vacía de la computadora con el mismo resultado. Las pruebas cubren respaldos cortados o de otra versión del esquema | 23 de octubre |
 | La copia cifrada de los respaldos | Subida a Google Drive con rclone `crypt` y comprobada con `rclone cryptcheck`. Se recuperó desde cero, con solo las claves del gestor de contraseñas, y salió idéntica | 24 de octubre |
@@ -100,7 +100,6 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 ## Pendientes, en orden
 
-0. **Publicar las cuentas con varios roles** (#22): respaldar la base, aplicar la migración `001` con `php scripts/migrar.php`, subir el sitio y correr `npm run prueba:produccion`. La API nueva no funciona con la base vieja ni al revés: van juntas, una después de la otra.
 1. **Lo pedido a Andrés y al instituto** (sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)):
    - entregar al instituto la presentación, el oficio y el cuestionario (listos desde el 23 de octubre);
    - quién usa y quién controla la aplicación de Vercel y Firebase (Andrés no los controla: los pide a quien los maneja);
@@ -140,4 +139,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 24 de octubre de 2026 | #17 | Cabeceras de seguridad: CSP, HSTS, Referrer-Policy y Permissions-Policy |
 | 24 de octubre de 2026 | #18 | Next.js 16.4.1 con React 18, compilado con webpack; ESLint 9. **Segunda publicación en Hostinger**, con #11 a #18 |
 | 26 de octubre de 2026 | #20 | La carga de alumnos acepta las listas de grupo del instituto tal como vienen (título arriba, "Matrícula" y "Estudiante" con el nombre completo) y enseña cómo separó cada nombre. **Tercera publicación en Hostinger** |
-| 2 de noviembre de 2026 | #22 | Una cuenta por persona, con uno o varios roles (D20): al entrar ya no se elige el rol, y quien tiene varios cambia de panel desde el menú de su cuenta. Primera migración de la base, con su prueba. Preguntas 16 a 18 y A4 para el instituto |
+| 2 de noviembre de 2026 | #22 | Una cuenta por persona, con uno o varios roles (D20): al entrar ya no se elige el rol, y quien tiene varios cambia de panel desde el menú de su cuenta. Primera migración de la base, con su prueba. Preguntas 16 a 18 y A4 para el instituto. **Cuarta publicación en Hostinger**: base respaldada y migrada, sitio respaldado (142 archivos) y subido (104); `npm run prueba:produccion` pasa, con el inicio de sesión del administrador |
