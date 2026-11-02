@@ -132,7 +132,7 @@ final class RegistroDeEntrada
 
     private static function docenteQueEntra(Contexto $c, string $matricula): array
     {
-        $id = $c->bd->valor("SELECT id FROM usuarios WHERE rol = 'docente' AND matricula = ? AND activo", [$matricula])
+        $id = $c->bd->valor("SELECT id FROM usuarios WHERE FIND_IN_SET('docente', roles) AND matricula = ? AND activo", [$matricula])
             ?? throw new ErrorHttp(404, 'No encontramos a ese docente', ['codigo' => 'matricula_no_encontrada']);
         return ['tipo' => 'docente', 'usuario_id' => $id];
     }

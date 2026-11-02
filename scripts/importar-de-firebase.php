@@ -263,7 +263,7 @@ final class Importacion
     /** @var list<string> lo que hay que revisar a mano */
     public array $avisos = [];
 
-    /** @var array<string, int> "rol:matrícula de Firebase" => id */
+    /** @var array<string, int> "rol:matrícula de Firebase" => id; quien estaba en dos colecciones tiene una sola cuenta */
     private array $usuarios = [];
     /** @var array<string, int> id de la materia en Firebase => id del curso */
     private array $cursosDeFirebase = [];
@@ -318,19 +318,32 @@ final class Importacion
                     'email' => $email === '' ? null : $email,
                     'departamento' => textoONulo($d['Departamento'] ?? null, 150),
                 ];
-                $existente = $this->valor(
-                    'SELECT id FROM usuarios WHERE rol = ? AND (matricula = ? OR (email IS NOT NULL AND email = ?)) LIMIT 1',
-                    [$rol, $id, $datos['email']]
-                );
+                // En Firebase cada rol era una cuenta aparte; aquí la persona tiene una sola
+                // con todos sus roles (D20), así que se busca sin importar el rol.
+                $existente = $this->filas(
+                    'SELECT id, roles, password_hash FROM usuarios WHERE matricula = ? OR (email IS NOT NULL AND email = ?) LIMIT 1',
+                    [$id, $datos['email']]
+                )[0] ?? null;
                 if ($existente !== null) {
+                    $roles = explode(',', $existente['roles']);
+                    if (!in_array($rol, $roles, true)) {
+                        $datos['roles'] = implode(',', [...$roles, $rol]);
+                        // Se queda la contraseña de la cuenta que ya estaba. Cifrada con otra sal
+                        // no se puede saber si es la misma: se avisa.
+                        $misma = $contrasena === $existente['password_hash']
+                            || (!str_starts_with($contrasena, '$') && password_verify($contrasena, $existente['password_hash']));
+                        if (!$misma) {
+                            $this->avisos[] = "La cuenta de $rol $id se unió a la de {$existente['roles']} con el mismo correo o matrícula. Entra con la contraseña de esa; si usaba otra, que el administrador se la restablezca";
+                        }
+                    }
                     // Al repetir la importación no se toca la contraseña: pudo cambiarse después.
-                    $this->actualizar('usuarios', (int)$existente, $datos);
-                    $this->usuarios["$rol:$id"] = (int)$existente;
+                    $this->actualizar('usuarios', (int)$existente['id'], $datos);
+                    $this->usuarios["$rol:$id"] = (int)$existente['id'];
                     continue;
                 }
                 // Las de bcryptjs ($2a$, $2b$) se copian; en texto, se cifran ya.
                 $hash = str_starts_with($contrasena, '$') ? $contrasena : password_hash($contrasena, PASSWORD_DEFAULT);
-                $this->usuarios["$rol:$id"] = $this->insertar('usuarios', ['rol' => $rol, 'matricula' => mb_substr($id, 0, 30), 'password_hash' => $hash] + $datos);
+                $this->usuarios["$rol:$id"] = $this->insertar('usuarios', ['roles' => $rol, 'matricula' => mb_substr($id, 0, 30), 'password_hash' => $hash] + $datos);
                 $this->contar("cuentas ($rol)");
             }
         }
@@ -549,7 +562,7 @@ final class Importacion
             $matricula = texto($a['id'] ?? '');
             $persona = ['tipo_persona' => 'alumno'];
             $docente = $matricula === '' ? null
-                : $this->valor("SELECT u.id FROM usuarios u WHERE u.rol = 'docente' AND u.matricula = ? AND NOT EXISTS (SELECT 1 FROM alumnos WHERE matricula = ?)", [$matricula, $matricula]);
+                : $this->valor("SELECT u.id FROM usuarios u WHERE FIND_IN_SET('docente', u.roles) AND u.matricula = ? AND NOT EXISTS (SELECT 1 FROM alumnos WHERE matricula = ?)", [$matricula, $matricula]);
             if ($docente !== null) {
                 $persona = ['tipo_persona' => 'docente', 'usuario_id' => $docente];
             } elseif ($matricula !== '' && !str_starts_with($matricula, 'INV-') && preg_match('/^[A-Za-z0-9-]{1,20}$/', $matricula)) {
@@ -677,7 +690,7 @@ final class Importacion
         if ($matricula === '') {
             return null;
         }
-        $id = $this->usuarios["$rol:$matricula"] ?? $this->valor('SELECT id FROM usuarios WHERE rol = ? AND matricula = ?', [$rol, $matricula]);
+        $id = $this->usuarios["$rol:$matricula"] ?? $this->valor('SELECT id FROM usuarios WHERE FIND_IN_SET(?, roles) AND matricula = ?', [$rol, $matricula]);
         if ($id === null) {
             $this->avisos[] = "El $rol $matricula de $donde no existe; quedó sin $rol";
         }
@@ -690,9 +703,9 @@ final class Importacion
      */
     private function cuentaDeImportacion(): int
     {
-        return $this->cuentaDeImportacion ??= (int)($this->valor("SELECT id FROM usuarios WHERE rol = 'admin' AND matricula = 'FIREBASE'")
+        return $this->cuentaDeImportacion ??= (int)($this->valor("SELECT id FROM usuarios WHERE matricula = 'FIREBASE'")
             ?? $this->insertar('usuarios', [
-                'rol' => 'admin', 'matricula' => 'FIREBASE', 'nombre' => 'Importación de Firebase', 'apellido' => '',
+                'roles' => 'admin', 'matricula' => 'FIREBASE', 'nombre' => 'Importación de Firebase', 'apellido' => '',
                 'password_hash' => password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), 'activo' => false,
             ]));
     }

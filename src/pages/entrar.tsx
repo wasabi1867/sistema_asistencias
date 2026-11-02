@@ -4,28 +4,22 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Eye, EyeOff, Loader2, Monitor } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import { api, ErrorDeApi, type Rol } from "../lib/api"
+import { api, ErrorDeApi } from "../lib/api"
 import { alertas } from "../lib/alertas"
-import { NOMBRE_DEL_ROL, PANEL_DE, laboratorioDeEstaComputadora } from "../lib/rutas"
+import { laboratorioDeEstaComputadora, panelInicial } from "../lib/rutas"
 import { useTema } from "../hooks/useTema"
 import { BotonDeTema } from "../components/comunes/BotonDeTema"
 import { Campo } from "../components/comunes/Bloques"
 import { Logo } from "../components/comunes/Marca"
 
-const ROLES: Rol[] = ["docente", "laboratorista", "admin"]
-// El último rol con que se entró en esta computadora: casi siempre es el mismo.
-const ROL_GUARDADO = "rolDeAcceso"
-
 /**
  * El inicio de sesión del personal: docentes, laboratoristas y administradores. El rol
- * se elige aparte porque una misma persona puede tener cuenta en dos roles con el mismo
- * correo.
+ * no se elige: sale de la cuenta, y quien tiene varios entra al último panel que usó en
+ * esta computadora (D20).
  */
 export default function Entrar() {
   const router = useRouter()
   const { oscuro, alternar } = useTema()
-  const [rol, setRol] = useState<Rol>("docente")
   const [usuario, setUsuario] = useState("")
   const [contrasena, setContrasena] = useState("")
   const [verContrasena, setVerContrasena] = useState(false)
@@ -33,12 +27,6 @@ export default function Entrar() {
   const [laboratorio, setLaboratorio] = useState<string | null>(null)
 
   useEffect(() => {
-    try {
-      const guardado = localStorage.getItem(ROL_GUARDADO)
-      if (ROLES.includes(guardado as Rol)) setRol(guardado as Rol)
-    } catch {
-      // Sin almacenamiento: se queda en docente.
-    }
     const clave = laboratorioDeEstaComputadora()
     if (clave) {
       api.laboratorios
@@ -52,14 +40,9 @@ export default function Entrar() {
     e.preventDefault()
     setEnviando(true)
     try {
-      const cuenta = await api.sesion.iniciar(usuario, contrasena, rol)
-      try {
-        localStorage.setItem(ROL_GUARDADO, rol)
-      } catch {
-        // No pasa nada si no se recuerda.
-      }
+      const cuenta = await api.sesion.iniciar(usuario, contrasena)
       alertas.breve(`¡Bienvenido, ${cuenta.nombre}!`)
-      router.push(PANEL_DE[rol])
+      router.push(panelInicial(cuenta))
     } catch (error) {
       // Un solo mensaje para usuario y contraseña: así no se puede averiguar qué cuentas existen.
       const credenciales = error instanceof ErrorDeApi && error.estado === 401
@@ -88,27 +71,7 @@ export default function Entrar() {
           </div>
 
           <form onSubmit={enviar} className="space-y-5 rounded-xl border bg-card p-5 shadow-sm sm:p-6">
-            <fieldset>
-              <legend className="mb-1.5 text-sm font-medium">Entro como</legend>
-              <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
-                {ROLES.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    aria-pressed={rol === r}
-                    onClick={() => setRol(r)}
-                    className={cn(
-                      "rounded-md px-2 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      rol === r ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {NOMBRE_DEL_ROL[r]}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <Campo etiqueta={rol === "admin" ? "Correo o matrícula" : "Número de empleado o correo"} htmlFor="usuario">
+            <Campo etiqueta="Correo o número de empleado" htmlFor="usuario">
               <Input id="usuario" value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus />
             </Campo>
 
@@ -133,18 +96,16 @@ export default function Entrar() {
             </Button>
           </form>
 
-          {rol === "docente" && (
-            <p className="mt-4 flex items-start gap-2 px-1 text-sm text-muted-foreground">
-              <Monitor className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              {laboratorio ? (
-                <span>
-                  Tu clase se abrirá en <span className="font-medium text-foreground">{laboratorio}</span>, el laboratorio de esta computadora.
-                </span>
-              ) : (
-                <span>Para abrir una clase, primero elige el laboratorio de esta computadora en la página de registro.</span>
-              )}
-            </p>
-          )}
+          <p className="mt-4 flex items-start gap-2 px-1 text-sm text-muted-foreground">
+            <Monitor className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            {laboratorio ? (
+              <span>
+                Si das clase, se abrirá en <span className="font-medium text-foreground">{laboratorio}</span>, el laboratorio de esta computadora.
+              </span>
+            ) : (
+              <span>Para abrir una clase, primero elige el laboratorio de esta computadora en la página de registro.</span>
+            )}
+          </p>
         </div>
       </main>
     </div>

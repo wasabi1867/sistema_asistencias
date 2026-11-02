@@ -15,7 +15,6 @@ use Asistencias\Modulos\Academico\Cursos;
 use Asistencias\Modulos\Avisos\Avisos;
 use Asistencias\Modulos\Catalogos\Laboratorios;
 use Asistencias\Seguridad\Acceso;
-use Asistencias\Seguridad\Rol;
 use Asistencias\Seguridad\Usuario;
 
 /**
@@ -68,7 +67,7 @@ final class Clases
     public static function puedeLlevar(Usuario $usuario, array $clase): bool
     {
         return $usuario->esPersonal()
-            || ($usuario->rol === Rol::Docente && $clase['tipo'] === 'regular' && $clase['curso_docente_id'] === $usuario->id);
+            || ($usuario->esDocente() && $clase['tipo'] === 'regular' && $clase['curso_docente_id'] === $usuario->id);
     }
 
     /** @param bool $conCodigo el código de la clase solo lo ve quien la lleva */

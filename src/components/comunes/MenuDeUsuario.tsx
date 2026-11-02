@@ -1,17 +1,22 @@
 import { useState } from "react"
-import { ChevronDown, KeyRound, LogOut, Moon, Sun } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { ArrowRightLeft, ChevronDown, KeyRound, LogOut, Moon, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { Cuenta } from "../../lib/api"
-import { NOMBRE_DEL_ROL } from "../../lib/rutas"
+import { nombreDeLosRoles, panelesDe } from "../../lib/rutas"
 import { useTema } from "../../hooks/useTema"
 import { CambiarContrasena } from "./CambiarContrasena"
 
 /**
- * La cuenta con sesión, arriba a la derecha: cambiar la contraseña, el tema y cerrar
- * sesión. `salidaBloqueada` explica por qué no se puede salir todavía (una clase abierta).
+ * La cuenta con sesión, arriba a la derecha: ir a los otros paneles de sus roles,
+ * cambiar la contraseña, el tema y cerrar sesión. `salidaBloqueada` explica por qué no
+ * se puede salir todavía (una clase abierta); tampoco se cambia de panel entonces.
  */
 export function MenuDeUsuario({ usuario, alCerrarSesion, salidaBloqueada }: { usuario: Cuenta; alCerrarSesion: () => void; salidaBloqueada?: string }) {
+  const router = useRouter()
+  const ruta = usePathname()?.replace(/\/$/, "")
+  const otrosPaneles = panelesDe(usuario).filter((p) => p.href !== ruta)
   const { oscuro, alternar } = useTema()
   const [contrasena, setContrasena] = useState(false)
   const iniciales = `${usuario.nombre.charAt(0)}${usuario.apellido.charAt(0)}`.toUpperCase()
@@ -28,7 +33,7 @@ export function MenuDeUsuario({ usuario, alCerrarSesion, salidaBloqueada }: { us
               <span className="block max-w-[10rem] truncate text-sm font-medium leading-tight">
                 {usuario.nombre} {usuario.apellido}
               </span>
-              <span className="block text-xs font-normal text-muted-foreground">{NOMBRE_DEL_ROL[usuario.rol]}</span>
+              <span className="block max-w-[10rem] truncate text-xs font-normal text-muted-foreground">{nombreDeLosRoles(usuario.roles)}</span>
             </span>
             <ChevronDown className="hidden text-muted-foreground md:block" />
           </Button>
@@ -41,6 +46,16 @@ export function MenuDeUsuario({ usuario, alCerrarSesion, salidaBloqueada }: { us
             <span className="block truncate text-xs text-muted-foreground">{usuario.email ?? usuario.matricula}</span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {otrosPaneles.length > 0 && (
+            <>
+              {otrosPaneles.map((p) => (
+                <DropdownMenuItem key={p.href} disabled={Boolean(salidaBloqueada)} onSelect={() => router.push(p.href)}>
+                  <ArrowRightLeft /> Ir al {p.nombre.charAt(0).toLowerCase() + p.nombre.slice(1)}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onSelect={() => setContrasena(true)}>
             <KeyRound /> Cambiar contraseña
           </DropdownMenuItem>

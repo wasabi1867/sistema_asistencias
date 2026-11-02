@@ -98,7 +98,8 @@ export type Turno = "matutino" | "vespertino"
 
 export interface Cuenta {
   id: number
-  rol: Rol
+  /** Uno o varios, siempre en este orden: admin, laboratorista, docente. */
+  roles: Rol[]
   matricula: string | null
   nombre: string
   apellido: string
@@ -417,7 +418,8 @@ export interface EntradaDeBitacora {
   fecha: string
   usuario: string
   usuarioId: number | null
-  rol: Rol | null
+  /** Los que tenía la cuenta en ese momento. */
+  roles: Rol[]
   accion: string
   entidad: string | null
   entidadId: string | null
@@ -456,7 +458,7 @@ export interface Paginacion {
 
 export const api = {
   sesion: {
-    iniciar: (usuario: string, contrasena: string, rol: Rol) => crear<Cuenta>("sesion", { usuario, contrasena, rol }),
+    iniciar: (usuario: string, contrasena: string) => crear<Cuenta>("sesion", { usuario, contrasena }),
     /** La cuenta con sesión, o null si no hay. */
     actual: async (): Promise<Cuenta | null> => {
       try {
@@ -503,7 +505,7 @@ export const api = {
     listar: (filtros: { rol?: Rol; activo?: boolean } = {}) =>
       obtener<Cuenta[]>("usuarios", { rol: filtros.rol, activo: filtros.activo === undefined ? undefined : filtros.activo ? "1" : "0" }),
     crear: (datos: Omit<Cuenta, "id" | "activo"> & { contrasena: string }) => crear<Cuenta>("usuarios", datos),
-    editar: (id: number, datos: Partial<Omit<Cuenta, "id" | "rol">>) => cambiar<Cuenta>(`usuarios/${id}`, datos),
+    editar: (id: number, datos: Partial<Omit<Cuenta, "id">>) => cambiar<Cuenta>(`usuarios/${id}`, datos),
     restablecerContrasena: (id: number, contrasena: string) => cambiar<void>(`usuarios/${id}/contrasena`, { contrasena }),
     eliminar: (id: number) => borrar(`usuarios/${id}`),
   },

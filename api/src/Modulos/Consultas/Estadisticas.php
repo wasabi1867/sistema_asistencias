@@ -21,10 +21,12 @@ final class Estadisticas
     private static function generales(Contexto $c): array
     {
         $bd = $c->bd;
-        $cuentas = [];
-        foreach ($bd->filas('SELECT rol, COUNT(*) AS total FROM usuarios WHERE activo GROUP BY rol') as $fila) {
-            $cuentas[$fila['rol']] = (int)$fila['total'];
-        }
+        // Quien tiene dos roles cuenta en los dos.
+        $cuentas = array_map('intval', $bd->fila(
+            "SELECT SUM(FIND_IN_SET('docente', roles) > 0) AS docente, SUM(FIND_IN_SET('laboratorista', roles) > 0) AS laboratorista,
+                    SUM(FIND_IN_SET('admin', roles) > 0) AS admin
+             FROM usuarios WHERE activo"
+        ));
         $periodo = Periodos::idDelActual($bd);
         $datos = [
             'alumnos' => (int)$bd->valor('SELECT COUNT(*) FROM alumnos WHERE activo'),

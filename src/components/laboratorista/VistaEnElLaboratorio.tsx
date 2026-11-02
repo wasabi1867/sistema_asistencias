@@ -169,7 +169,7 @@ export function VistaEnElLaboratorio({ laboratorio, usuario }: PropsDeVista) {
       </Panel>
 
       {elegido && (
-        <DetalleDeEquipo equipo={lista.find((e) => e.id === elegido.id) ?? elegido} esAdmin={usuario.rol === "admin"} alCerrar={() => setElegido(null)} alCambiar={actualizar} />
+        <DetalleDeEquipo equipo={lista.find((e) => e.id === elegido.id) ?? elegido} esAdmin={usuario.roles.includes("admin")} alCerrar={() => setElegido(null)} alCambiar={actualizar} />
       )}
     </div>
   )

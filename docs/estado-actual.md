@@ -2,7 +2,7 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 26 de octubre de 2026 (carga de alumnos desde las listas de grupo del instituto).
+Última actualización: 2 de noviembre de 2026 (una cuenta por persona, con uno o varios roles; sin publicar todavía).
 
 ## En resumen
 
@@ -49,7 +49,8 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 - Cuentas del personal, carreras, periodos y laboratorios.
 
 **Por debajo:**
-- La API revisa la sesión y el rol en cada una de sus 84 rutas.
+- La API revisa la sesión y los roles en cada una de sus 84 rutas.
+- Cada persona tiene una sola cuenta, con uno o varios roles, y puede hacer lo de todos ellos. Al entrar no elige el rol, y pasa de un panel a otro desde el menú de su cuenta (D20 de [decisiones.md](decisiones.md)).
 - Las reglas del registro (clase abierta, alumno inscrito, computadora libre, sin entrar dos veces) las hace cumplir el servidor, y la base las garantiza aunque lleguen dos registros a la vez.
 - Todo cambio queda en la bitácora, con quién, cuándo y desde dónde.
 - GitHub revisa cada hora que el sitio, la API y la base respondan, y que el certificado no esté por vencer. Si algo falla, avisa por correo.
@@ -60,7 +61,8 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 | Qué | Cómo | Cuándo |
 |---|---|---|
-| La API | 245 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo; la 11.8 con el aislamiento READ COMMITTED de Hostinger) y en MySQL 8.0 | 23 de octubre, en cada pull request |
+| La API | 252 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo; la 11.8 con el aislamiento READ COMMITTED de Hostinger) y en MySQL 8.0 | 23 de octubre, en cada pull request |
+| La primera migración (`001-cuentas-con-varios-roles`) | Una prueba crea una base con el esquema con que se instaló producción, le aplica las migraciones con `scripts/migrar.php` y la compara con una creada con `db/esquema.sql`; cada cuenta conserva su rol. Pasa en MariaDB 11.8.9 y MySQL 8.0 en la computadora. **Todavía no se aplica en producción** | 2 de noviembre |
 | La base de Hostinger | Instalada con `scripts/instalar.php` por MySQL remoto con TLS verificado; los registros de cada tabla coinciden con una base local instalada igual, más el administrador | 22 de octubre |
 | Los respaldos de la base | Primer respaldo de producción con `scripts/exportar-datos.php` (47 renglones de 19 tablas), restaurado con `scripts/restaurar.php` en una base vacía de la computadora con el mismo resultado. Las pruebas cubren respaldos cortados o de otra versión del esquema | 23 de octubre |
 | La copia cifrada de los respaldos | Subida a Google Drive con rclone `crypt` y comprobada con `rclone cryptcheck`. Se recuperó desde cero, con solo las claves del gestor de contraseñas, y salió idéntica | 24 de octubre |
@@ -73,7 +75,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | Las reglas de la base | 35 intentos de romperlas, en MariaDB 11.5 y MySQL 8.0 | 21 de octubre |
 | La importación de Firebase | Con datos de prueba inventados que imitan las colecciones de Firebase (`tests/api/firebase/`) | 22 de octubre |
 | Las pantallas | `npm run lint` y `npm run build` sin errores | 22 de octubre, en cada pull request |
-| Los flujos de las pantallas | 48 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre |
+| Los flujos de las pantallas | 49 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre; los 49, el 2 de noviembre |
 | Las dependencias de las pantallas | `npm audit --omit=dev`: quedan solo avisos de Next.js (de su servidor, que no se usa) y de PostCSS y Tailwind (solo corren al compilar) | 23 de octubre |
 | El encabezado del registro en el teléfono | El nombre de los cuatro laboratorios se lee completo a 360 y 390 px | 23 de octubre |
 | La vigilancia del sitio | Sus tres revisiones, a mano contra el sitio publicado: la página responde, la API devuelve 4 laboratorios y el certificado vence el 6 de diciembre de 2026. Una dirección inexistente hace fallar la revisión. Primera corrida en GitHub, después de publicar: bien | 24 de octubre |
@@ -98,6 +100,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 ## Pendientes, en orden
 
+0. **Publicar las cuentas con varios roles** (#22): respaldar la base, aplicar la migración `001` con `php scripts/migrar.php`, subir el sitio y correr `npm run prueba:produccion`. La API nueva no funciona con la base vieja ni al revés: van juntas, una después de la otra.
 1. **Lo pedido a Andrés y al instituto** (sección "Para probar con datos reales" de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)):
    - entregar al instituto la presentación, el oficio y el cuestionario (listos desde el 23 de octubre);
    - quién usa y quién controla la aplicación de Vercel y Firebase (Andrés no los controla: los pide a quien los maneja);
@@ -106,11 +109,11 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
    - la lista de alumnos en Excel, las materias con sus horarios y el personal;
    - un piloto y la fecha del cambio.
 2. **Respaldar la base cada semana** mientras se use, y antes del piloto y del día del cambio ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)). El primero se hizo el 23 de octubre. Desde el 24, una tarea programada en la computadora de David lo hace cada viernes, con copia cifrada en Google Drive. Solo hay que autorizar la IP en MySQL remoto ese rato y quitarla después.
-3. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador: falta su correo para crearla.
+3. **El piloto:** cargar el periodo AGO-DIC 2026 (del 1 de agosto al 31 de diciembre), la cuenta del docente, los alumnos del grupo, la materia, el curso y las inscripciones, y probar una clase completa en el laboratorio. Los pasos están en [guia-del-administrador.md](guia-del-administrador.md). Andrés va a cargar a los alumnos, al menos los de Sistemas, y necesita su propia cuenta de administrador: ya se tiene su correo (2 de noviembre); falta crearla.
 4. **Simular la importación de Firebase** en cuanto haya autorización y acceso de lectura, para conocer los datos y lo que habrá que revisar a mano.
 5. **El día del cambio:** importar los datos de Firebase y retirar la aplicación de Vercel ([cambio-de-firebase.md](cambio-de-firebase.md)).
 6. **Quitar la autorización de MySQL remoto** en hPanel mientras no haga falta correr scripts desde la computadora. Para el respaldo semanal se autoriza la IP solo ese rato.
-7. **El resto de las respuestas del instituto:** carreras, permisos por rol, uso fuera de clase y si el registro debe exigir la inscripción.
+7. **El resto de las respuestas del instituto:** carreras, permisos por rol, uso fuera de clase, si el registro debe exigir la inscripción, y si una persona puede tener varios roles (preguntas 16 a 18).
 
 ## Historial
 
@@ -137,3 +140,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 24 de octubre de 2026 | #17 | Cabeceras de seguridad: CSP, HSTS, Referrer-Policy y Permissions-Policy |
 | 24 de octubre de 2026 | #18 | Next.js 16.4.1 con React 18, compilado con webpack; ESLint 9. **Segunda publicación en Hostinger**, con #11 a #18 |
 | 26 de octubre de 2026 | #20 | La carga de alumnos acepta las listas de grupo del instituto tal como vienen (título arriba, "Matrícula" y "Estudiante" con el nombre completo) y enseña cómo separó cada nombre. **Tercera publicación en Hostinger** |
+| 2 de noviembre de 2026 | #22 | Una cuenta por persona, con uno o varios roles (D20): al entrar ya no se elige el rol, y quien tiene varios cambia de panel desde el menú de su cuenta. Primera migración de la base, con su prueba. Preguntas 16 a 18 y A4 para el instituto |

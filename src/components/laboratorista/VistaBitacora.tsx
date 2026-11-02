@@ -8,6 +8,7 @@ import { api, type EntradaDeBitacora } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { tablasExcel } from "../../lib/exportar"
 import { fechaHora, hoy } from "../../lib/formato"
+import { nombreDeLosRoles } from "../../lib/rutas"
 import { Paginador } from "../comunes/Paginador"
 import { CampoDeBusqueda, Listado, SinDatos } from "../comunes/Bloques"
 import type { PropsDeVista } from "./vista"
@@ -103,8 +104,8 @@ export function VistaBitacora({ laboratorio }: PropsDeVista) {
           {
             nombre: "Bitácora",
             filas: [
-              ["Fecha", "Usuario", "Rol", "Acción", "Sobre", "Detalles", "Laboratorio", "Dirección"],
-              ...todo.entradas.map((e) => [fechaHora(e.fecha), e.usuario, e.rol, ACCIONES[e.accion] ?? e.accion, e.entidad ? `${TABLAS[e.entidad] ?? e.entidad} ${e.entidadId ?? ""}` : "", e.detalles, e.laboratorio, e.ip]),
+              ["Fecha", "Usuario", "Roles", "Acción", "Sobre", "Detalles", "Laboratorio", "Dirección"],
+              ...todo.entradas.map((e) => [fechaHora(e.fecha), e.usuario, nombreDeLosRoles(e.roles), ACCIONES[e.accion] ?? e.accion, e.entidad ? `${TABLAS[e.entidad] ?? e.entidad} ${e.entidadId ?? ""}` : "", e.detalles, e.laboratorio, e.ip]),
             ],
           },
         ],
@@ -184,7 +185,7 @@ export function VistaBitacora({ laboratorio }: PropsDeVista) {
                   <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{fechaHora(entrada.fecha)}</TableCell>
                   <TableCell>
                     <span className="font-medium">{entrada.usuario}</span>
-                    {entrada.rol && <span className="block text-xs text-muted-foreground">{entrada.rol}</span>}
+                    {entrada.roles.length > 0 && <span className="block text-xs text-muted-foreground">{nombreDeLosRoles(entrada.roles)}</span>}
                   </TableCell>
                   <TableCell>
                     {ACCIONES[entrada.accion] ?? entrada.accion}

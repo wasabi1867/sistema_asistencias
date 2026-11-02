@@ -81,7 +81,7 @@ export function VistaEquipos({ laboratorio, usuario }: PropsDeVista) {
               <Settings2 /> Configurar PC-1 a PC-N
             </Button>
           </form>
-          {usuario.rol === "admin" && (
+          {usuario.roles.includes("admin") && (
             <form onSubmit={agregar} className="flex items-end gap-2">
               <div className="space-y-1.5">
                 <label htmlFor="etiqueta-equipo" className="text-sm font-medium">
@@ -122,7 +122,7 @@ export function VistaEquipos({ laboratorio, usuario }: PropsDeVista) {
         )}
       </Panel>
 
-      {elegido && <DetalleDeEquipo equipo={lista.find((e) => e.id === elegido.id) ?? elegido} esAdmin={usuario.rol === "admin"} alCerrar={() => setElegido(null)} alCambiar={actualizar} />}
+      {elegido && <DetalleDeEquipo equipo={lista.find((e) => e.id === elegido.id) ?? elegido} esAdmin={usuario.roles.includes("admin")} alCerrar={() => setElegido(null)} alCambiar={actualizar} />}
     </div>
   )
 }

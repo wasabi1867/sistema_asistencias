@@ -28,13 +28,24 @@ final class ScriptsTest extends PruebaDeApi
     {
         [$codigo, $salida] = Entorno::correrScript('crear-admin.php', ['jefa@pruebas.test', 'Juana', 'Jefa'], "contrasena-inicial\n");
         $this->assertSame(0, $codigo, $salida);
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'jefa@pruebas.test', 'contrasena' => 'contrasena-inicial', 'rol' => 'admin']));
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'jefa@pruebas.test', 'contrasena' => 'contrasena-inicial']));
 
         [$codigo, $salida] = Entorno::correrScript('crear-admin.php', ['jefa@pruebas.test'], "contrasena-cambiada\n");
         $this->assertSame(0, $codigo, $salida);
         $this->assertStringContainsString('Contraseña de jefa@pruebas.test cambiada', $salida);
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'jefa@pruebas.test', 'contrasena' => 'contrasena-cambiada', 'rol' => 'admin']));
-        $this->assertSame(1, (int)$this->valor("SELECT COUNT(*) FROM usuarios WHERE rol = 'admin'"));
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'jefa@pruebas.test', 'contrasena' => 'contrasena-cambiada']));
+        $this->assertSame(1, (int)$this->valor("SELECT COUNT(*) FROM usuarios WHERE FIND_IN_SET('admin', roles)"));
+    }
+
+    public function test_crear_admin_agrega_el_rol_a_la_cuenta_que_ya_tiene_ese_correo(): void
+    {
+        $this->crearCuentas();
+
+        [$codigo, $salida] = Entorno::correrScript('crear-admin.php', ['diego@pruebas.test'], "contrasena-de-diego\n");
+
+        $this->assertSame(0, $codigo, $salida);
+        $this->assertSame('admin,docente', $this->valor("SELECT roles FROM usuarios WHERE id = $this->docente"));
+        $this->assertSame(1, (int)$this->valor("SELECT COUNT(*) FROM usuarios WHERE email = 'diego@pruebas.test'"));
     }
 
     public function test_crear_admin_ignora_la_marca_bom_que_antepone_powershell(): void
@@ -43,7 +54,7 @@ final class ScriptsTest extends PruebaDeApi
         [$codigo, $salida] = Entorno::correrScript('crear-admin.php', ['jefa@pruebas.test'], "\xEF\xBB\xBFcontrasena-de-powershell\r\n");
         $this->assertSame(0, $codigo, $salida);
 
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'jefa@pruebas.test', 'contrasena' => 'contrasena-de-powershell', 'rol' => 'admin']));
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'jefa@pruebas.test', 'contrasena' => 'contrasena-de-powershell']));
     }
 
     public function test_crear_admin_rechaza_una_contrasena_corta(): void
@@ -90,7 +101,7 @@ final class ScriptsTest extends PruebaDeApi
         $this->pdo()->exec("CREATE DATABASE `$base` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         try {
             $contenido = (string)file_get_contents($archivo);
-            $this->assertStringContainsString("-- Migraciones aplicadas: (ninguna)\n", $contenido);
+            $this->assertStringContainsString('-- Migraciones aplicadas: ' . self::migraciones() . "\n", $contenido);
             $this->assertMatchesRegularExpression('/-- Fin del respaldo: \d+ renglones de 19 tablas\.\n$/', $contenido);
 
             [$codigo, $salida] = Entorno::correrScript('restaurar.php', [$archivo], variables: ['ASISTENCIAS_DB_NAME' => $base]);
@@ -130,7 +141,7 @@ final class ScriptsTest extends PruebaDeApi
             $this->assertSame(1, $codigo);
             $this->assertStringContainsString('está incompleto', $salida);
 
-            file_put_contents($archivo, str_replace('-- Migraciones aplicadas: (ninguna)', '-- Migraciones aplicadas: 001-algo', $completo));
+            file_put_contents($archivo, str_replace('-- Migraciones aplicadas: ' . self::migraciones(), '-- Migraciones aplicadas: (ninguna)', $completo));
             [$codigo, $salida] = Entorno::correrScript('restaurar.php', [$archivo], variables: ['ASISTENCIAS_DB_NAME' => $base]);
             $this->assertSame(1, $codigo);
             $this->assertStringContainsString('es de otra versión del esquema', $salida);
@@ -140,6 +151,12 @@ final class ScriptsTest extends PruebaDeApi
             $this->pdo()->exec("DROP DATABASE IF EXISTS `$base`");
             @unlink($archivo);
         }
+    }
+
+    /** Las migraciones del repositorio, como las anota un respaldo. */
+    private static function migraciones(): string
+    {
+        return implode(', ', array_map(static fn ($m) => basename($m, '.sql'), glob(dirname(__DIR__, 2) . '/db/migraciones/*.sql')));
     }
 
     private function respaldo(): string

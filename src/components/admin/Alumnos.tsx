@@ -214,7 +214,7 @@ export function Alumnos({ usuario }: PropsDeSeccion) {
                         { texto: "Ver sus cursos", icono: Eye, alElegir: () => setViendo(alumno) },
                         { texto: "Editar", icono: Pencil, alElegir: () => setEditando(alumno) },
                         { texto: alumno.activo ? "Desactivar" : "Activar", icono: alumno.activo ? UserX : UserCheck, alElegir: () => cambiarActivo(alumno) },
-                        { texto: "Eliminar", icono: Trash2, peligro: true, oculta: usuario.rol !== "admin", alElegir: () => eliminar(alumno) },
+                        { texto: "Eliminar", icono: Trash2, peligro: true, oculta: !usuario.roles.includes("admin"), alElegir: () => eliminar(alumno) },
                       ]}
                     />
                   </TableCell>

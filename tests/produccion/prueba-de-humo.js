@@ -52,14 +52,13 @@ const bien = (texto) => console.log(`${String(++paso).padStart(2, "0")}. ${texto
 
     if (USUARIO && CONTRASENA) {
       await pagina.goto(SITIO + "/entrar", { waitUntil: "networkidle" })
-      await pagina.getByRole("button", { name: "Administrador", exact: true }).click()
       await pagina.locator("#usuario").fill(USUARIO)
       await pagina.locator("#contrasena").fill(CONTRASENA)
       await pagina.getByRole("button", { name: "Iniciar sesión" }).click()
       await pagina.waitForURL(/\/admin/)
       await pagina.getByRole("heading", { name: "Tablero", level: 1 }).waitFor()
-      const rol = await pagina.evaluate(async () => (await (await fetch("/api/sesion")).json()).rol)
-      if (rol !== "admin") problemas.push(`[${nombre}] la sesión tiene el rol "${rol}"`)
+      const roles = await pagina.evaluate(async () => (await (await fetch("/api/sesion")).json()).roles)
+      if (!Array.isArray(roles) || !roles.includes("admin")) problemas.push(`[${nombre}] la sesión tiene los roles ${JSON.stringify(roles)}`)
       bien(`${nombre}: el administrador inicia sesión y llega al tablero`)
       await captura("3-tablero")
 

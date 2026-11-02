@@ -7,7 +7,7 @@ Los datos de los alumnos son personales. Antes de cargar los reales hace falta l
 ## 0. Entrar
 
 1. Abre el sitio y presiona **Personal**, arriba a la derecha.
-2. Elige **Administrador**, escribe tu correo y tu contraseña, y presiona **Iniciar sesión**.
+2. Escribe tu correo y tu contraseña, y presiona **Iniciar sesión**. No hay que elegir el rol: el sistema sabe cuál tienes.
 3. La primera vez, cambia la contraseña que te dieron: menú con tu nombre (arriba a la derecha) → **Cambiar contraseña**.
 
 A la izquierda está el menú del panel. Las secciones que se usan aquí son **Alumnos**, **Cursos**, **Materias y prácticas**, **Cuentas del personal** y **Carreras, periodos y laboratorios**.
@@ -26,13 +26,14 @@ En la misma sección revisa:
 
 ## 2. Las cuentas del personal
 
-En **Cuentas del personal**, elige la pestaña del rol (**Docentes**, **Laboratoristas** o **Administradores**) y presiona **Nueva cuenta de docente** (o del rol que sea):
+En **Cuentas del personal**, elige la pestaña del rol (**Docentes**, **Laboratoristas** o **Administradores**) y presiona **Nueva cuenta**:
+- **Roles:** viene marcado el de la pestaña. Marca todos los que tenga la persona: si un laboratorista también da clases, marca **Laboratorista** y **Docente** en la misma cuenta.
 - Nombre y apellido.
 - **Correo** y/o **Matrícula o número de empleado:** con cualquiera de los dos se inicia sesión. Hace falta al menos uno.
 - Departamento, en los docentes.
 - **Contraseña inicial**, de al menos 8 caracteres.
 
-Una cuenta por persona: la bitácora registra quién hizo cada cosa. La contraseña inicial díla en persona, no por un chat. Cada quien la cambia al entrar.
+Una cuenta por persona: la bitácora registra quién hizo cada cosa. Si alguien ya tiene cuenta y le toca otro rol, no le crees otra: en su renglón, menú **⋯** → **Editar**, marca el rol nuevo y guarda. El sistema no deja usar el mismo correo ni la misma matrícula en dos cuentas. Quien tiene varios roles pasa de un panel a otro desde el menú con su nombre, arriba a la derecha. La contraseña inicial díla en persona, no por un chat. Cada quien la cambia al entrar.
 
 ## 3. Los alumnos, desde Excel
 

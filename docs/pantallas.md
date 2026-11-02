@@ -9,7 +9,7 @@ Stack: React 18, TypeScript, Tailwind, componentes de shadcn/ui (sobre Radix), l
 | Ruta | Quién | Qué hace |
 |---|---|---|
 | `/` | Alumnos | La computadora del laboratorio (y el teléfono del alumno): la clase abierta y el registro de entrada en dos pasos, número de control y computadora. El alumno no escribe ningún otro dato. El laboratorio se elige una vez y se recuerda en el navegador. |
-| `/entrar` | Personal | Inicio de sesión de docentes, laboratoristas y administradores. Se llega con el botón **Personal** de `/`. |
+| `/entrar` | Personal | Inicio de sesión de docentes, laboratoristas y administradores, sin elegir el rol: la cuenta va al último panel que usó en esa computadora o al primero que le toque (D20). Se llega con el botón **Personal** de `/`. |
 | `/docente` | Docente | Abre la clase de uno de sus cursos, ve quién entra, la exporta y la cierra. Sus prácticas, sus clases anteriores y la asistencia del curso. |
 | `/laboratorio` | Laboratorista y administrador | Lo que pasa en el laboratorio (con el mapa de equipos), historial, reportes, bitácora, equipos, horario, invitados y eventos. |
 | `/clase-invitada` | Laboratorista y administrador | Una clase de maestro invitado, abierta desde `/laboratorio`. |
@@ -17,7 +17,7 @@ Stack: React 18, TypeScript, Tailwind, componentes de shadcn/ui (sobre Radix), l
 
 La sección abierta de un panel va en la dirección (`/admin?seccion=alumnos`), con `useSeccion`: recargar, usar "atrás" o compartir el enlace deja a la persona donde estaba.
 
-Cada página del personal revisa la sesión con `useSesion(roles)`: si no hay sesión o el rol no corresponde, lleva a `/entrar`. Esto solo evita mostrar una pantalla vacía; los permisos de verdad los revisa la API en cada petición.
+Cada página del personal revisa la sesión con `useSesion(roles)`: si no hay sesión o la cuenta no tiene ninguno de esos roles, lleva a `/entrar`. Quien tiene varios roles pasa de un panel a otro desde el menú de su cuenta (`MenuDeUsuario`). Esto solo evita mostrar una pantalla vacía; los permisos de verdad los revisa la API en cada petición.
 
 Las direcciones de antes (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenciasInvitado`, `/panel-laboratorista`) las redirige `public/.htaccess` a las nuevas.
 
@@ -36,7 +36,7 @@ Las direcciones de antes (`/AdminPanel`, `/lista-asistencias`, `/lista-asistenci
 | `src/lib/alertas.ts` | Avisos y confirmaciones (ver abajo). |
 | `src/lib/exportar.ts` | Hoja de registro y reportes en PDF y Excel, y lectura de hojas de cálculo. |
 | `src/lib/formato.ts` | Fechas y horas en el formato de Hermosillo, y el nombre de cada equipo. |
-| `src/lib/rutas.ts` | A qué panel va cada rol y el laboratorio de esta computadora. |
+| `src/lib/rutas.ts` | Los paneles de cada rol, a cuál entra una cuenta y el laboratorio de esta computadora. |
 | `src/hooks/` | `useSesion`, `useSeccion`, `useTema`, `useDatos` (cargar una vez) y `useConsultaPeriodica` (mantener al día). |
 
 ## Diseño
@@ -84,11 +84,11 @@ npm run build   # compila con webpack y revisa los tipos; falla si hay errores
 
 ## Prueba de las pantallas
 
-`tests/pantallas/` recorre el sistema en un navegador de verdad, contra el sitio compilado y la API real, en 48 pasos. Cubre:
+`tests/pantallas/` recorre el sistema en un navegador de verdad, contra el sitio compilado y la API real, en 49 pasos. Cubre:
 - **Laboratorio y alumno:** elegir el laboratorio; el docente abre la clase; un alumno se registra desde el teléfono; uno no inscrito pide permiso y el administrador lo aprueba.
 - **Docente:** registra a alguien a mano, descarga la hoja en PDF y en Excel, quita una entrada y cierra la clase.
-- **Administrador:** sus secciones, la carga de alumnos desde Excel y desde una lista de grupo (título arriba y el nombre completo en una columna), crear cuentas y carreras, y el tema oscuro.
-- **Laboratorista:** sus vistas, reportar una falla, una clase de maestro invitado y la bitácora.
+- **Administrador:** sus secciones, la carga de alumnos desde Excel y desde una lista de grupo (título arriba y el nombre completo en una columna), crear cuentas, agregarle un rol a una cuenta, crear carreras y el tema oscuro.
+- **Laboratorista:** pasar al panel del docente y volver (también es docente), sus vistas, reportar una falla, una clase de maestro invitado y la bitácora.
 
 En cada paso revisa además que no haya errores en la consola, respuestas 5xx de la API ni desborde horizontal en el teléfono. Deja capturas en `tests/pantallas/capturas/`, que git ignora.
 

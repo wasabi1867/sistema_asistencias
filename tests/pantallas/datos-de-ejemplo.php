@@ -36,7 +36,7 @@ function pedir(string $metodo, string $ruta, ?array $cuerpo = null): mixed
     return $respuesta === '' ? null : json_decode($respuesta, true);
 }
 
-pedir('POST', '/sesion', ['usuario' => $correo, 'contrasena' => $contrasena, 'rol' => 'admin']);
+pedir('POST', '/sesion', ['usuario' => $correo, 'contrasena' => $contrasena]);
 
 $hoy = new DateTimeImmutable('today', new DateTimeZone('America/Hermosillo'));
 $periodo = pedir('POST', '/periodos', [
@@ -50,9 +50,9 @@ pedir('POST', '/periodos', [
     'fechaFin' => $hoy->modify('-60 days')->format('Y-m-d'),
 ]);
 
-$maria = pedir('POST', '/usuarios', ['rol' => 'docente', 'matricula' => 'D001', 'nombre' => 'María', 'apellido' => 'López Ruiz', 'email' => 'maria.lopez@itspp.test', 'departamento' => 'Sistemas Computacionales', 'contrasena' => 'docente-local-2026']);
-$jorge = pedir('POST', '/usuarios', ['rol' => 'docente', 'matricula' => 'D002', 'nombre' => 'Jorge', 'apellido' => 'Ramírez Soto', 'email' => 'jorge.ramirez@itspp.test', 'departamento' => 'Sistemas Computacionales', 'contrasena' => 'docente-local-2026']);
-pedir('POST', '/usuarios', ['rol' => 'laboratorista', 'matricula' => 'L001', 'nombre' => 'Carlos', 'apellido' => 'Méndez Gil', 'email' => 'carlos.mendez@itspp.test', 'contrasena' => 'laboratorista-local-2026']);
+$maria = pedir('POST', '/usuarios', ['roles' => ['docente'], 'matricula' => 'D001', 'nombre' => 'María', 'apellido' => 'López Ruiz', 'email' => 'maria.lopez@itspp.test', 'departamento' => 'Sistemas Computacionales', 'contrasena' => 'docente-local-2026']);
+$jorge = pedir('POST', '/usuarios', ['roles' => ['docente'], 'matricula' => 'D002', 'nombre' => 'Jorge', 'apellido' => 'Ramírez Soto', 'email' => 'jorge.ramirez@itspp.test', 'departamento' => 'Sistemas Computacionales', 'contrasena' => 'docente-local-2026']);
+pedir('POST', '/usuarios', ['roles' => ['laboratorista'], 'matricula' => 'L001', 'nombre' => 'Carlos', 'apellido' => 'Méndez Gil', 'email' => 'carlos.mendez@itspp.test', 'contrasena' => 'laboratorista-local-2026']);
 
 $web = pedir('POST', '/materias', ['clave' => 'AEB-1055', 'nombre' => 'Programación Web', 'carrera' => 'ISIC', 'semestre' => 5]);
 $redes = pedir('POST', '/materias', ['clave' => 'SCD-1021', 'nombre' => 'Redes de Computadoras', 'carrera' => 'ISIC', 'semestre' => 5]);

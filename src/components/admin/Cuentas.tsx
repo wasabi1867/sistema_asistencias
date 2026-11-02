@@ -9,14 +9,20 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api, type Cuenta, type Rol } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { useDatos } from "../../hooks/useDatos"
+import { NOMBRE_DEL_ROL, nombreDeLosRoles } from "../../lib/rutas"
 import { Campo, Listado, SinDatos } from "../comunes/Bloques"
 import { MenuDeAcciones } from "../comunes/MenuDeAcciones"
 import type { PropsDeSeccion } from "./seccion"
 
 const NOMBRES: Record<Rol, string> = { docente: "Docentes", laboratorista: "Laboratoristas", admin: "Administradores" }
-const UNO: Record<Rol, string> = { docente: "docente", laboratorista: "laboratorista", admin: "administrador" }
+// En el orden en que los devuelve la API.
+const ROLES: Rol[] = ["admin", "laboratorista", "docente"]
 
-/** Las cuentas del personal. Una cuenta con historial no se borra: se desactiva. */
+/**
+ * Las cuentas del personal. Una persona tiene una sola cuenta, con uno o varios roles
+ * (D20): sale en la pestaña de cada uno. Una cuenta con historial no se borra: se
+ * desactiva.
+ */
 export function Cuentas({ usuario }: PropsDeSeccion) {
   const [rol, setRol] = useState<Rol>("docente")
   const { datos: cuentas, recargar } = useDatos(() => api.usuarios.listar({ rol }), [rol])
@@ -66,7 +72,7 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
           </TabsList>
         </Tabs>
         <Button type="button" onClick={() => setEditando("nueva")}>
-          <Plus /> Nueva cuenta de {UNO[rol]}
+          <Plus /> Nueva cuenta
         </Button>
       </div>
 
@@ -79,6 +85,7 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Matrícula</TableHead>
+                <TableHead className="hidden sm:table-cell">Roles</TableHead>
                 <TableHead className="hidden md:table-cell">Correo</TableHead>
                 {rol === "docente" && <TableHead className="hidden lg:table-cell">Departamento</TableHead>}
                 <TableHead>Estado</TableHead>
@@ -97,6 +104,7 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
                       {propia && <span className="ml-2 text-xs font-normal text-muted-foreground">(tú)</span>}
                     </TableCell>
                     <TableCell className="font-mono text-[13px] text-muted-foreground">{cuenta.matricula ?? "—"}</TableCell>
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">{nombreDeLosRoles(cuenta.roles)}</TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">{cuenta.email ?? "—"}</TableCell>
                     {rol === "docente" && <TableCell className="hidden text-muted-foreground lg:table-cell">{cuenta.departamento ?? "—"}</TableCell>}
                     <TableCell>{cuenta.activo ? <Badge variant="success">Activa</Badge> : <Badge>Desactivada</Badge>}</TableCell>
@@ -123,6 +131,7 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
         <FormularioDeCuenta
           cuenta={editando === "nueva" ? null : editando}
           rol={rol}
+          propia={editando !== "nueva" && editando.id === usuario.id}
           alCerrar={() => setEditando(null)}
           alGuardar={() => {
             setEditando(null)
@@ -134,7 +143,9 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
   )
 }
 
-function FormularioDeCuenta({ cuenta, rol, alCerrar, alGuardar }: { cuenta: Cuenta | null; rol: Rol; alCerrar: () => void; alGuardar: () => void }) {
+function FormularioDeCuenta({ cuenta, rol, propia, alCerrar, alGuardar }: { cuenta: Cuenta | null; rol: Rol; propia: boolean; alCerrar: () => void; alGuardar: () => void }) {
+  // Una cuenta nueva empieza con el rol de la pestaña en que se estaba.
+  const [roles, setRoles] = useState<Rol[]>(cuenta?.roles ?? [rol])
   const [datos, setDatos] = useState({
     matricula: cuenta?.matricula ?? "",
     nombre: cuenta?.nombre ?? "",
@@ -146,7 +157,12 @@ function FormularioDeCuenta({ cuenta, rol, alCerrar, alGuardar }: { cuenta: Cuen
 
   const guardar = async (e: FormEvent) => {
     e.preventDefault()
+    if (roles.length === 0) {
+      await alertas.aviso("Elige al menos un rol", "Marca qué hace esta persona: docente, laboratorista o administrador.")
+      return
+    }
     const cuerpo = {
+      roles,
       matricula: datos.matricula || null,
       nombre: datos.nombre,
       apellido: datos.apellido,
@@ -157,7 +173,7 @@ function FormularioDeCuenta({ cuenta, rol, alCerrar, alGuardar }: { cuenta: Cuen
       if (cuenta) {
         await api.usuarios.editar(cuenta.id, cuerpo)
       } else {
-        await api.usuarios.crear({ ...cuerpo, rol, contrasena: datos.contrasena })
+        await api.usuarios.crear({ ...cuerpo, contrasena: datos.contrasena })
       }
       alertas.breve(cuenta ? "Cuenta actualizada" : "Cuenta creada")
       alGuardar()
@@ -176,15 +192,39 @@ function FormularioDeCuenta({ cuenta, rol, alCerrar, alGuardar }: { cuenta: Cuen
     <Dialog open onOpenChange={(abierto) => !abierto && alCerrar()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{cuenta ? `Editar a ${cuenta.nombre}` : `Nueva cuenta de ${UNO[rol]}`}</DialogTitle>
-          <DialogDescription>Se inicia sesión con la matrícula o con el correo: hace falta al menos uno de los dos.</DialogDescription>
+          <DialogTitle>{cuenta ? `Editar a ${cuenta.nombre}` : "Nueva cuenta"}</DialogTitle>
+          <DialogDescription>
+            Una cuenta por persona: si ya tiene una, agrégale el rol ahí. Se inicia sesión con la matrícula o con el correo: hace falta al menos uno de los dos.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={guardar} className="grid grid-cols-2 gap-4">
+          <fieldset className="col-span-2">
+            <legend className="mb-1.5 text-sm font-medium">Roles</legend>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {ROLES.map((r) => {
+                // Nadie se quita a sí mismo el rol de administrador: podría quedarse sin poder volver.
+                const fija = propia && r === "admin"
+                return (
+                  <label key={r} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={roles.includes(r)}
+                      disabled={fija}
+                      onChange={(e) => setRoles(e.target.checked ? ROLES.filter((x) => x === r || roles.includes(x)) : roles.filter((x) => x !== r))}
+                    />
+                    {NOMBRE_DEL_ROL[r]}
+                  </label>
+                )
+              })}
+            </div>
+            {propia && <p className="mt-1 text-xs text-muted-foreground">No puedes quitarte a ti mismo el rol de administrador.</p>}
+          </fieldset>
           {campo("nombre", "Nombre", "text", true)}
           {campo("apellido", "Apellidos")}
           {campo("matricula", "Matrícula o número de empleado")}
           {campo("email", "Correo", "email")}
-          {rol === "docente" && <div className="col-span-2">{campo("departamento", "Departamento")}</div>}
+          {roles.includes("docente") && <div className="col-span-2">{campo("departamento", "Departamento")}</div>}
           {!cuenta && <div className="col-span-2">{campo("contrasena", "Contraseña inicial (al menos 8 caracteres)", "password", true)}</div>}
           <DialogFooter className="col-span-2">
             <Button type="button" variant="outline" onClick={alCerrar}>

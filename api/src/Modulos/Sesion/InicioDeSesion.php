@@ -36,8 +36,6 @@ final class InicioDeSesion
         if ($contrasena === '') {
             throw ErrorHttp::datosInvalidos('Falta la contraseña', 'contrasena');
         }
-        $rol = $e->opcion('rol', 'el rol', ['admin', 'laboratorista', 'docente']);
-
         $fallidos = (int)$c->bd->valor(
             "SELECT COUNT(*) FROM bitacora WHERE accion = 'sesion_fallida' AND ip = ? AND fecha > NOW() - INTERVAL " . self::MINUTOS_DE_ESPERA . ' MINUTE',
             [$c->peticion->ip]
@@ -47,13 +45,13 @@ final class InicioDeSesion
         }
 
         // Se entra con el correo o con la matrícula; si los dos coinciden con cuentas
-        // distintas, gana el correo.
+        // distintas, gana el correo. El rol no se pregunta: sale de la cuenta (D20).
         $fila = $c->bd->fila(
-            'SELECT * FROM usuarios WHERE rol = ? AND (email = ? OR matricula = ?) ORDER BY email = ? DESC LIMIT 1',
-            [$rol, $usuario, $usuario, $usuario]
+            'SELECT * FROM usuarios WHERE email = ? OR matricula = ? ORDER BY email = ? DESC LIMIT 1',
+            [$usuario, $usuario, $usuario]
         );
         if (!Contrasenas::coincide($contrasena, $fila['password_hash'] ?? null)) {
-            $c->bitacora->registrarAunqueFalle('sesion_fallida', "Rol $rol", null, $usuario);
+            $c->bitacora->registrarAunqueFalle('sesion_fallida', null, null, $usuario);
             throw new ErrorHttp(401, 'Usuario o contraseña incorrectos');
         }
         if (!$fila['activo']) {
