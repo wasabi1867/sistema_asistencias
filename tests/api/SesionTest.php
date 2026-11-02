@@ -12,10 +12,10 @@ final class SesionTest extends PruebaDeApi
 
     public function test_entra_con_el_correo_o_con_la_matricula(): void
     {
-        $porCorreo = $this->ok($this->anonimo()->post('sesion', ['usuario' => self::CORREO_ADMIN, 'contrasena' => self::CONTRASENA, 'rol' => 'admin']));
-        $porMatricula = $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA, 'rol' => 'docente']));
+        $porCorreo = $this->ok($this->anonimo()->post('sesion', ['usuario' => self::CORREO_ADMIN, 'contrasena' => self::CONTRASENA]));
+        $porMatricula = $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA]));
 
-        $this->assertSame(['id' => $this->admin, 'rol' => 'admin'], array_intersect_key($porCorreo, ['id' => 0, 'rol' => 0]));
+        $this->assertSame(['id' => $this->admin, 'roles' => ['admin']], array_intersect_key($porCorreo, ['id' => 0, 'roles' => 0]));
         $this->assertSame('Diego', $porMatricula['nombre']);
         $this->assertArrayNotHasKey('password_hash', $porMatricula);
     }
@@ -39,17 +39,30 @@ final class SesionTest extends PruebaDeApi
         $this->assertSame('Inicia sesión para continuar', $respuesta->json()['error']);
     }
 
-    public function test_el_rol_tiene_que_coincidir(): void
+    public function test_el_rol_no_se_elige_sale_de_la_cuenta(): void
     {
-        $respuesta = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA, 'rol' => 'admin']);
+        $this->pdo()->exec("UPDATE usuarios SET roles = 'laboratorista,docente' WHERE id = $this->docente");
 
-        $this->assertSame(401, $respuesta->estado);
+        // Las pantallas anteriores mandaban el rol: se ignora.
+        $cuenta = $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA, 'rol' => 'admin']));
+
+        $this->assertSame(['laboratorista', 'docente'], $cuenta['roles']);
+    }
+
+    public function test_quien_tiene_dos_roles_puede_hacer_lo_de_los_dos(): void
+    {
+        $this->pdo()->exec("UPDATE usuarios SET roles = 'admin,docente' WHERE id = $this->docente");
+        $diego = $this->con('docente');
+
+        $this->ok($diego->get('bitacora'));
+        $this->ok($diego->get('cursos?docente=yo'));
+        $this->assertSame('admin,docente', $this->valor("SELECT roles FROM bitacora WHERE accion = 'iniciar_sesion' ORDER BY id DESC LIMIT 1"));
     }
 
     public function test_contrasena_equivocada_y_cuenta_inexistente_responden_igual(): void
     {
-        $equivocada = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'otra-contrasena', 'rol' => 'docente']);
-        $inexistente = $this->anonimo()->post('sesion', ['usuario' => 'NADIE', 'contrasena' => 'otra-contrasena', 'rol' => 'docente']);
+        $equivocada = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'otra-contrasena']);
+        $inexistente = $this->anonimo()->post('sesion', ['usuario' => 'NADIE', 'contrasena' => 'otra-contrasena']);
 
         $this->assertSame([401, 'Usuario o contraseña incorrectos'], [$equivocada->estado, $equivocada->json()['error']]);
         $this->assertSame([401, 'Usuario o contraseña incorrectos'], [$inexistente->estado, $inexistente->json()['error']]);
@@ -60,10 +73,10 @@ final class SesionTest extends PruebaDeApi
     public function test_despues_de_10_intentos_fallidos_hay_que_esperar(): void
     {
         for ($i = 0; $i < 10; $i++) {
-            $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'mal', 'rol' => 'docente']);
+            $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'mal']);
         }
 
-        $respuesta = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA, 'rol' => 'docente']);
+        $respuesta = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA]);
 
         $this->assertSame(429, $respuesta->estado, (string)$respuesta);
     }
@@ -74,7 +87,7 @@ final class SesionTest extends PruebaDeApi
         $this->pdo()->exec("UPDATE usuarios SET activo = FALSE WHERE id = $this->docente");
 
         $this->assertSame(401, $docente->get('sesion')->estado);
-        $respuesta = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA, 'rol' => 'docente']);
+        $respuesta = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA]);
         $this->assertSame(403, $respuesta->estado);
         $this->assertStringContainsString('desactivada', $respuesta->json()['error']);
     }
@@ -85,7 +98,7 @@ final class SesionTest extends PruebaDeApi
         $hashDeBcryptjs = str_replace('$2y$', '$2b$', password_hash('clave-de-firebase', PASSWORD_BCRYPT, ['cost' => 10]));
         $this->pdo()->prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?')->execute([$hashDeBcryptjs, $this->docente]);
 
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'clave-de-firebase', 'rol' => 'docente']));
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'clave-de-firebase']));
 
         $this->assertStringStartsWith('$2y$', $this->valor('SELECT password_hash FROM usuarios WHERE id = ?', [$this->docente]));
     }
@@ -100,12 +113,12 @@ final class SesionTest extends PruebaDeApi
 
         $this->assertSame([400, 'actual'], [$mal->estado, $mal->json()['campo']]);
         $this->assertSame([400, 'nueva'], [$corta->estado, $corta->json()['campo']]);
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'nueva-contrasena', 'rol' => 'docente']));
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'nueva-contrasena']));
     }
 
     public function test_la_cookie_no_la_puede_leer_javascript(): void
     {
-        $respuesta = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA, 'rol' => 'docente']);
+        $respuesta = $this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => self::CONTRASENA]);
 
         $cookie = $respuesta->encabezado('set-cookie');
         $this->assertStringContainsString('asistencias_sesion=', $cookie);

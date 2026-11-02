@@ -120,7 +120,7 @@ export default function PanelDelLaboratorista() {
           </Select>
         </div>
       }
-      enlaces={usuario.rol === "admin" ? [{ texto: "Panel del administrador", href: PANEL_DE.admin, icono: LayoutDashboard }] : undefined}
+      enlaces={usuario.roles.includes("admin") ? [{ texto: "Panel del administrador", href: PANEL_DE.admin, icono: LayoutDashboard }] : undefined}
       titulo={actual.nombre}
       subtitulo={laboratorio.nombre}
       acciones={

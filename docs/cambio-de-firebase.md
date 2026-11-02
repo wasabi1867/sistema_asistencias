@@ -52,7 +52,7 @@ Lo averiguado el 22 de octubre de 2026:
 - **Los alumnos que estaban activos en Firebase se sobrescriben** con los datos de Firebase (nombre, carrera, semestre, grupo, turno) y quedan activos, aunque se hayan corregido o desactivado en el sistema nuevo.
 - **Los equipos de cada laboratorio quedan como estaban en Firebase:** los que no estén allá se retiran, y "fuera de servicio" y las notas vuelven a los de Firebase.
 - **Los periodos se buscan por fecha.** Si ningún periodo cubre la fecha de una clase de Firebase, la importación crea "AGO-DIC" (del 1 de agosto al 31 de diciembre) o "ENE-JUL" (del 1 de enero al 31 de julio) con su año. Si ya existe uno con ese nombre pero con otras fechas, la importación entera falla sin guardar nada; si el creado a mano se llama distinto, quedan dos periodos encimados. Para evitarlo, el periodo actual se crea como **AGO-DIC 2026, del 1 de agosto al 31 de diciembre de 2026**.
-- **Las cuentas del personal se buscan por rol y por matrícula o correo.** Se actualizan sus datos, pero no su contraseña.
+- **Las cuentas del personal se buscan por matrícula o correo, sin importar el rol.** Se actualizan sus datos, pero no su contraseña. Quien en Firebase tenía cuenta en dos colecciones (por ejemplo, Docentes y Administrador) queda con una sola cuenta y los dos roles (D20), con la contraseña de la primera; la importación avisa de cada una que no pudo comprobar.
 
 ## 1. Conectarse a la base desde la computadora
 

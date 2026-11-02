@@ -73,14 +73,14 @@ abstract class PruebaDeApi extends TestCase
     protected function crearCuentas(): void
     {
         $hash = password_hash(self::CONTRASENA, PASSWORD_DEFAULT);
-        $this->admin = $this->insertar('usuarios', ['rol' => 'admin', 'email' => self::CORREO_ADMIN, 'nombre' => 'Ada', 'apellido' => 'Admin', 'password_hash' => $hash]);
-        $this->laboratorista = $this->insertar('usuarios', ['rol' => 'laboratorista', 'matricula' => self::MATRICULA_LABORATORISTA, 'email' => 'laura@pruebas.test', 'nombre' => 'Laura', 'apellido' => 'Laboratorista', 'password_hash' => $hash]);
-        $this->docente = $this->insertar('usuarios', ['rol' => 'docente', 'matricula' => self::MATRICULA_DOCENTE, 'email' => 'diego@pruebas.test', 'nombre' => 'Diego', 'apellido' => 'Docente', 'departamento' => 'Sistemas', 'password_hash' => $hash]);
+        $this->admin = $this->insertar('usuarios', ['roles' => 'admin', 'email' => self::CORREO_ADMIN, 'nombre' => 'Ada', 'apellido' => 'Admin', 'password_hash' => $hash]);
+        $this->laboratorista = $this->insertar('usuarios', ['roles' => 'laboratorista', 'matricula' => self::MATRICULA_LABORATORISTA, 'email' => 'laura@pruebas.test', 'nombre' => 'Laura', 'apellido' => 'Laboratorista', 'password_hash' => $hash]);
+        $this->docente = $this->insertar('usuarios', ['roles' => 'docente', 'matricula' => self::MATRICULA_DOCENTE, 'email' => 'diego@pruebas.test', 'nombre' => 'Diego', 'apellido' => 'Docente', 'departamento' => 'Sistemas', 'password_hash' => $hash]);
     }
 
     protected function crearDocente(string $matricula, string $nombre = 'Otro', string $apellido = 'Docente'): int
     {
-        return $this->insertar('usuarios', ['rol' => 'docente', 'matricula' => $matricula, 'nombre' => $nombre, 'apellido' => $apellido, 'password_hash' => password_hash(self::CONTRASENA, PASSWORD_DEFAULT)]);
+        return $this->insertar('usuarios', ['roles' => 'docente', 'matricula' => $matricula, 'nombre' => $nombre, 'apellido' => $apellido, 'password_hash' => password_hash(self::CONTRASENA, PASSWORD_DEFAULT)]);
     }
 
     protected function laboratorio(string $clave = 'programacion'): int
@@ -185,7 +185,7 @@ abstract class PruebaDeApi extends TestCase
     {
         $usuario ??= ['admin' => self::CORREO_ADMIN, 'laboratorista' => self::MATRICULA_LABORATORISTA, 'docente' => self::MATRICULA_DOCENTE][$rol];
         $cliente = new Cliente();
-        $respuesta = $cliente->post('sesion', ['usuario' => $usuario, 'contrasena' => self::CONTRASENA, 'rol' => $rol]);
+        $respuesta = $cliente->post('sesion', ['usuario' => $usuario, 'contrasena' => self::CONTRASENA]);
         $this->assertSame(200, $respuesta->estado, "No se pudo iniciar sesión como $rol. $respuesta");
         return $cliente;
     }

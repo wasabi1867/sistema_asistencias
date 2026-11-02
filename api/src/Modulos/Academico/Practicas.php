@@ -12,7 +12,6 @@ use Asistencias\Http\Entrada;
 use Asistencias\Http\ErrorHttp;
 use Asistencias\Http\Respuesta;
 use Asistencias\Seguridad\Acceso;
-use Asistencias\Seguridad\Rol;
 use Asistencias\Seguridad\Usuario;
 
 /**
@@ -58,14 +57,15 @@ final class Practicas
 
     /**
      * Las comunes y las de un docente. El docente ve las comunes y las suyas; el
-     * personal ve todas, o las de un docente con ?docente=id.
+     * personal ve todas, o las de un docente con ?docente=id (así las pide el panel del
+     * docente, para quien además es del personal).
      */
     private static function listar(Contexto $c): array
     {
         $materia = Materias::porId($c->bd, $c->peticion->id());
         $q = $c->peticion->consulta();
         $usuario = $c->usuarioConSesion();
-        $docente = $q->entero('docente', 'el docente', 1, null, false) ?? ($usuario->rol === Rol::Docente ? $usuario->id : null);
+        $docente = $q->entero('docente', 'el docente', 1, null, false) ?? ($usuario->esDocente() && !$usuario->esPersonal() ? $usuario->id : null);
 
         $condiciones = ['p.materia_id = ?'];
         $parametros = [$materia['id']];
@@ -87,17 +87,19 @@ final class Practicas
         $usuario = $c->usuarioConSesion();
         $e = $c->peticion->cuerpo();
 
-        if ($usuario->rol === Rol::Docente) {
+        // El administrador elige de quién es (sin docente, común); quien además es docente
+        // manda su propio id desde su panel.
+        if ($usuario->esAdmin()) {
+            $docente = $e->entero('docenteId', 'el docente', 1, null, false);
+            if ($docente !== null && $c->bd->valor("SELECT 1 FROM usuarios WHERE id = ? AND FIND_IN_SET('docente', roles)", [$docente]) === null) {
+                throw ErrorHttp::datosInvalidos('Ese docente no existe', 'docenteId');
+            }
+        } elseif ($usuario->esDocente()) {
             $imparte = $c->bd->valor('SELECT 1 FROM cursos WHERE materia_id = ? AND docente_id = ? LIMIT 1', [$materia['id'], $usuario->id]);
             if ($imparte === null) {
                 throw ErrorHttp::sinPermiso('Solo puedes capturar prácticas de las materias que impartes');
             }
             $docente = $usuario->id;
-        } elseif ($usuario->esAdmin()) {
-            $docente = $e->entero('docenteId', 'el docente', 1, null, false);
-            if ($docente !== null && $c->bd->valor("SELECT 1 FROM usuarios WHERE id = ? AND rol = 'docente'", [$docente]) === null) {
-                throw ErrorHttp::datosInvalidos('Ese docente no existe', 'docenteId');
-            }
         } else {
             throw ErrorHttp::sinPermiso('Las prácticas las capturan el administrador y los docentes');
         }
@@ -144,7 +146,7 @@ final class Practicas
 
     private static function puedeEditar(Usuario $usuario, array $practica): bool
     {
-        return $usuario->esAdmin() || ($usuario->rol === Rol::Docente && $practica['docente_id'] === $usuario->id);
+        return $usuario->esAdmin() || ($usuario->esDocente() && $practica['docente_id'] === $usuario->id);
     }
 
     private static function datos(Entrada $e, bool $nueva): array

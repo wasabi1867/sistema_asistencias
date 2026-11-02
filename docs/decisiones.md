@@ -203,3 +203,26 @@ Los detalles:
 - Mantener React 18, webpack y las mismas reglas de lint hizo que el cambio no tocara ninguna pantalla. Se comprobó con los 47 pasos de la prueba en el navegador.
 - React 19, Turbopack con hashes para la CSP y las reglas del compilador quedan como trabajo aparte, si un día hacen falta.
 
+## D20. Una cuenta por persona, con uno o varios roles
+
+*2 de noviembre de 2026.*
+
+Antes, como en Firebase, cada rol era una cuenta aparte: la misma persona podía tener una de docente y otra de administrador con el mismo correo, y al iniciar sesión elegía con cuál entraba. Ahora cada persona tiene una sola cuenta, con uno o varios roles, y puede hacer lo de todos ellos.
+
+Los detalles:
+- **En la base**, `usuarios.roles` es un `SET('admin', 'laboratorista', 'docente')` que no puede quedar vacío. El correo y la matrícula son únicos en todo el sistema. La bitácora guarda los roles que tenía la cuenta en cada acción.
+- **Al iniciar sesión no se elige el rol.** La cuenta va al último panel que usó en esa computadora o, si no hay, al primero que le toque: administrador, laboratorio o docente. Desde el menú de su cuenta pasa a los demás paneles de sus roles.
+- **Los permisos son la suma de los roles.** Un administrador que también es docente abre sus clases y lleva sus prácticas.
+- **Nadie se quita a sí mismo el rol de administrador**, igual que nadie se desactiva a sí mismo.
+- **La importación desde Firebase une** las cuentas con el mismo correo o matrícula, y avisa cuando no puede saber si tenían la misma contraseña.
+- Es el primer cambio a la base ya instalada: `db/migraciones/001-cuentas-con-varios-roles.sql`. Una prueba revisa que las migraciones lleven el esquema con que se instaló producción al de `db/esquema.sql`.
+
+**Por qué:**
+- Elegir el rol al entrar confundía: con el rol equivocado, el sistema responde "Usuario o contraseña incorrectos", porque ese mensaje no puede decir qué cuentas existen.
+- Con dos cuentas, la persona tiene dos contraseñas, la bitácora la ve como dos personas, y al darla de baja hay que encontrar las dos.
+- Un laboratorista que da clases no cabe en una jerarquía de roles: son funciones distintas, no niveles.
+- `SET` y no una tabla aparte: son tres roles fijos, y así un cambio de roles queda en la bitácora como el de cualquier otro dato.
+- El sistema todavía no se usaba en el instituto: solo había una cuenta en producción.
+
+Que una persona tenga de verdad varios roles en el instituto se preguntó en la pregunta 16 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md). Con o sin respuesta, el diseño sirve.
+

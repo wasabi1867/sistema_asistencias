@@ -94,9 +94,9 @@ async function sinDesbordeHorizontal(page, donde) {
   if (ancho[0] > ancho[1] + 1) throw new Error(`${donde}: la página mide ${ancho[0]} px de ancho en una pantalla de ${ancho[1]} px`)
 }
 
-async function entrarComo(page, rol, usuario, contrasena, ruta) {
+// El rol no se elige: la cuenta lleva al panel que le toca (D20).
+async function entrarComo(page, usuario, contrasena, ruta) {
   await page.goto(BASE + "/entrar")
-  await page.getByRole("button", { name: rol, exact: true }).click()
   await page.locator("#usuario").fill(usuario)
   await page.locator("#contrasena").fill(contrasena)
   await page.getByRole("button", { name: "Iniciar sesión" }).click()
@@ -131,7 +131,7 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
     await paso("el docente entra desde «Personal»", async () => {
       await compu.getByRole("link", { name: /Personal/ }).click()
       await compu.waitForURL("**/entrar")
-      await compu.getByText("Tu clase se abrirá en Taller de Programación").waitFor()
+      await compu.getByText("Si das clase, se abrirá en Taller de Programación").waitFor()
       await captura(compu, "02-entrar")
       await compu.locator("#usuario").fill("D001")
       await compu.locator("#contrasena").fill("docente-local-2026")
@@ -207,7 +207,7 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
     // El administrador
     const admin = await nuevo("administrador")
     await paso("el administrador entra desde /entrar", async () => {
-      await entrarComo(admin, "Administrador", cuentaAdmin.correo, cuentaAdmin.contrasena, "/admin")
+      await entrarComo(admin, cuentaAdmin.correo, cuentaAdmin.contrasena, "/admin")
       await admin.getByRole("heading", { name: "Tablero", level: 1 }).waitFor()
       await admin.waitForTimeout(1000)
       await paginaVisibleParaLectores(admin, "después de entrar como administrador")
@@ -396,7 +396,7 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
 
     await paso("una alerta encima de un diálogo recibe el foco y Escape cierra solo el de arriba", async () => {
       await admin.locator("aside nav").getByRole("button", { name: "Cuentas del personal" }).click()
-      await admin.getByRole("button", { name: /Nueva cuenta de docente/ }).click()
+      await admin.getByRole("button", { name: "Nueva cuenta" }).click()
       await admin.locator("#cuenta-nombre").fill("Prueba")
       await admin.locator("#cuenta-contrasena").fill("123")
       await admin.locator("#cuenta-contrasena").press("Enter")
@@ -405,7 +405,7 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
       if (!focoEnLaAlerta) throw new Error("El foco no está en la alerta")
       await admin.keyboard.press("Escape")
       await admin.getByRole("alertdialog").waitFor({ state: "detached" })
-      await admin.getByRole("dialog", { name: /Nueva cuenta de docente/ }).waitFor()
+      await admin.getByRole("dialog", { name: "Nueva cuenta" }).waitFor()
       await admin.keyboard.press("Escape")
       await admin.getByRole("dialog").waitFor({ state: "detached" })
       await admin.waitForTimeout(500)
@@ -413,13 +413,32 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
     })
 
     await paso("el administrador crea una cuenta de docente", async () => {
-      await admin.getByRole("button", { name: /Nueva cuenta de docente/ }).click()
+      await admin.getByRole("button", { name: "Nueva cuenta" }).click()
+      // Desde la pestaña Docentes, la cuenta nueva ya trae marcado ese rol.
+      if (!(await admin.getByRole("checkbox", { name: "Docente" }).isChecked())) throw new Error("La cuenta nueva no trae el rol de la pestaña")
       await admin.locator("#cuenta-nombre").fill("Patricia")
       await admin.locator("#cuenta-apellido").fill("Salas Ibarra")
       await admin.locator("#cuenta-matricula").fill("D003")
       await admin.locator("#cuenta-contrasena").fill("docente-local-2026")
       await admin.getByRole("button", { name: "Guardar" }).click()
       await admin.getByRole("cell", { name: /^Patricia Salas Ibarra/ }).waitFor()
+    })
+
+    await paso("el administrador le agrega el rol de docente a la cuenta de un laboratorista", async () => {
+      await admin.getByRole("tab", { name: "Laboratoristas" }).click()
+      await admin.getByRole("button", { name: "Acciones para Carlos Méndez Gil" }).click()
+      await admin.getByRole("menuitem", { name: "Editar" }).click()
+      await admin.getByRole("checkbox", { name: "Docente" }).check()
+      await admin.locator("#cuenta-departamento").waitFor()
+      await captura(admin, "12b-roles-de-una-cuenta", false)
+      await admin.getByRole("button", { name: "Guardar" }).click()
+      await admin.getByRole("dialog").waitFor({ state: "detached" })
+      // Una sola cuenta, que ahora sale también entre los docentes.
+      await admin.getByRole("tab", { name: "Docentes" }).click()
+      await admin.getByRole("cell", { name: /^María López Ruiz/ }).waitFor()
+      await admin.getByRole("row", { name: /Carlos Méndez Gil/ }).getByText("Laboratorista · Docente").waitFor()
+      await captura(admin, "12c-cuenta-con-dos-roles", false)
+      await sinAlertaDeError(admin, "agregar un rol")
     })
 
     await paso("el administrador crea una carrera", async () => {
@@ -450,7 +469,7 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
 
     await paso("en el teléfono, el administrador navega con el menú lateral", async () => {
       const movil = await nuevo("administrador en teléfono", telefonoComo)
-      await entrarComo(movil, "Administrador", cuentaAdmin.correo, cuentaAdmin.contrasena, "/admin")
+      await entrarComo(movil, cuentaAdmin.correo, cuentaAdmin.contrasena, "/admin")
       await movil.getByRole("heading", { name: "Tablero", level: 1 }).waitFor()
       await sinDesbordeHorizontal(movil, "tablero en el teléfono")
       await captura(movil, "15-admin-telefono")
@@ -464,10 +483,18 @@ async function entrarComo(page, rol, usuario, contrasena, ruta) {
 
     // El laboratorista
     const lab = await nuevo("laboratorista")
-    await paso("el laboratorista inicia sesión", async () => {
+    await paso("el laboratorista inicia sesión y, como también es docente, cambia de panel", async () => {
       await lab.goto(BASE + "/")
       await lab.getByRole("button", { name: /Taller de Programación/ }).click()
-      await entrarComo(lab, "Laboratorista", "carlos.mendez@itspp.test", "laboratorista-local-2026", "/laboratorio")
+      await entrarComo(lab, "carlos.mendez@itspp.test", "laboratorista-local-2026", "/laboratorio")
+      await lab.getByRole("heading", { name: "En el laboratorio", level: 1 }).waitFor()
+      // También es docente: desde el menú de su cuenta va a ese panel y vuelve.
+      await lab.getByRole("button", { name: /Cuenta de Carlos/ }).click()
+      await lab.getByRole("menuitem", { name: "Ir al panel del docente" }).click()
+      await lab.waitForURL("**/docente")
+      await lab.getByRole("button", { name: /Cuenta de Carlos/ }).click()
+      await lab.getByRole("menuitem", { name: "Ir al panel del laboratorio" }).click()
+      await lab.waitForURL("**/laboratorio")
       await lab.getByRole("heading", { name: "En el laboratorio", level: 1 }).waitFor()
     })
 

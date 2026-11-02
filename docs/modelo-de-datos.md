@@ -41,7 +41,7 @@ erDiagram
 | Catálogos | `laboratorios` | Los laboratorios, con su clave corta (`programacion`) |
 | | `carreras` | Las carreras del instituto |
 | | `periodos` | Los semestres escolares, con sus fechas |
-| Personas | `usuarios` | Cuentas del personal: administrador, laboratorista y docente |
+| Personas | `usuarios` | Cuentas del personal, una por persona, con uno o varios roles: administrador, laboratorista y docente |
 | | `alumnos` | Alumnos, con su número de control; no tienen cuenta |
 | Materias | `materias` | La materia en sí: nombre, clave, carrera y semestre |
 | | `cursos` | Una materia que un docente imparte a un grupo en un periodo |
@@ -79,7 +79,7 @@ El sistema original hacía la misma revisión con la lista de materias guardada 
 | La "materia" era a la vez la materia, el docente, el semestre y el ciclo escolar | Cada semestre había que crear materias nuevas a mano, y no se distinguía una materia de un grupo | `materias` es el catálogo; `cursos` une materia, grupo, docente y periodo |
 | Las inscripciones eran una lista JSON dentro de cada alumno | La base no podía responder quién lleva una materia, así que la pantalla de asistencia descargaba todos los alumnos al navegador. Al borrar una materia, los alumnos seguían apuntando a ella. Las inscripciones nunca se reiniciaban | Tabla `inscripciones`, por curso y con la fecha de inscripción. Las faltas se cuentan desde esa fecha |
 | Carrera, semestre y turno eran texto libre | Las pantallas ya escribían la misma carrera de formas distintas ("Ingenieria en sistemas computacionales" e "Ingeniería en Sistemas Computacionales"), y los reportes no las juntan | Catálogo `carreras`; semestre como número del 1 al 15; turno `matutino` o `vespertino` |
-| Tres tablas de personal (`docentes`, `laboratoristas`, `administradores`), cada una con su forma | Lógica de inicio de sesión repetida tres veces | Una tabla `usuarios` con `rol` |
+| Tres tablas de personal (`docentes`, `laboratoristas`, `administradores`), cada una con su forma | Lógica de inicio de sesión repetida tres veces | Una tabla `usuarios` con sus `roles` |
 | `asistencias` (las de ahora) y `asistencias_historico` (las pasadas), con los datos del alumno copiados | Al salir, cada fila se copiaba de una tabla a otra; una falla a la mitad dejaba datos a medias | Una sola tabla `asistencias`: la fila es la misma antes y después de la salida (`hora_salida`) |
 | El equipo guardaba `en_uso` y `usuario_actual` | Podía decir "ocupado" sin que nadie lo estuviera, si algo fallaba al liberarlo | Se deduce de que haya una asistencia abierta con ese equipo |
 | El equipo propio era una fila especial `personal` en cada laboratorio | Casos especiales en todo el código | `equipo_id` vacío en la asistencia |
@@ -117,7 +117,7 @@ Además de que la API las revise, la base rechaza lo que las rompe, aunque llegu
 **Sin repetir**
 - Un curso (materia, periodo y grupo).
 - Una inscripción.
-- Una cuenta en el mismo rol.
+- El correo o la matrícula de una cuenta del personal, en todo el sistema. Una cuenta tiene al menos un rol.
 - La etiqueta de un equipo activo en su laboratorio.
 - El número de una práctica activa en su lista.
 
@@ -153,14 +153,14 @@ Se cambió esto, por lo que hace el sistema actual:
 |---|---|---|
 | Una sola clase abierta por laboratorio, siempre de un curso | Una regular y una de maestro invitado | El sistema actual tiene clases de maestro invitado, a las que entra gente de fuera |
 | Prácticas de la materia, compartidas por todos sus docentes | Comunes o propias de un docente | En Firebase cada docente tiene las suyas; así sirve también si el instituto responde que son comunes |
-| Correo único entre todas las cuentas | Único dentro de cada rol | El inicio de sesión pide el rol, y en Firebase una persona puede tener cuenta de docente y de administrador |
+| Una cuenta con un rol | Una cuenta por persona, con uno o varios roles; el correo, único entre todas | Una persona puede ser docente y laboratorista o administradora (D20) |
 | Horas en UTC | Hora de Puerto Peñasco | Un solo plantel, en una zona sin horario de verano: no hay que convertir en cada consulta |
 | Inscripciones sin fecha | Con fecha | Así se corrige la limitación de contar como faltas las clases anteriores a la inscripción |
 | Sin reportes de equipo, horarios, eventos ni historial de avisos | Con ellos | Son funciones del sistema actual, o (el horario) estaban a medias |
 
 ## Decisiones de diseño
 
-- **Una cuenta por rol.** Al iniciar sesión se elige el rol, como ahora, así que la misma persona puede ser docente y administradora con el mismo correo. Lo que no se repite es el correo o la matrícula dentro de un rol.
+- **Una cuenta por persona, con uno o varios roles** (D20). `usuarios.roles` es un `SET` que no puede quedar vacío; los permisos son la suma de los roles. El rol no se elige al iniciar sesión. En Firebase cada rol era una cuenta aparte: la importación une las que tienen el mismo correo o matrícula.
 - **Horas en hora local, no en UTC.** Ver la tabla anterior.
 - **Identificadores numéricos.** La matrícula, la clave del laboratorio y la etiqueta del equipo pueden corregirse sin romper las relaciones. Las pantallas siguen usando la matrícula y la clave.
 - **No se copian los datos del alumno en cada asistencia.** Los reportes toman la carrera del alumno y el grupo del curso. La contra es que, si un alumno cambia de carrera, sus asistencias pasadas salen con la carrera nueva.

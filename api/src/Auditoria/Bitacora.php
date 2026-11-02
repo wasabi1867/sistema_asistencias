@@ -71,7 +71,7 @@ final class Bitacora
         return [
             'usuario_id' => $usuario?->id,
             'usuario' => mb_substr($quien ?? $usuario?->nombreCompleto() ?? 'Sin sesión', 0, 150),
-            'rol' => $usuario?->rol->value,
+            'roles' => $usuario?->rolesComoTexto(),
             'accion' => $accion,
             'entidad' => $entidad,
             'entidad_id' => $entidadId === null ? null : (string)$entidadId,

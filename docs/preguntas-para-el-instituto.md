@@ -6,9 +6,9 @@ En cada pregunta decimos qué vamos a suponer si no hay respuesta. Así solo hac
 
 **Estado.** Esta versión sustituye a la que se entregó el 10 de octubre de 2026, que nunca tuvo respuesta. Se conservan las preguntas que siguen abiertas y se agregan las que salieron del sistema actual. Las respuestas se anotan aquí mismo, debajo de cada pregunta, con su fecha.
 
-Última actualización: 24 de octubre de 2026 (versiones para entregar y a quién van).
+Última actualización: 2 de noviembre de 2026 (preguntas 16 a 18 y A4, sobre las cuentas del personal).
 
-**Versiones para entregar.** Las preguntas 1 a 15 están también en un cuestionario en Word, con espacio para escribir cada respuesta. Lo acompañan una presentación del sistema en PDF y, para la pregunta 11, un oficio para firma. Se prepararon el 23 de octubre de 2026 y están fuera del repositorio (decisión D17 de [decisiones.md](decisiones.md)). Las preguntas A1 a A3 no van ahí: son para quien maneja la aplicación anterior.
+**Versiones para entregar.** Las preguntas 1 a 15 están también en un cuestionario en Word, con espacio para escribir cada respuesta. Lo acompañan una presentación del sistema en PDF y, para la pregunta 11, un oficio para firma. Se prepararon el 23 de octubre de 2026 y están fuera del repositorio (decisión D17 de [decisiones.md](decisiones.md)). Las preguntas A1 a A4 no van ahí: son para quien maneja la aplicación anterior. Las 16 a 18 y la A4 se agregaron después de entregarlo, el 2 de noviembre de 2026, y van en el cuestionario en línea que el equipo comparte con Andrés.
 
 **A quién le toca cada cosa**, según el directorio del instituto (https://www.puertopenasco.tecnm.mx/directorio/, consultado el 23 de octubre de 2026):
 
@@ -114,6 +114,10 @@ Respuesta:
 
 Respuesta:
 
+**A4. En la aplicación anterior, ¿hay personas con cuenta de docente y también de administrador o de laboratorista? ¿Usan la misma contraseña en las dos?** En el sistema nuevo cada persona tiene una sola cuenta con todos sus roles (D20 de [decisiones.md](decisiones.md)). Si no hay respuesta, la importación las une con la contraseña de la primera que encuentra (administrador, luego docente, luego laboratorista) y avisa de cada una; a quien usara otra contraseña, el administrador se la restablece.
+
+Respuesta:
+
 **Del instituto:**
 
 **11. Autorización por escrito** para usar los datos personales de los alumnos en el sistema nuevo y pasar a él los que ya están en Firebase. Se pide con el oficio dirigido al jefe de división de Sistemas Computacionales; si le corresponde a otra área (Centro de Cómputo o Subdirección Académica), el oficio le pide canalizarlo. ¿El aviso de privacidad del instituto ya cubre este uso, o hay que agregarlo?
@@ -137,6 +141,25 @@ Respuesta:
 Respuesta:
 
 Para el piloto basta con las preguntas 1, 2, 4 y 11 a 15, y solo de ese laboratorio, ese docente y ese grupo. El resto se carga después.
+
+## Sobre las cuentas del personal
+
+Se agregaron el 2 de noviembre de 2026. Mientras tanto, el sistema permite que una cuenta tenga varios roles (D20 de [decisiones.md](decisiones.md)).
+
+**16. ¿Una misma persona puede tener más de un rol?** Por ejemplo, un laboratorista o el jefe del Centro de Cómputo que también da clases, o un docente que también administra el sistema. Si es así, ¿quiénes, más o menos?
+Si no hay respuesta, supondremos que sí puede pasar: el sistema ya lo permite con una sola cuenta por persona. Si nadie tiene dos roles, no cambia nada.
+
+Respuesta:
+
+**17. ¿Cada docente y cada laboratorista tiene un número de empleado propio, que no cambia?** ¿Los laboratoristas también tienen uno?
+Si no hay respuesta, supondremos que sí: se usa, junto con el correo, para iniciar sesión, y no puede repetirse entre dos cuentas. Quien no tenga entra con su correo.
+
+Respuesta:
+
+**18. Cuando alguien deja de dar clases o de atender el laboratorio, ¿quién avisa para quitarle ese rol o desactivar su cuenta?**
+Si no hay respuesta, supondremos que el jefe de división avisa al administrador del sistema. Una cuenta con historial no se borra: se desactiva, y la bitácora conserva lo que hizo.
+
+Respuesta:
 
 ## Ya respondidas
 

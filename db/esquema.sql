@@ -61,12 +61,14 @@ CREATE TABLE periodos (
 -- Personas
 -- --------------------------------------------------------------
 
--- Cuentas del personal: administradores, laboratoristas y docentes. Al iniciar
--- sesión se elige el rol, así que la misma persona puede tener una cuenta en
--- cada rol con el mismo correo o la misma matrícula.
+-- Cuentas del personal: una por persona, con uno o varios roles (un docente
+-- que también es laboratorista tiene una sola cuenta con los dos). El rol no se
+-- elige al iniciar sesión: sale de la cuenta.
 CREATE TABLE usuarios (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  rol            ENUM('admin', 'laboratorista', 'docente') NOT NULL,
+  -- SET y no una tabla aparte: son tres roles fijos, y así la bitácora registra
+  -- un cambio de roles como el de cualquier otro dato de la cuenta.
+  roles          SET('admin', 'laboratorista', 'docente') NOT NULL,
   -- Número de empleado; con él o con el correo se inicia sesión.
   matricula      VARCHAR(30)  NULL,
   nombre         VARCHAR(100) NOT NULL,
@@ -78,9 +80,10 @@ CREATE TABLE usuarios (
   creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   actualizado_en DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_usuarios_matricula (rol, matricula),
-  UNIQUE KEY uq_usuarios_email (rol, email),
-  CONSTRAINT ck_usuarios_identificacion CHECK (matricula IS NOT NULL OR email IS NOT NULL)
+  UNIQUE KEY uq_usuarios_matricula (matricula),
+  UNIQUE KEY uq_usuarios_email (email),
+  CONSTRAINT ck_usuarios_identificacion CHECK (matricula IS NOT NULL OR email IS NOT NULL),
+  CONSTRAINT ck_usuarios_roles CHECK (roles <> '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Los alumnos no tienen cuenta: entran con su número de control (matrícula).
@@ -486,7 +489,8 @@ CREATE TABLE bitacora (
   -- Copia del nombre o de lo que se escribió al intentar entrar: se conserva
   -- aunque la cuenta cambie o no exista.
   usuario         VARCHAR(150) NOT NULL DEFAULT '',
-  rol             VARCHAR(20)  NULL,
+  -- Los roles que tenía la cuenta en ese momento, separados por comas.
+  roles           VARCHAR(40)  NULL,
   accion          VARCHAR(60)  NOT NULL,
   -- Sobre qué fue: tabla e identificador.
   entidad         VARCHAR(40)  NULL,

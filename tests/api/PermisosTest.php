@@ -84,7 +84,7 @@ final class PermisosTest extends PruebaDeApi
 
             'ver las cuentas' => ['/usuarios', 'GET', 'usuarios', null, self::SESION],
             'ver una cuenta' => ['/usuarios/{id}', 'GET', 'usuarios/{docente}', null, self::ADMIN],
-            'crear una cuenta' => ['/usuarios', 'POST', 'usuarios', ['rol' => 'docente', 'matricula' => 'D800', 'nombre' => 'X', 'contrasena' => 'contrasena-larga'], self::ADMIN],
+            'crear una cuenta' => ['/usuarios', 'POST', 'usuarios', ['roles' => ['docente'], 'matricula' => 'D800', 'nombre' => 'X', 'contrasena' => 'contrasena-larga'], self::ADMIN],
             'editar una cuenta' => ['/usuarios/{id}', 'PUT', 'usuarios/{otraCuenta}', ['nombre' => 'X'], self::ADMIN],
             'restablecer una contraseña' => ['/usuarios/{id}/contrasena', 'PUT', 'usuarios/{otraCuenta}/contrasena', ['contrasena' => 'contrasena-larga'], self::ADMIN],
             'borrar una cuenta' => ['/usuarios/{id}', 'DELETE', 'usuarios/{otraCuenta}', null, self::ADMIN],

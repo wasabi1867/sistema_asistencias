@@ -12,19 +12,23 @@ use Asistencias\Http\ErrorHttp;
 use Asistencias\Http\Respuesta;
 use Asistencias\Seguridad\Acceso;
 use Asistencias\Seguridad\Contrasenas;
+use Asistencias\Seguridad\Usuario;
 
 /**
  * Las cuentas del personal. Las maneja el administrador; los demás solo ven la lista
  * de docentes y laboratoristas activos (para elegir al docente de un curso, por
  * ejemplo). Una cuenta con historial no se borra: se desactiva.
+ *
+ * Cada persona tiene una sola cuenta, con uno o varios roles (D20): el correo y la
+ * matrícula no se repiten en todo el sistema.
  */
 final class Usuarios
 {
     private const ROLES = ['admin', 'laboratorista', 'docente'];
 
     private const DUPLICADOS = [
-        'uq_usuarios_matricula' => 'Ya hay una cuenta de ese rol con esa matrícula',
-        'uq_usuarios_email' => 'Ya hay una cuenta de ese rol con ese correo',
+        'uq_usuarios_matricula' => 'Ya hay una cuenta con esa matrícula. Si es la misma persona, agrégale el rol a esa cuenta',
+        'uq_usuarios_email' => 'Ya hay una cuenta con ese correo. Si es la misma persona, agrégale el rol a esa cuenta',
         'ck_usuarios_identificacion' => 'La cuenta necesita matrícula o correo: con uno de los dos se inicia sesión',
     ];
 
@@ -42,7 +46,7 @@ final class Usuarios
     {
         return [
             'id' => $fila['id'],
-            'rol' => $fila['rol'],
+            'roles' => explode(',', $fila['roles']),
             'matricula' => $fila['matricula'],
             'nombre' => $fila['nombre'],
             'apellido' => $fila['apellido'],
@@ -64,11 +68,11 @@ final class Usuarios
         $condiciones = [];
         $parametros = [];
         if ($rol !== null) {
-            $condiciones[] = 'rol = ?';
+            $condiciones[] = 'FIND_IN_SET(?, roles)';
             $parametros[] = $rol;
         }
         if (!$c->usuarioConSesion()->esAdmin()) {
-            $condiciones[] = "rol IN ('docente', 'laboratorista') AND activo";
+            $condiciones[] = "(FIND_IN_SET('docente', roles) OR FIND_IN_SET('laboratorista', roles)) AND activo";
         } elseif ($q->tiene('activo')) {
             $condiciones[] = 'activo = ?';
             $parametros[] = $q->booleano('activo');
@@ -80,7 +84,7 @@ final class Usuarios
     private static function crear(Contexto $c): Respuesta
     {
         $e = $c->peticion->cuerpo();
-        $valores = ['rol' => $e->opcion('rol', 'el rol', self::ROLES)] + self::datos($e, nueva: true);
+        $valores = ['roles' => self::roles($e)] + self::datos($e, nueva: true);
         $valores['password_hash'] = Contrasenas::cifrarNueva((string)$e->crudo('contrasena'));
         $id = ErrorDeIntegridad::explicar(self::DUPLICADOS, static fn () => $c->cambios->crear('usuarios', $valores, self::descripcion($valores)));
         return Respuesta::creado(self::uno($c, $id));
@@ -92,10 +96,16 @@ final class Usuarios
         $actual = self::uno($c, $id);
         $e = $c->peticion->cuerpo();
         $valores = self::datos($e, nueva: false);
+        if ($e->tiene('roles')) {
+            $valores['roles'] = self::roles($e);
+            if (in_array('admin', $actual['roles'], true) && !in_array('admin', explode(',', $valores['roles']), true)) {
+                self::revisarQueNoSeQuedenSinAdministrador($c, $id, $actual['roles'], 'quitar el rol de administrador a');
+            }
+        }
         if ($e->tiene('activo')) {
             $valores['activo'] = $e->booleano('activo');
             if (!$valores['activo']) {
-                self::revisarQueNoSeQuedenSinAdministrador($c, $id, $actual['rol']);
+                self::revisarQueNoSeQuedenSinAdministrador($c, $id, $actual['roles'], 'desactivar');
             }
         }
         ErrorDeIntegridad::explicar(self::DUPLICADOS, static fn () => $c->cambios->actualizar('usuarios', $id, $valores, self::descripcion($actual)));
@@ -116,23 +126,43 @@ final class Usuarios
     {
         $id = $c->peticion->id();
         $cuenta = self::uno($c, $id);
-        self::revisarQueNoSeQuedenSinAdministrador($c, $id, $cuenta['rol']);
+        self::revisarQueNoSeQuedenSinAdministrador($c, $id, $cuenta['roles'], 'eliminar');
         $c->cambios->eliminar('usuarios', $id, self::descripcion($cuenta));
         return Respuesta::vacia();
     }
 
     /**
-     * Nadie puede desactivarse ni borrarse a sí mismo, y siempre queda al menos un
-     * administrador activo: si no, nadie podría volver a administrar el sistema.
+     * Nadie puede desactivarse, borrarse ni quitarse el rol de administrador a sí mismo,
+     * y siempre queda al menos un administrador activo: si no, nadie podría volver a
+     * administrar el sistema.
+     * @param list<string> $roles los que tiene la cuenta ahora
+     * @param string $que lo que se intenta: "desactivar", "eliminar"...
      */
-    private static function revisarQueNoSeQuedenSinAdministrador(Contexto $c, int $id, string $rol): void
+    private static function revisarQueNoSeQuedenSinAdministrador(Contexto $c, int $id, array $roles, string $que): void
     {
         if ($id === $c->usuarioConSesion()->id) {
-            throw ErrorHttp::conflicto('No puedes desactivar ni eliminar tu propia cuenta');
+            throw ErrorHttp::conflicto($que === 'quitar el rol de administrador a'
+                ? 'No puedes quitarte a ti mismo el rol de administrador'
+                : 'No puedes desactivar ni eliminar tu propia cuenta');
         }
-        if ($rol === 'admin' && (int)$c->bd->valor("SELECT COUNT(*) FROM usuarios WHERE rol = 'admin' AND activo AND id <> ?", [$id]) === 0) {
+        if (in_array('admin', $roles, true) && (int)$c->bd->valor("SELECT COUNT(*) FROM usuarios WHERE FIND_IN_SET('admin', roles) AND activo AND id <> ?", [$id]) === 0) {
             throw ErrorHttp::conflicto('Debe quedar al menos un administrador activo');
         }
+    }
+
+    /** Los roles de la cuenta, al menos uno, como van en la columna: "admin,docente". */
+    private static function roles(Entrada $e): string
+    {
+        if (in_array($e->crudo('roles'), [null, []], true)) {
+            throw ErrorHttp::datosInvalidos('Elige al menos un rol', 'roles');
+        }
+        $roles = $e->lista('roles', 'los roles', count(self::ROLES));
+        foreach ($roles as $rol) {
+            if (!in_array($rol, self::ROLES, true)) {
+                throw ErrorHttp::datosInvalidos('Revisa los roles: cada uno debe ser ' . implode(', ', self::ROLES), 'roles');
+            }
+        }
+        return implode(',', array_map(static fn ($r) => $r->value, Usuario::rolesDe(implode(',', $roles))));
     }
 
     /** Los datos editables de una cuenta. En una nueva todos se leen; al editar, solo los que vinieron. */
@@ -167,6 +197,6 @@ final class Usuarios
 
     private static function descripcion(array $cuenta): string
     {
-        return ucfirst($cuenta['rol']) . ' ' . ($cuenta['matricula'] ?? $cuenta['email']);
+        return 'Cuenta ' . ($cuenta['matricula'] ?? $cuenta['email']);
     }
 }

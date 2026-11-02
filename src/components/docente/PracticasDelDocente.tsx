@@ -26,11 +26,12 @@ export function PracticasDelDocente({ materia, docenteId, alCambiar }: { materia
   const cargar = useCallback(async () => {
     if (!materiaId) return setPracticas([])
     try {
-      setPracticas(await api.practicas.deMateria(materiaId))
+      // Con el docente explícito: si la cuenta también es del personal, la API daría todas.
+      setPracticas(await api.practicas.deMateria(materiaId, { docente: docenteId }))
     } catch (error) {
       await alertas.error("No se pudieron cargar las prácticas", error)
     }
-  }, [materiaId])
+  }, [materiaId, docenteId])
 
   useEffect(() => {
     cargar()
@@ -104,6 +105,7 @@ export function PracticasDelDocente({ materia, docenteId, alCambiar }: { materia
 
       {editando && (
         <FormularioDePractica
+          docenteId={docenteId}
           materiaId={materia.id}
           practica={editando === "nueva" ? null : editando}
           alCerrar={() => setEditando(null)}
@@ -118,7 +120,7 @@ export function PracticasDelDocente({ materia, docenteId, alCambiar }: { materia
   )
 }
 
-function FormularioDePractica({ materiaId, practica, alCerrar, alGuardar }: { materiaId: number; practica: Practica | null; alCerrar: () => void; alGuardar: () => void }) {
+function FormularioDePractica({ materiaId, docenteId, practica, alCerrar, alGuardar }: { materiaId: number; docenteId: number; practica: Practica | null; alCerrar: () => void; alGuardar: () => void }) {
   const [formulario, setFormulario] = useState(
     practica
       ? {
@@ -139,7 +141,8 @@ function FormularioDePractica({ materiaId, practica, alCerrar, alGuardar }: { ma
       if (practica) {
         await api.practicas.editar(practica.id, datos)
       } else {
-        await api.practicas.crear(materiaId, datos)
+        // El docente: si la cuenta también es de administrador, sin él quedaría común.
+        await api.practicas.crear(materiaId, { ...datos, docenteId })
       }
       alertas.breve(practica ? "Práctica actualizada" : "Práctica agregada")
       alGuardar()

@@ -56,7 +56,7 @@ final class ErroresTest extends PruebaDeApi
 
     public function test_un_dato_invalido_dice_cual_campo_es(): void
     {
-        $respuesta = $this->anonimo()->post('sesion', ['contrasena' => 'x', 'rol' => 'docente']);
+        $respuesta = $this->anonimo()->post('sesion', ['contrasena' => 'x']);
 
         $this->assertSame(400, $respuesta->estado);
         $this->assertSame(['error' => 'Falta el correo o la matrícula', 'campo' => 'usuario'], $respuesta->json());

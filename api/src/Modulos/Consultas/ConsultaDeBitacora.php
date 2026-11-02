@@ -67,7 +67,7 @@ final class ConsultaDeBitacora
                 'fecha' => Formato::fechaHora($f['fecha']),
                 'usuario' => $f['usuario'],
                 'usuarioId' => $f['usuario_id'],
-                'rol' => $f['rol'],
+                'roles' => $f['roles'] === null || $f['roles'] === '' ? [] : explode(',', $f['roles']),
                 'accion' => $f['accion'],
                 'entidad' => $f['entidad'],
                 'entidadId' => $f['entidad_id'],

@@ -65,14 +65,16 @@ export default function PanelDelDocente() {
 
   const curso = useMemo(() => cursos?.find((cu) => cu.id === cursoId) ?? null, [cursos, cursoId])
 
+  const usuarioId = usuario?.id
   const cargarPracticas = useCallback(async () => {
     if (!curso) return setPracticas([])
     try {
-      setPracticas(await api.practicas.deMateria(curso.materia.id))
+      // Con el docente explícito: si la cuenta también es del personal, la API daría todas.
+      setPracticas(await api.practicas.deMateria(curso.materia.id, { docente: usuarioId }))
     } catch (error) {
       await alertas.error("No se pudieron cargar las prácticas", error)
     }
-  }, [curso])
+  }, [curso, usuarioId])
 
   useEffect(() => {
     cargarPracticas()

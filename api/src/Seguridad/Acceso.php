@@ -27,7 +27,7 @@ enum Acceso
             self::Publica => true,
             self::Sesion => $usuario !== null,
             self::Personal => $usuario !== null && $usuario->esPersonal(),
-            self::Admin => $usuario !== null && $usuario->rol === Rol::Admin,
+            self::Admin => $usuario !== null && $usuario->esAdmin(),
         };
     }
 }

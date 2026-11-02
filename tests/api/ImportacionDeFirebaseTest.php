@@ -77,7 +77,7 @@ final class ImportacionDeFirebaseTest extends PruebaDeApi
     {
         $this->importar();
         $laboratorista = new Cliente();
-        $this->ok($laboratorista->post('sesion', ['usuario' => 'L100', 'contrasena' => 'clave-de-firebase', 'rol' => 'laboratorista']));
+        $this->ok($laboratorista->post('sesion', ['usuario' => 'L100', 'contrasena' => 'clave-de-firebase']));
 
         $clases = $this->ok($laboratorista->get('clases?estado=cerradas&tipo=regular&conAsistentes=1'))['clases'];
         $curso = $this->ok($laboratorista->get("cursos/{$clases[0]['cursoId']}/asistencia"));
@@ -91,9 +91,9 @@ final class ImportacionDeFirebaseTest extends PruebaDeApi
     {
         $this->importar();
 
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'clave-de-firebase', 'rol' => 'docente']));
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'ada@itspp.test', 'contrasena' => 'clave-de-firebase', 'rol' => 'admin']));
-        $this->assertSame(401, $this->anonimo()->post('sesion', ['usuario' => 'FIREBASE', 'contrasena' => 'x', 'rol' => 'admin'])->estado);
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D100', 'contrasena' => 'clave-de-firebase']));
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'ada@itspp.test', 'contrasena' => 'clave-de-firebase']));
+        $this->assertSame(401, $this->anonimo()->post('sesion', ['usuario' => 'FIREBASE', 'contrasena' => 'x'])->estado);
     }
 
     public function test_los_equipos_de_firebase_reemplazan_a_los_iniciales_y_su_falla_es_un_reporte(): void
@@ -165,9 +165,36 @@ final class ImportacionDeFirebaseTest extends PruebaDeApi
         $this->importar(respaldo: $respaldo);
 
         $this->assertStringStartsWith('$2y$', $this->valor("SELECT password_hash FROM usuarios WHERE matricula = 'D300'"));
-        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D300', 'contrasena' => 'contrasena-en-texto', 'rol' => 'docente']));
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'D300', 'contrasena' => 'contrasena-en-texto']));
         unlink("$respaldo/Docentes.json");
         rmdir($respaldo);
+    }
+
+    public function test_quien_tenia_cuenta_en_dos_colecciones_queda_con_una_cuenta_y_los_dos_roles(): void
+    {
+        $respaldo = sys_get_temp_dir() . '/respaldo-' . bin2hex(random_bytes(4));
+        mkdir($respaldo);
+        $cuenta = fn (string $coleccion, string $id, string $contrasena) => [
+            'name' => "projects/x/databases/(default)/documents/$coleccion/$id",
+            'fields' => ['Nombre' => ['stringValue' => 'Rosa'], 'Email' => ['stringValue' => 'rosa@itspp.test'], 'Contraseña' => ['stringValue' => $contrasena]],
+        ];
+        file_put_contents("$respaldo/Administrador.json", json_encode([$cuenta('Administrador', 'ADM02', 'clave-de-rosa')]));
+        file_put_contents("$respaldo/Docentes.json", json_encode([$cuenta('Docentes', 'D300', 'clave-de-rosa')]));
+        file_put_contents("$respaldo/Laboratoristas.json", json_encode([$cuenta('Laboratoristas', 'L300', 'otra-clave')]));
+
+        try {
+            $salida = $this->importar(respaldo: $respaldo);
+        } finally {
+            array_map('unlink', glob("$respaldo/*.json"));
+            rmdir($respaldo);
+        }
+
+        $this->assertSame('admin,laboratorista,docente', $this->valor("SELECT roles FROM usuarios WHERE email = 'rosa@itspp.test'"));
+        $this->assertSame(1, (int)$this->valor("SELECT COUNT(*) FROM usuarios WHERE email = 'rosa@itspp.test'"));
+        // La de docente usaba la misma contraseña; la de laboratorista, otra: solo de esa se avisa.
+        $this->assertStringContainsString('La cuenta de laboratorista L300 se unió', $salida);
+        $this->assertStringNotContainsString('La cuenta de docente D300 se unió', $salida);
+        $this->ok($this->anonimo()->post('sesion', ['usuario' => 'rosa@itspp.test', 'contrasena' => 'clave-de-rosa']));
     }
 
     /** Un respaldo con un solo alumno, con la carrera escrita como se indique. */

@@ -6,8 +6,8 @@ use PDO;
 use RuntimeException;
 
 /**
- * Prepara lo que necesitan las pruebas: una base de datos nueva, creada igual que en
- * producción (db/esquema.sql, db/datos-iniciales.sql y las migraciones), y el servidor
+ * Prepara lo que necesitan las pruebas: una base de datos nueva, creada igual que al
+ * instalar (db/esquema.sql y db/datos-iniciales.sql), y el servidor
  * de PHP atendiendo la API contra esa base. Las pruebas llaman a la API por HTTP,
  * igual que el navegador. Al terminar se borra todo.
  *
@@ -50,11 +50,12 @@ final class Entorno
         // La misma zona que usa la API, para que NOW() coincida al comparar horas.
         self::$pdo->exec("SET time_zone = '" . (new \DateTimeImmutable('now', new \DateTimeZone('America/Hermosillo')))->format('P') . "'");
 
+        // El esquema ya incluye todas las migraciones: se anotan como aplicadas, igual que
+        // al instalar. Que ellas lleven la base de producción al mismo esquema lo revisa
+        // MigracionesTest.
         self::$pdo->exec(file_get_contents(self::$raiz . '/db/esquema.sql'));
-        $migraciones = glob(self::$raiz . '/db/migraciones/*.sql');
-        sort($migraciones);
-        foreach ($migraciones as $migracion) {
-            self::$pdo->exec(file_get_contents($migracion));
+        foreach (glob(self::$raiz . '/db/migraciones/*.sql') as $migracion) {
+            self::$pdo->prepare('INSERT INTO migraciones (nombre) VALUES (?)')->execute([basename($migracion, '.sql')]);
         }
         self::$tablas = self::$pdo->query("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' AND table_name <> 'migraciones'")
             ->fetchAll(PDO::FETCH_COLUMN);

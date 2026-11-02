@@ -17,7 +17,6 @@ use Asistencias\Modulos\Catalogos\Periodos;
 use Asistencias\Modulos\Clases\ListaDeAsistencia;
 use Asistencias\Modulos\Personas\Alumnos;
 use Asistencias\Seguridad\Acceso;
-use Asistencias\Seguridad\Rol;
 use Asistencias\Seguridad\Usuario;
 
 /**
@@ -61,7 +60,7 @@ final class Cursos
 
     public static function esSuDocente(Usuario $usuario, array $curso): bool
     {
-        return $usuario->rol === Rol::Docente && $curso['docente_id'] === $usuario->id;
+        return $usuario->esDocente() && $curso['docente_id'] === $usuario->id;
     }
 
     public static function formato(array $fila): array
@@ -266,7 +265,7 @@ final class Cursos
             $docente = $e->entero('docenteId', 'el docente', 1, null, false);
             // Un curso solo se asigna a una cuenta de docente activa; si después se
             // desactiva, el curso la conserva para no perder quién lo impartió.
-            if ($docente !== null && $c->bd->valor("SELECT 1 FROM usuarios WHERE id = ? AND rol = 'docente' AND activo", [$docente]) === null) {
+            if ($docente !== null && $c->bd->valor("SELECT 1 FROM usuarios WHERE id = ? AND FIND_IN_SET('docente', roles) AND activo", [$docente]) === null) {
                 throw ErrorHttp::datosInvalidos('Ese docente no existe o su cuenta está desactivada', 'docenteId');
             }
             $valores['docente_id'] = $docente;

@@ -60,7 +60,7 @@ Los datos reales no van en git. `api/config.local.php` (copia de [`config.ejempl
 
 ## Sesión
 
-El personal inicia sesión con `POST /sesion` `{usuario, contrasena, rol}`, donde `usuario` es el correo o la matrícula. PHP guarda la sesión en el servidor; el navegador solo lleva la cookie `asistencias_sesion`, que JavaScript no puede leer.
+El personal inicia sesión con `POST /sesion` `{usuario, contrasena}`, donde `usuario` es el correo o la matrícula. El rol no se manda: sale de la cuenta, que tiene uno o varios (`roles` en la respuesta) y puede hacer lo de todos ellos (D20). PHP guarda la sesión en el servidor; el navegador solo lleva la cookie `asistencias_sesion`, que JavaScript no puede leer.
 - La cookie es `SameSite=Lax`, así que no viaja en peticiones que vengan de otro sitio.
 - La sesión vence tras 4 horas sin usarse.
 - Una cuenta desactivada pierde la sesión de inmediato.
@@ -100,9 +100,9 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `GET /usuarios` | Sesión | El administrador ve todas las cuentas (`?rol=`, `?activo=`); los demás, los docentes y laboratoristas activos |
+| `GET /usuarios` | Sesión | El administrador ve todas las cuentas (`?rol=` da las que tienen ese rol, `?activo=`); los demás, los docentes y laboratoristas activos |
 | `GET /usuarios/{id}` | Admin | Una cuenta |
-| `POST /usuarios`, `PUT /usuarios/{id}` | Admin | Crea o edita (o desactiva) una cuenta. Nadie se desactiva a sí mismo y siempre queda un administrador |
+| `POST /usuarios`, `PUT /usuarios/{id}` | Admin | Crea o edita (o desactiva) una cuenta, con sus roles (`roles`, al menos uno). Nadie se desactiva ni se quita el rol de administrador a sí mismo, y siempre queda un administrador |
 | `PUT /usuarios/{id}/contrasena` | Admin | Restablece la contraseña de otro |
 | `DELETE /usuarios/{id}` | Admin | Borra una cuenta sin historial |
 | `GET /alumnos` | Sesión | Búsqueda por matrícula o nombre, con filtros (`carrera`, `semestre`, `grupo`, `turno`, `activo`), por páginas |
@@ -195,7 +195,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 
 ## Pruebas
 
-Son 245 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
+Son 252 y corren contra una base real: cada corrida crea una base nueva igual que en producción (`db/esquema.sql` y `db/datos-iniciales.sql`), levanta la API con el servidor de PHP y la borra al terminar.
 
 ```bash
 composer install
@@ -213,6 +213,6 @@ Para correr la API en una computadora:
 
 [`db/esquema.sql`](../db/esquema.sql) siempre describe la base completa; [docs/modelo-de-datos.md](modelo-de-datos.md) explica cada tabla.
 
-Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: el primero será `001-lo-que-cambia.sql`. Todavía no hay ninguno; la carpeta se crea con el primero. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
+Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: `001-cuentas-con-varios-roles.sql` es el primero. `tests/api/MigracionesTest.php` crea una base con el esquema con que se instaló producción (`tests/api/migraciones/esquema-instalado-2026-10-22.sql`), le aplica las migraciones y revisa que quede igual que una creada con `db/esquema.sql`. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
 
 Antes de aplicar una migración en producción se respalda la base. Un respaldo solo se restaura sobre el esquema de su misma versión: `scripts/restaurar.php` lo revisa. Ver "Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).
