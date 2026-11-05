@@ -41,7 +41,7 @@ final class Contexto
                 if ($fila === null) {
                     $this->sesion->cerrar();
                 } else {
-                    $this->usuario = Usuario::desdeFila($fila);
+                    $this->usuario = Usuario::cargar($this->bd, $fila);
                 }
             }
         }

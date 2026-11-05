@@ -14,7 +14,7 @@ El equipo pasó a trabajar en `wasabi1867/sistema_asistencias`, que Andrés arm�
 
 *21 de octubre de 2026.*
 
-Materias como catálogo, cursos por periodo (materia, grupo, docente y periodo) e inscripciones como tabla, entre otras cosas. Las 19 tablas y lo que cambió respecto de la base original están en [modelo-de-datos.md](modelo-de-datos.md).
+Materias como catálogo, cursos por periodo (materia, grupo, docente y periodo) e inscripciones como tabla, entre otras cosas. Las 20 tablas y lo que cambió respecto de la base original están en [modelo-de-datos.md](modelo-de-datos.md).
 
 **Por qué:** la base original repetía datos y no tenía llaves foráneas. Cada semestre había que recapturar las materias, y la pantalla de asistencia descargaba a todos los alumnos al navegador.
 
@@ -236,3 +236,31 @@ Por qué:
 
 La cuenta debe llevar el correo institucional de la persona, no uno personal de fuera del instituto. Si alguien prefiere entrar con el correo de su puesto, puede hacerlo, pero sigue siendo su única cuenta.
 
+## D21. Cada laboratorista atiende solo los laboratorios que le asigna el administrador
+
+*4 de noviembre de 2026.*
+
+El jefe de carrera de Sistemas Computacionales pidió que cada laboratorista maneje solo sus laboratorios, y que no pueda cerrar la clase de uno que no le toca (pregunta 6 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)). El administrador los asigna en **Cuentas**, y la tabla `laboratorios_del_personal` guarda cuáles atiende cada laboratorista.
+
+En sus laboratorios, el laboratorista:
+- abre las clases de maestro invitado y cierra cualquier clase;
+- registra el uso fuera de clase, la salida y las correcciones;
+- resuelve las solicitudes de fuera de clase;
+- configura los equipos, los saca de servicio y atiende sus fallas;
+- lleva el horario y los eventos.
+
+Lo demás no cambia:
+- Consultar sigue abierto a todo el personal.
+- Los alumnos los sigue atendiendo cualquier laboratorista, porque no son de un laboratorio.
+- El administrador atiende todos los laboratorios sin estar en la tabla.
+- El docente da clase en cualquiera, por eventos, concursos o exámenes (también lo pidió el jefe de carrera).
+
+Detalles:
+- **Panel del laboratorio:** el laboratorista elige entre los suyos, y sin ninguno asignado ve un aviso para pedírselos al administrador.
+- **Quitar el rol:** al quitarle el rol de laboratorista a una cuenta, deja de atender sus laboratorios. Cada asignación queda en la bitácora.
+- **Cuentas que ya existían:** la migración `002-laboratorios-por-laboratorista.sql` les deja todos los laboratorios, igual que la importación de Firebase a los laboratoristas que trae. Así nadie pierde lo que podía hacer, y el administrador les quita los que no atienden.
+
+**Por qué:**
+- Lo pidió el instituto. La persona responsable de un laboratorio responde por él.
+- Una tabla y no un campo de la cuenta: los laboratorios no son fijos y un laboratorista puede atender varios.
+- Con la asignación vacía no atiende ninguno, en lugar de todos. Es lo más restrictivo, y el aviso en el panel dice qué hacer.

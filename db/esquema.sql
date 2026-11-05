@@ -86,6 +86,20 @@ CREATE TABLE usuarios (
   CONSTRAINT ck_usuarios_roles CHECK (roles <> '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Los laboratorios que atiende cada laboratorista: solo en esos abre clases de
+-- invitado, cierra clases, registra el uso fuera de clase, atiende los equipos y
+-- lleva el horario y los eventos. El administrador atiende todos sin aparecer aquí,
+-- y el docente usa cualquier laboratorio para sus clases. Así lo pidió el jefe de
+-- carrera el 4 de noviembre de 2026 (pregunta 6). Ver D21 en docs/decisiones.md.
+CREATE TABLE laboratorios_del_personal (
+  usuario_id      INT UNSIGNED NOT NULL,
+  laboratorio_id  INT UNSIGNED NOT NULL,
+  PRIMARY KEY (usuario_id, laboratorio_id),
+  KEY ix_laboratorios_del_personal_laboratorio (laboratorio_id),
+  CONSTRAINT fk_laboratorios_del_personal_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE,
+  CONSTRAINT fk_laboratorios_del_personal_laboratorio FOREIGN KEY (laboratorio_id) REFERENCES laboratorios (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Los alumnos no tienen cuenta: entran con su número de control (matrícula).
 CREATE TABLE alumnos (
   id              INT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -10,6 +10,7 @@ use Asistencias\Http\Enrutador;
 use Asistencias\Http\Entrada;
 use Asistencias\Http\ErrorHttp;
 use Asistencias\Http\Respuesta;
+use Asistencias\Modulos\Catalogos\Laboratorios;
 use Asistencias\Seguridad\Acceso;
 use Asistencias\Seguridad\Contrasenas;
 use Asistencias\Seguridad\Usuario;
@@ -20,11 +21,17 @@ use Asistencias\Seguridad\Usuario;
  * ejemplo). Una cuenta con historial no se borra: se desactiva.
  *
  * Cada persona tiene una sola cuenta, con uno o varios roles (D20): el correo y la
- * matrícula no se repiten en todo el sistema.
+ * matrícula no se repiten en todo el sistema. Al laboratorista se le asignan los
+ * laboratorios que atiende (D21).
  */
 final class Usuarios
 {
     private const ROLES = ['admin', 'laboratorista', 'docente'];
+
+    /** Las cuentas con las claves de sus laboratorios asignados, separadas por comas. */
+    private const SELECCION = "SELECT u.*, (SELECT GROUP_CONCAT(l.clave ORDER BY l.nombre) FROM laboratorios_del_personal lp
+            JOIN laboratorios l ON l.id = lp.laboratorio_id WHERE lp.usuario_id = u.id) AS laboratorios
+        FROM usuarios u";
 
     private const DUPLICADOS = [
         'uq_usuarios_matricula' => 'Ya hay una cuenta con esa matrícula. Si es la misma persona, agrégale el rol a esa cuenta',
@@ -53,12 +60,13 @@ final class Usuarios
             'email' => $fila['email'],
             'departamento' => $fila['departamento'],
             'activo' => (bool)$fila['activo'],
+            'laboratorios' => $fila['laboratorios'] === null ? [] : explode(',', $fila['laboratorios']),
         ];
     }
 
     private static function uno(Contexto $c, int $id): array
     {
-        return self::formato($c->bd->fila('SELECT * FROM usuarios WHERE id = ?', [$id]) ?? throw ErrorHttp::noExiste('La cuenta'));
+        return self::formato($c->bd->fila(self::SELECCION . ' WHERE u.id = ?', [$id]) ?? throw ErrorHttp::noExiste('La cuenta'));
     }
 
     private static function listar(Contexto $c): array
@@ -68,17 +76,17 @@ final class Usuarios
         $condiciones = [];
         $parametros = [];
         if ($rol !== null) {
-            $condiciones[] = 'FIND_IN_SET(?, roles)';
+            $condiciones[] = 'FIND_IN_SET(?, u.roles)';
             $parametros[] = $rol;
         }
         if (!$c->usuarioConSesion()->esAdmin()) {
-            $condiciones[] = "(FIND_IN_SET('docente', roles) OR FIND_IN_SET('laboratorista', roles)) AND activo";
+            $condiciones[] = "(FIND_IN_SET('docente', u.roles) OR FIND_IN_SET('laboratorista', u.roles)) AND u.activo";
         } elseif ($q->tiene('activo')) {
-            $condiciones[] = 'activo = ?';
+            $condiciones[] = 'u.activo = ?';
             $parametros[] = $q->booleano('activo');
         }
         $donde = $condiciones ? ' WHERE ' . implode(' AND ', $condiciones) : '';
-        return array_map(self::formato(...), $c->bd->filas("SELECT * FROM usuarios$donde ORDER BY apellido, nombre", $parametros));
+        return array_map(self::formato(...), $c->bd->filas(self::SELECCION . "$donde ORDER BY u.apellido, u.nombre", $parametros));
     }
 
     private static function crear(Contexto $c): Respuesta
@@ -87,6 +95,9 @@ final class Usuarios
         $valores = ['roles' => self::roles($e)] + self::datos($e, nueva: true);
         $valores['password_hash'] = Contrasenas::cifrarNueva((string)$e->crudo('contrasena'));
         $id = ErrorDeIntegridad::explicar(self::DUPLICADOS, static fn () => $c->cambios->crear('usuarios', $valores, self::descripcion($valores)));
+        if ($e->tiene('laboratorios')) {
+            self::asignarLaboratorios($c, $id, $valores['roles'], $e, self::descripcion($valores));
+        }
         return Respuesta::creado(self::uno($c, $id));
     }
 
@@ -109,6 +120,14 @@ final class Usuarios
             }
         }
         ErrorDeIntegridad::explicar(self::DUPLICADOS, static fn () => $c->cambios->actualizar('usuarios', $id, $valores, self::descripcion($actual)));
+        $roles = $valores['roles'] ?? implode(',', $actual['roles']);
+        if ($e->tiene('laboratorios')) {
+            self::asignarLaboratorios($c, $id, $roles, $e, self::descripcion($actual));
+        } elseif (!in_array('laboratorista', explode(',', $roles), true) && $actual['laboratorios'] !== []) {
+            // Si deja de ser laboratorista, deja de atender sus laboratorios.
+            $c->bd->ejecutar('DELETE FROM laboratorios_del_personal WHERE usuario_id = ?', [$id]);
+            $c->bitacora->registrar('asignar_laboratorios', 'usuarios', $id, self::descripcion($actual) . ': ninguno');
+        }
         return self::uno($c, $id);
     }
 
@@ -148,6 +167,32 @@ final class Usuarios
         if (in_array('admin', $roles, true) && (int)$c->bd->valor("SELECT COUNT(*) FROM usuarios WHERE FIND_IN_SET('admin', roles) AND activo AND id <> ?", [$id]) === 0) {
             throw ErrorHttp::conflicto('Debe quedar al menos un administrador activo');
         }
+    }
+
+    /**
+     * Cambia los laboratorios que atiende un laboratorista por los de la lista (sus
+     * claves; vacía, ninguno). Solo el laboratorista tiene laboratorios asignados: el
+     * administrador atiende todos y el docente da clase en cualquiera.
+     */
+    private static function asignarLaboratorios(Contexto $c, int $id, string $roles, Entrada $e, string $descripcion): void
+    {
+        $claves = $e->lista('laboratorios', 'los laboratorios', 100);
+        if ($claves !== [] && !in_array('laboratorista', explode(',', $roles), true)) {
+            throw ErrorHttp::datosInvalidos('Solo al laboratorista se le asignan laboratorios', 'laboratorios');
+        }
+        $laboratorios = [];
+        foreach ($claves as $clave) {
+            if (!is_string($clave)) {
+                throw ErrorHttp::datosInvalidos('Revisa los laboratorios: van sus claves', 'laboratorios');
+            }
+            $laboratorio = Laboratorios::porClave($c->bd, $clave);
+            $laboratorios[$laboratorio['id']] = $laboratorio['nombre'];
+        }
+        $c->bd->ejecutar('DELETE FROM laboratorios_del_personal WHERE usuario_id = ?', [$id]);
+        foreach (array_keys($laboratorios) as $laboratorioId) {
+            $c->bd->insertar('laboratorios_del_personal', ['usuario_id' => $id, 'laboratorio_id' => $laboratorioId]);
+        }
+        $c->bitacora->registrar('asignar_laboratorios', 'usuarios', $id, "$descripcion: " . ($laboratorios === [] ? 'ninguno' : implode(', ', $laboratorios)));
     }
 
     /** Los roles de la cuenta, al menos uno, como van en la columna: "admin,docente". */

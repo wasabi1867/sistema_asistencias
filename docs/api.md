@@ -76,7 +76,7 @@ Quién puede usar cada una. La tabla completa está fijada en [`tests/api/Permis
 |---|---|
 | Pública | Sin sesión |
 | Sesión | Administrador, laboratorista o docente |
-| Personal | Administrador o laboratorista |
+| Personal | Administrador o laboratorista. Donde la ruta es de un laboratorio, el laboratorista debe atenderlo (D21); si no, 403 |
 | Admin | Solo el administrador |
 
 El reparto es provisional mientras el instituto no defina los permisos (pregunta 7 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)). Se usa el más restrictivo que deja operar.
@@ -102,7 +102,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 |---|---|---|
 | `GET /usuarios` | Sesión | El administrador ve todas las cuentas (`?rol=` da las que tienen ese rol, `?activo=`); los demás, los docentes y laboratoristas activos |
 | `GET /usuarios/{id}` | Admin | Una cuenta |
-| `POST /usuarios`, `PUT /usuarios/{id}` | Admin | Crea o edita (o desactiva) una cuenta, con sus roles (`roles`, al menos uno). Nadie se desactiva ni se quita el rol de administrador a sí mismo, y siempre queda un administrador |
+| `POST /usuarios`, `PUT /usuarios/{id}` | Admin | Crea o edita (o desactiva) una cuenta, con sus roles (`roles`, al menos uno) y, si es laboratorista, los laboratorios que atiende (`laboratorios`, sus claves). Nadie se desactiva ni se quita el rol de administrador a sí mismo, y siempre queda un administrador |
 | `PUT /usuarios/{id}/contrasena` | Admin | Restablece la contraseña de otro |
 | `DELETE /usuarios/{id}` | Admin | Borra una cuenta sin historial |
 | `GET /alumnos` | Sesión | Búsqueda por matrícula o nombre, con filtros (`carrera`, `semestre`, `grupo`, `turno`, `activo`), por páginas |
@@ -129,7 +129,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 | `DELETE /cursos/{id}/alumnos/{matricula}` | Personal o su docente | Da de baja del curso |
 | `GET /cursos/{id}/asistencia` | Sesión | Asistencias, faltas y porcentaje de cada inscrito. No cuenta como falta lo anterior a su inscripción |
 | `GET /horarios` | Sesión | El horario del periodo actual (`?laboratorio=`, `?docente=yo`, `?curso=`) |
-| `POST /horarios`, `PUT`, `DELETE /horarios/{id}` | Personal | Arma el horario. No deja encimar el laboratorio, el curso ni el docente |
+| `POST /horarios`, `PUT`, `DELETE /horarios/{id}` | Personal de ese laboratorio | Arma el horario. No deja encimar el laboratorio, el curso ni el docente |
 
 ### Equipos
 
@@ -137,12 +137,12 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 |---|---|---|
 | `GET /laboratorios/{clave}/equipos` | Pública | Cada equipo con su estado: `libre`, `ocupado` o `fuera_de_servicio`. Con sesión, además quién lo ocupa, sus notas y su reporte abierto |
 | `POST /laboratorios/{clave}/equipos` | Admin | Agrega un equipo |
-| `POST /laboratorios/{clave}/equipos/configurar` | Personal | Deja el laboratorio con PC-1 a PC-N; no retira un equipo en uso |
-| `PUT /equipos/{id}` | Personal | Fuera de servicio, notas; la etiqueta solo el administrador |
+| `POST /laboratorios/{clave}/equipos/configurar` | Personal de ese laboratorio | Deja el laboratorio con PC-1 a PC-N; no retira un equipo en uso |
+| `PUT /equipos/{id}` | Personal de ese laboratorio | Fuera de servicio, notas; la etiqueta solo el administrador |
 | `DELETE /equipos/{id}` | Admin | Lo retira: se borra si nunca se usó y, si no, se desactiva |
 | `GET /reportes-de-equipo` | Sesión | Las fallas (`?laboratorio=`, `?estado=abiertos`, `?equipo=`) |
 | `POST /equipos/{id}/reportes` | Sesión | Reporta una falla y, salvo que se diga lo contrario, saca al equipo de servicio |
-| `PUT /reportes-de-equipo/{id}` | Personal | Atiende la falla. Al resolverse la última, el equipo vuelve a servicio |
+| `PUT /reportes-de-equipo/{id}` | Personal de ese laboratorio | Atiende la falla. Al resolverse la última, el equipo vuelve a servicio |
 
 ### Clases y asistencias
 
@@ -151,15 +151,15 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 | `GET /clases/abiertas?laboratorio=` | Pública | Qué clase hay en el laboratorio y si pide código (sin el código) |
 | `GET /clases` | Sesión | Con filtros (`laboratorio`, `estado`, `tipo`, `desde`, `hasta`, `docente=yo`, `curso`) y `?conAsistentes=1` para los reportes |
 | `GET /clases/{id}` | Sesión | La clase, quiénes entraron y, si es regular, la lista con las faltas. El código solo lo ve quien la lleva |
-| `POST /clases` | Admin o su docente (regular); Personal (de invitado) | Abre una clase |
-| `POST /clases/{id}/cerrar` | Quien lleva la clase | La cierra y registra la salida de todos. `{automatico: true}` cuando la cierra la pestaña del docente |
+| `POST /clases` | Admin o su docente (regular); personal de ese laboratorio (de invitado) | Abre una clase |
+| `POST /clases/{id}/cerrar` | Quien lleva la clase: su docente, el administrador o el laboratorista de ese laboratorio | La cierra y registra la salida de todos. `{automatico: true}` cuando la cierra la pestaña del docente |
 | `POST /clases/{id}/asistencias` | Quien lleva la clase | Registra a mano a un inscrito o, en una clase de invitado, a alguien de fuera |
 | `POST /registro/entrada` | Pública | El alumno registra su entrada |
 | `GET /asistencias/activas?laboratorio=` | Sesión | Quién está dentro ahora |
 | `GET /asistencias` | Sesión | El historial, por páginas (`laboratorio`, `desde`, `hasta`, `alumno`, `carrera`, `curso`, `clase`, `fueraDeClase`) |
-| `POST /asistencias` | Personal | Uso del laboratorio fuera de clase |
-| `POST /asistencias/{id}/salida` | Quien lleva la clase (fuera de clase, el personal) | Registra la salida de alguien |
-| `DELETE /asistencias/{id}` | Quien lleva la clase (fuera de clase, el personal) | Quita una entrada registrada por error. Queda en la bitácora |
+| `POST /asistencias` | Personal de ese laboratorio | Uso del laboratorio fuera de clase |
+| `POST /asistencias/{id}/salida` | Quien lleva la clase (fuera de clase, el personal de ese laboratorio) | Registra la salida de alguien |
+| `DELETE /asistencias/{id}` | Quien lleva la clase (fuera de clase, el personal de ese laboratorio) | Quita una entrada registrada por error. Queda en la bitácora |
 
 "Quien lleva la clase" es el administrador, el laboratorista o, en una clase regular, el docente del curso.
 
@@ -169,12 +169,12 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 |---|---|---|
 | `POST /solicitudes` | Pública | El alumno pide entrar a una clase (o usar el laboratorio fuera de clase) |
 | `GET /solicitudes` | Sesión | Con filtros (`laboratorio`, `estado`, `clase`) |
-| `POST /solicitudes/{id}/resolver` | De una clase: admin, o el docente del curso salvo `aprobada_permanente`. Fuera de clase: personal | `aprobada_temporal` (entra ya), `aprobada_permanente` (entra y queda inscrito) o `rechazada` |
+| `POST /solicitudes/{id}/resolver` | De una clase: admin, o el docente del curso salvo `aprobada_permanente`. Fuera de clase: personal de ese laboratorio | `aprobada_temporal` (entra ya), `aprobada_permanente` (entra y queda inscrito) o `rechazada` |
 | `PUT /solicitudes/{id}` | Personal | Marca leída |
 | `GET /avisos` | Personal | Los avisos, con el estado actual de lo que avisan |
 | `PUT /avisos/{id}`, `POST /avisos/leidos` | Personal | Marca uno, o todos, como leídos |
 | `GET /eventos` | Sesión | Talleres y actividades |
-| `POST /eventos`, `PUT`, `DELETE /eventos/{id}` | Personal | |
+| `POST /eventos`, `PUT`, `DELETE /eventos/{id}` | Personal de ese laboratorio | |
 | `GET /bitacora` | Personal | Con filtros (`desde`, `hasta`, `accion`, `entidad`, `usuario`, `laboratorio`, `q`), por páginas |
 | `GET /estadisticas?laboratorio=` | Sesión | Los números de los tableros |
 
@@ -213,6 +213,6 @@ Para correr la API en una computadora:
 
 [`db/esquema.sql`](../db/esquema.sql) siempre describe la base completa; [docs/modelo-de-datos.md](modelo-de-datos.md) explica cada tabla.
 
-Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: `001-cuentas-con-varios-roles.sql` es el primero. `tests/api/MigracionesTest.php` crea una base con el esquema con que se instaló producción (`tests/api/migraciones/esquema-instalado-2026-10-22.sql`), le aplica las migraciones y revisa que quede igual que una creada con `db/esquema.sql`. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
+Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: `001-cuentas-con-varios-roles.sql` es el primero y `002-laboratorios-por-laboratorista.sql` el segundo. `tests/api/MigracionesTest.php` crea una base con el esquema con que se instaló producción (`tests/api/migraciones/esquema-instalado-2026-10-22.sql`), le aplica las migraciones y revisa que quede igual que una creada con `db/esquema.sql`. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
 
 Antes de aplicar una migración en producción se respalda la base. Un respaldo solo se restaura sobre el esquema de su misma versión: `scripts/restaurar.php` lo revisa. Ver "Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).

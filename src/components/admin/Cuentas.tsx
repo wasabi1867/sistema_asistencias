@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { api, type Cuenta, type Rol } from "../../lib/api"
+import { api, type Cuenta, type Laboratorio, type Rol } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { useDatos } from "../../hooks/useDatos"
 import { NOMBRE_DEL_ROL, nombreDeLosRoles } from "../../lib/rutas"
@@ -20,12 +20,14 @@ const ROLES: Rol[] = ["admin", "laboratorista", "docente"]
 
 /**
  * Las cuentas del personal. Una persona tiene una sola cuenta, con uno o varios roles
- * (D20): sale en la pestaña de cada uno. Una cuenta con historial no se borra: se
- * desactiva.
+ * (D20): sale en la pestaña de cada uno. Al laboratorista se le marcan los laboratorios
+ * que atiende (D21). Una cuenta con historial no se borra: se desactiva.
  */
 export function Cuentas({ usuario }: PropsDeSeccion) {
   const [rol, setRol] = useState<Rol>("docente")
   const { datos: cuentas, recargar } = useDatos(() => api.usuarios.listar({ rol }), [rol])
+  const { datos: laboratorios } = useDatos(() => api.laboratorios.listar(), [])
+  const nombreDe = (clave: string) => laboratorios?.find((l) => l.clave === clave)?.nombre ?? clave
   const [editando, setEditando] = useState<Cuenta | "nueva" | null>(null)
 
   const cambiarActiva = async (cuenta: Cuenta) => {
@@ -88,6 +90,7 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
                 <TableHead className="hidden sm:table-cell">Roles</TableHead>
                 <TableHead className="hidden md:table-cell">Correo</TableHead>
                 {rol === "docente" && <TableHead className="hidden lg:table-cell">Departamento</TableHead>}
+                {rol === "laboratorista" && <TableHead className="hidden lg:table-cell">Laboratorios</TableHead>}
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-12">
                   <span className="sr-only">Acciones</span>
@@ -107,6 +110,11 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
                     <TableCell className="hidden text-muted-foreground sm:table-cell">{nombreDeLosRoles(cuenta.roles)}</TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">{cuenta.email ?? "—"}</TableCell>
                     {rol === "docente" && <TableCell className="hidden text-muted-foreground lg:table-cell">{cuenta.departamento ?? "—"}</TableCell>}
+                    {rol === "laboratorista" && (
+                      <TableCell className="hidden lg:table-cell">
+                        {cuenta.laboratorios?.length ? <span className="text-muted-foreground">{cuenta.laboratorios.map(nombreDe).join(", ")}</span> : <Badge variant="warning">Ninguno</Badge>}
+                      </TableCell>
+                    )}
                     <TableCell>{cuenta.activo ? <Badge variant="success">Activa</Badge> : <Badge>Desactivada</Badge>}</TableCell>
                     <TableCell>
                       <MenuDeAcciones
@@ -131,6 +139,7 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
         <FormularioDeCuenta
           cuenta={editando === "nueva" ? null : editando}
           rol={rol}
+          laboratorios={laboratorios ?? []}
           propia={editando !== "nueva" && editando.id === usuario.id}
           alCerrar={() => setEditando(null)}
           alGuardar={() => {
@@ -143,9 +152,24 @@ export function Cuentas({ usuario }: PropsDeSeccion) {
   )
 }
 
-function FormularioDeCuenta({ cuenta, rol, propia, alCerrar, alGuardar }: { cuenta: Cuenta | null; rol: Rol; propia: boolean; alCerrar: () => void; alGuardar: () => void }) {
+function FormularioDeCuenta({
+  cuenta,
+  rol,
+  laboratorios,
+  propia,
+  alCerrar,
+  alGuardar,
+}: {
+  cuenta: Cuenta | null
+  rol: Rol
+  laboratorios: Laboratorio[]
+  propia: boolean
+  alCerrar: () => void
+  alGuardar: () => void
+}) {
   // Una cuenta nueva empieza con el rol de la pestaña en que se estaba.
   const [roles, setRoles] = useState<Rol[]>(cuenta?.roles ?? [rol])
+  const [atiende, setAtiende] = useState<string[]>(cuenta?.laboratorios ?? [])
   const [datos, setDatos] = useState({
     matricula: cuenta?.matricula ?? "",
     nombre: cuenta?.nombre ?? "",
@@ -161,6 +185,9 @@ function FormularioDeCuenta({ cuenta, rol, propia, alCerrar, alGuardar }: { cuen
       await alertas.aviso("Elige al menos un rol", "Marca qué hace esta persona: docente, laboratorista o administrador.")
       return
     }
+    const esLaboratorista = roles.includes("laboratorista")
+    // Los laboratorios solo se mandan si cambiaron: cada cambio queda en la bitácora.
+    const cambiaronLosLaboratorios = esLaboratorista && [...atiende].sort().join() !== [...(cuenta?.laboratorios ?? [])].sort().join()
     const cuerpo = {
       roles,
       matricula: datos.matricula || null,
@@ -168,6 +195,7 @@ function FormularioDeCuenta({ cuenta, rol, propia, alCerrar, alGuardar }: { cuen
       apellido: datos.apellido,
       email: datos.email || null,
       departamento: datos.departamento || null,
+      ...(cambiaronLosLaboratorios ? { laboratorios: atiende } : {}),
     }
     try {
       if (cuenta) {
@@ -225,6 +253,25 @@ function FormularioDeCuenta({ cuenta, rol, propia, alCerrar, alGuardar }: { cuen
           {campo("matricula", "Matrícula o número de empleado")}
           {campo("email", "Correo", "email")}
           {roles.includes("docente") && <div className="col-span-2">{campo("departamento", "Departamento")}</div>}
+          {roles.includes("laboratorista") && (
+            <fieldset className="col-span-2">
+              <legend className="mb-1.5 text-sm font-medium">Laboratorios que atiende</legend>
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {laboratorios.map((l) => (
+                  <label key={l.clave} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={atiende.includes(l.clave)}
+                      onChange={(e) => setAtiende(e.target.checked ? [...atiende, l.clave] : atiende.filter((x) => x !== l.clave))}
+                    />
+                    {l.nombre}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Solo en estos abre y cierra clases, registra el uso fuera de clase y atiende los equipos. Los docentes dan clase en cualquiera.</p>
+            </fieldset>
+          )}
           {!cuenta && <div className="col-span-2">{campo("contrasena", "Contraseña inicial (al menos 8 caracteres)", "password", true)}</div>}
           <DialogFooter className="col-span-2">
             <Button type="button" variant="outline" onClick={alCerrar}>

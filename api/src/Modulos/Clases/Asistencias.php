@@ -133,6 +133,7 @@ final class Asistencias
     {
         $e = $c->peticion->cuerpo();
         $laboratorio = Laboratorios::porClave($c->bd, $e->texto('laboratorio', 'el laboratorio', 30));
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $laboratorio['id']);
         $etiqueta = Entradas::equipoElegido($e);
         $persona = $e->tiene('matricula')
             ? self::alumnoQueEntra($c->bd, $e->texto('matricula', 'la matrícula', 20))
@@ -178,13 +179,13 @@ final class Asistencias
         return ['tipo' => 'alumno', 'alumno_id' => $alumno['id']];
     }
 
-    /** La asistencia de la ruta, si quien pide puede corregirla: quien lleva su clase o, fuera de clase, el personal. */
+    /** La asistencia de la ruta, si quien pide puede corregirla: quien lleva su clase o, fuera de clase, el personal de ese laboratorio. */
     private static function corregible(Contexto $c): array
     {
         $asistencia = self::porId($c->bd, $c->peticion->id());
         $usuario = $c->usuarioConSesion();
         $puede = $asistencia['clase_id'] === null
-            ? $usuario->esPersonal()
+            ? $usuario->atiende($asistencia['laboratorio_id'])
             : Clases::puedeLlevar($usuario, Clases::porId($c->bd, $asistencia['clase_id']));
         if (!$puede) {
             throw ErrorHttp::sinPermiso('Solo quien lleva la clase puede corregir sus asistencias');

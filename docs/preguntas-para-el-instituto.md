@@ -68,7 +68,7 @@ Respuesta (4 de noviembre de 2026): si no hay maestro, el laboratorista decide y
 **6. ¿Cada laboratorista atiende siempre el mismo laboratorio, o cualquiera?**
 *Si no hay respuesta:* cualquier laboratorista podrá atender cualquier laboratorio.
 
-Respuesta (4 de noviembre de 2026): no. Cada laboratorista debe manejar solo los laboratorios que le asigne el administrador, y no debe poder cerrar la clase de un laboratorio que no le toca. Debe iniciar sesión una vez y tener ahí todos sus laboratorios. En la aplicación anterior, quien atiende dos tiene que salir y volver a entrar para cambiar de uno a otro. Los docentes sí pueden usar cualquier laboratorio, por eventos, concursos o exámenes. **El sistema todavía no asigna laboratorios a los laboratoristas.**
+Respuesta (4 de noviembre de 2026): no. Cada laboratorista debe manejar solo los laboratorios que le asigne el administrador, y no debe poder cerrar la clase de un laboratorio que no le toca. Debe iniciar sesión una vez y tener ahí todos sus laboratorios. En la aplicación anterior, quien atiende dos tiene que salir y volver a entrar para cambiar de uno a otro. Los docentes sí pueden usar cualquier laboratorio, por eventos, concursos o exámenes. **Hecho el 4 de noviembre de 2026** (D21): el administrador asigna en Cuentas los laboratorios de cada laboratorista.
 
 ## Sobre quién hace qué
 
