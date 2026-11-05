@@ -167,7 +167,7 @@ Respuesta (4 de noviembre de 2026, parcial): no dijo quiénes. Explicó que cada
 - Los jefes de área tienen además un correo del puesto, aparte del personal.
 - Cuando cambian a la persona, el correo del puesto pasa con su información a la siguiente.
 
-Pidió tomarlo en cuenta. El sistema ya permite que una persona tenga dos cuentas, porque cada cuenta lleva un correo distinto. Pero eso va en parte contra D20 (una cuenta por persona con todos sus roles), y falta decidir cuál de las dos formas se usa.
+Pidió tomarlo en cuenta. El sistema ya permite que una persona tenga dos cuentas, porque cada cuenta lleva un correo distinto. Se revisó el mismo día y se queda D20: una cuenta por persona. Lo que pasa al siguiente jefe es el rol de administrador, no la cuenta, porque la información es del sistema y no de la cuenta. Ver D20 en [decisiones.md](decisiones.md).
 
 **17. ¿Cada docente y cada laboratorista tiene un número de empleado propio, que no cambia?** ¿Los laboratoristas también tienen uno?
 Si no hay respuesta, supondremos que sí: se usa, junto con el correo, para iniciar sesión, y no puede repetirse entre dos cuentas. Quien no tenga entra con su correo.
@@ -177,7 +177,7 @@ Respuesta (4 de noviembre de 2026, parcial): no dijo si todos tienen número de 
 **18. Cuando alguien deja de dar clases o de atender el laboratorio, ¿quién avisa para quitarle ese rol o desactivar su cuenta?**
 Si no hay respuesta, supondremos que el jefe de división avisa al administrador del sistema. Una cuenta con historial no se borra: se desactiva, y la bitácora conserva lo que hizo.
 
-Respuesta (4 de noviembre de 2026, parcial): no la contestó directamente. Cuando cambia el jefe de un área, su correo del puesto pasa al siguiente (pregunta 16).
+Respuesta (4 de noviembre de 2026, parcial): no la contestó directamente. Cuando cambia el jefe de un área, su correo del puesto pasa al siguiente (pregunta 16). En el sistema, el administrador le quita el rol a quien se va y se lo da a quien llega (D20). Falta saber quién avisa.
 
 ## Otros comentarios del 4 de noviembre de 2026
 

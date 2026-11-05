@@ -226,3 +226,13 @@ Los detalles:
 
 Que una persona tenga de verdad varios roles en el instituto se preguntó en la pregunta 16 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md). Con o sin respuesta, el diseño sirve.
 
+**Sin cuentas por puesto** (4 de noviembre de 2026). El jefe de carrera de Sistemas Computacionales explicó que los jefes de área tienen un correo del puesto, aparte del personal, y que ese correo pasa con su información a quien llega después al puesto (pregunta 16). Se revisó y se deja la regla como está: una cuenta por persona. Lo que pasa de una persona a otra es el rol, no la cuenta. Cuando cambia el jefe, el administrador le quita el rol a quien se va (su cuenta sigue como docente, si da clases) y se lo da a quien llega. Si la persona deja el instituto, su cuenta se desactiva.
+
+Por qué:
+- **La información no está en la cuenta.** Alumnos, cursos, clases, solicitudes, avisos y bitácora son de todo el sistema. Los avisos se marcan leídos para todos, no por cuenta. Quien recibe el rol ve lo mismo que veía el anterior, y no hay nada que transferir.
+- **Una cuenta que pasa de mano en mano borra quién hizo qué.** La bitácora diría "el jefe de división" sin decir cuál, y la contraseña pasaría de una persona a otra. Para datos personales de alumnos, saber qué persona hizo cada cambio es la responsabilidad de la que habló el instituto en la pregunta 11.
+- **Dos cuentas por persona obligan a salir y volver a entrar** para pasar de dar clase a administrar. El jefe de carrera criticó eso mismo en la aplicación anterior (pregunta 6).
+- **Una sola regla** hace más simple la importación de la aplicación anterior (A4) y no deja dudas sobre con qué cuenta entrar.
+
+La cuenta debe llevar el correo institucional de la persona, no uno personal de fuera del instituto. Si alguien prefiere entrar con el correo de su puesto, puede hacerlo, pero sigue siendo su única cuenta.
+
