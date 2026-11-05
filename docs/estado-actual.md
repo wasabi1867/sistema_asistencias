@@ -45,7 +45,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 **Administrador** (`/admin`):
 - Tablero con lo pendiente: clases abiertas, solicitudes de ingreso y avisos.
 - Alumnos: alta, edición, carga desde Excel y cambio de semestre o grupo en bloque.
-- Cursos e inscripciones (pegando una lista de números de control), materias y prácticas comunes.
+- Cursos e inscripciones (pegando una lista de números de control, o subiendo la lista de la materia que se baja de Mindbox), materias y prácticas comunes.
 - Cuentas del personal, carreras, periodos y laboratorios.
 
 **Por debajo:**
@@ -139,4 +139,5 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 24 de octubre de 2026 | #18 | Next.js 16.4.1 con React 18, compilado con webpack; ESLint 9. **Segunda publicación en Hostinger**, con #11 a #18 |
 | 26 de octubre de 2026 | #20 | La carga de alumnos acepta las listas de grupo del instituto tal como vienen (título arriba, "Matrícula" y "Estudiante" con el nombre completo) y enseña cómo separó cada nombre. **Tercera publicación en Hostinger** |
 | 4 de noviembre de 2026 | #27 | Al cargar una lista con el nombre completo, los nombres se corrigen en la vista previa antes de guardar, y los de tres palabras se marcan para revisar (pregunta 3) |
+| 4 de noviembre de 2026 | #29 | En cada curso se sube la lista de la materia de Mindbox: inscribe a los que ya existen y da de alta, revisando su nombre, a los que faltan (preguntas 3 y 12) |
 | 2 de noviembre de 2026 | #22 | Una cuenta por persona, con uno o varios roles (D20): al entrar ya no se elige el rol, y quien tiene varios cambia de panel desde el menú de su cuenta. Primera migración de la base, con su prueba. Preguntas 16 a 18 y A4 para el instituto. **Cuarta publicación en Hostinger**: base respaldada y migrada, sitio respaldado (142 archivos) y subido (104); `npm run prueba:produccion` pasa, con el inicio de sesión del administrador |

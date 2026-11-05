@@ -50,6 +50,8 @@ Respuesta (4 de noviembre de 2026): sale de Mindbox, el sistema escolar del inst
 - Que al pasar de semestre el alumno deje sus materias anteriores y reciba todas las de su nuevo semestre. A los irregulares, más o menos uno de cada 20, los ajusta a mano. En la aplicación anterior había que quitar y poner las materias de cada alumno una por una, y eso no es práctico.
 - Que el alumno que llega después de la carga pueda pedir su alta, y que la apruebe el jefe de carrera.
 
+**Hecho el 4 de noviembre de 2026:** en cada curso se sube la lista de su materia tal como sale de Mindbox; inscribe a los que ya existen y da de alta a los demás. Así no hace falta quitar y poner materias alumno por alumno, y los irregulares quedan en las materias que llevan.
+
 Conectar el sistema con Mindbox le parece bien, pero para más adelante. Hay que contactar a quien lo administra en el instituto, y Mindbox cobra por estudiante.
 
 ## Sobre los laboratorios

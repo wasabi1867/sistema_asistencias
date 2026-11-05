@@ -7,8 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { api, type Curso, type Turno } from "../../lib/api"
+import { api, type Curso, type DatosDeAlumno, type ResultadoDeInscripcion, type Turno } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
+import { leerHojaDeCalculo } from "../../lib/exportar"
+import { alumnoSinNombre, COLUMNAS_QUE_FALTAN, leerListaDeAlumnos } from "../../lib/listasDeAlumnos"
+import { RevisionDeNombres } from "./alumnos/RevisionDeNombres"
+import { SelectorDeArchivo } from "./alumnos/CargaDesdeArchivo"
 import { fecha, turno as textoDeTurno } from "../../lib/formato"
 import { useDatos } from "../../hooks/useDatos"
 import { ResumenDelCurso } from "../docente/ResumenDelCurso"
@@ -254,10 +258,90 @@ function FormularioDeCurso({ curso, periodoId, alCerrar, alGuardar }: { curso: C
   )
 }
 
-/** Los inscritos de un curso: pegar una lista de matrículas para inscribirlos, o dar de baja a uno. */
+const inscritosEnTexto = (n: number) => (n === 1 ? "1 inscrito" : `${n} inscritos`)
+
+/** Lo que pasó al inscribir una lista, en una oración: "3 inscritos. 1 ya lo estaba...". */
+function resumenDeInscripcion(r: ResultadoDeInscripcion) {
+  return [
+    inscritosEnTexto(r.inscritos.length),
+    r.yaInscritos.length ? (r.yaInscritos.length === 1 ? "1 ya lo estaba" : `${r.yaInscritos.length} ya lo estaban`) : "",
+    r.noEncontrados.length ? `no existen: ${r.noEncontrados.join(", ")}` : "",
+    r.inactivos.length ? `desactivados: ${r.inactivos.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join(". ")
+}
+
+/**
+ * Los inscritos de un curso: pegar una lista de matrículas o subir la lista de la materia
+ * (la que se baja de Mindbox) para inscribirlos, o dar de baja a uno.
+ */
 function InscritosDelCurso({ curso, alCerrar }: { curso: Curso; alCerrar: () => void }) {
   const { datos: inscritos, recargar } = useDatos(() => api.cursos.inscritos(curso.id), [curso.id])
   const [lista, setLista] = useState("")
+  const [archivo, setArchivo] = useState("")
+  // Los de la lista de la materia que no están dados de alta: se revisan sus nombres antes de darlos de alta.
+  const [nuevos, setNuevos] = useState<{ alumnos: DatosDeAlumno[]; dudosos: boolean[] } | null>(null)
+  const [enviando, setEnviando] = useState(false)
+
+  /**
+   * Inscribe a los que ya están dados de alta. A los que no, los deja para revisar sus
+   * nombres: así una lista con nombres mal separados no cambia a los alumnos que ya existían.
+   */
+  const subirLista = async (file: File | undefined) => {
+    if (!file) return
+    setNuevos(null)
+    try {
+      const leida = leerListaDeAlumnos(await leerHojaDeCalculo(file))
+      if (!leida || leida.alumnos.length === 0) {
+        await alertas.aviso(leida ? "La lista está vacía" : "Faltan columnas", leida ? "No se encontró ninguna matrícula en el archivo." : COLUMNAS_QUE_FALTAN)
+        return
+      }
+      setArchivo(file.name)
+      const r = await api.cursos.inscribir(
+        curso.id,
+        leida.alumnos.map((a) => a.matricula),
+      )
+      await recargar()
+      const faltan = new Set(r.noEncontrados.map((m) => m.toUpperCase()))
+      const indices = leida.alumnos.map((a, i) => (faltan.has(a.matricula) ? i : -1)).filter((i) => i >= 0)
+      if (indices.length === 0) {
+        await (r.inactivos.length ? alertas.aviso("Inscripción hecha a medias", resumenDeInscripcion(r)) : alertas.exito("Lista de la materia inscrita", resumenDeInscripcion(r)))
+        return
+      }
+      alertas.breve(`${inscritosEnTexto(r.inscritos.length)}. ${indices.length === 1 ? "Falta 1 que no está dado de alta" : `Faltan ${indices.length} que no están dados de alta`}`)
+      setNuevos({ alumnos: indices.map((i) => leida.alumnos[i]), dudosos: indices.map((i) => leida.dudosos[i]) })
+    } catch (error) {
+      await alertas.error("No se pudo inscribir la lista", error)
+    }
+  }
+
+  const corregir = (i: number, campo: "nombre" | "apellido", valor: string) =>
+    setNuevos((n) => n && { ...n, alumnos: n.alumnos.map((a, j) => (j === i ? { ...a, [campo]: valor } : a)) })
+
+  const darDeAltaEInscribir = async () => {
+    if (!nuevos) return
+    const sinNombre = alumnoSinNombre(nuevos.alumnos)
+    if (sinNombre) {
+      await alertas.aviso("Falta un nombre", `El alumno ${sinNombre.matricula} quedó sin nombre. Escríbelo en la lista.`)
+      return
+    }
+    setEnviando(true)
+    try {
+      await api.alumnos.cargarLote(nuevos.alumnos)
+      const r = await api.cursos.inscribir(
+        curso.id,
+        nuevos.alumnos.map((a) => a.matricula),
+      )
+      setNuevos(null)
+      await recargar()
+      await alertas.exito("Alumnos dados de alta e inscritos", resumenDeInscripcion(r))
+    } catch (error) {
+      await alertas.error("No se pudieron dar de alta", error)
+    } finally {
+      setEnviando(false)
+    }
+  }
 
   const inscribir = async (e: FormEvent) => {
     e.preventDefault()
@@ -268,13 +352,7 @@ function InscritosDelCurso({ curso, alCerrar }: { curso: Curso; alCerrar: () => 
     if (matriculas.length === 0) return
     try {
       const r = await api.cursos.inscribir(curso.id, matriculas)
-      const partes = [
-        `${r.inscritos.length} inscritos`,
-        r.yaInscritos.length ? `${r.yaInscritos.length} ya lo estaban` : "",
-        r.noEncontrados.length ? `no existen: ${r.noEncontrados.join(", ")}` : "",
-        r.inactivos.length ? `desactivados: ${r.inactivos.join(", ")}` : "",
-      ].filter(Boolean)
-      await (r.noEncontrados.length || r.inactivos.length ? alertas.aviso("Inscripción hecha a medias", partes.join(". ")) : alertas.exito("Alumnos inscritos", partes.join(". ")))
+      await (r.noEncontrados.length || r.inactivos.length ? alertas.aviso("Inscripción hecha a medias", resumenDeInscripcion(r)) : alertas.exito("Alumnos inscritos", resumenDeInscripcion(r)))
       setLista("")
       await recargar()
     } catch (error) {
@@ -311,6 +389,31 @@ function InscritosDelCurso({ curso, alCerrar }: { curso: Curso; alCerrar: () => 
             Inscribir
           </Button>
         </form>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">O sube la lista de la materia</p>
+          <p className="text-xs text-muted-foreground">
+            El Excel que bajas de Mindbox, o cualquier lista con Matrícula y el nombre. Se inscriben los que ya están dados de alta; los demás los revisas y los das de alta aquí mismo.
+          </p>
+          <SelectorDeArchivo archivo={archivo} alElegir={subirLista} compacto />
+        </div>
+        {nuevos && (
+          <div className="space-y-2">
+            <RevisionDeNombres
+              alumnos={nuevos.alumnos}
+              dudosos={nuevos.dudosos}
+              alCorregir={corregir}
+              titulo={`${nuevos.alumnos.length === 1 ? "Este alumno no está dado de alta" : `Estos ${nuevos.alumnos.length} alumnos no están dados de alta`}. Revisa su nombre y dalos de alta para inscribirlos. La carrera, el semestre y el grupo se completan después en Alumnos.`}
+            />
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setNuevos(null)}>
+                Omitirlos
+              </Button>
+              <Button type="button" onClick={darDeAltaEInscribir} disabled={enviando}>
+                {enviando ? "Dando de alta…" : "Dar de alta e inscribir"}
+              </Button>
+            </div>
+          </div>
+        )}
         {inscritos?.length === 0 ? (
           <div className="rounded-lg border">
             <SinDatos icono={Users} titulo="Nadie inscrito todavía" className="py-6" />
