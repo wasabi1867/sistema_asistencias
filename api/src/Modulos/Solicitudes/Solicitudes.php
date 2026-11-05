@@ -24,7 +24,7 @@ use Asistencias\Seguridad\Usuario;
  * fuera de clase. Las de una clase las resuelve el administrador o el docente del
  * curso; el docente lo deja entrar por esa vez o lo rechaza, pero inscribirlo en el
  * curso queda para el administrador, que es quien maneja las inscripciones. Las de
- * fuera de clase, también el laboratorista.
+ * fuera de clase, también el laboratorista de ese laboratorio.
  * - aprobada_temporal: entra por esa vez.
  * - aprobada_permanente: entra y queda inscrito en el curso de la clase.
  * - rechazada.
@@ -164,7 +164,9 @@ final class Solicitudes
         $usuario = $c->usuarioConSesion();
         $solicitud = self::porId($c->bd, $c->peticion->id(), bloquear: true);
         if (!self::puedeResolver($usuario, $solicitud)) {
-            throw ErrorHttp::sinPermiso('Las solicitudes para entrar a una clase las resuelve el docente de la clase o el administrador');
+            throw ErrorHttp::sinPermiso($solicitud['clase_id'] === null
+                ? 'Esta solicitud es de un laboratorio que no atiendes'
+                : 'Las solicitudes para entrar a una clase las resuelve el docente de la clase o el administrador');
         }
         if ($solicitud['estado'] !== 'pendiente') {
             throw ErrorHttp::conflicto('Esa solicitud ya se había resuelto', 'ya_resuelta');
@@ -226,7 +228,7 @@ final class Solicitudes
             return true;
         }
         if ($solicitud['clase_id'] === null) {
-            return $usuario->esPersonal();
+            return $usuario->atiende($solicitud['laboratorio_id']);
         }
         // El docente del curso, que es quien está en la clase y sabe si el alumno es suyo
         // (respuesta del jefe de carrera del 4 de noviembre de 2026, pregunta 10).

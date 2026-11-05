@@ -31,6 +31,7 @@ En **Cuentas del personal**, elige la pestaña del rol (**Docentes**, **Laborato
 - Nombre y apellido.
 - **Correo** y/o **Matrícula o número de empleado:** con cualquiera de los dos se inicia sesión. Hace falta al menos uno.
 - Departamento, en los docentes.
+- **Laboratorios que atiende**, en los laboratoristas. Solo en esos abre y cierra clases, registra el uso fuera de clase y atiende los equipos. Sin ninguno marcado no puede atender nada. Tú atiendes todos, y los docentes dan clase en cualquiera.
 - **Contraseña inicial**, de al menos 8 caracteres.
 
 Una cuenta por persona: la bitácora registra quién hizo cada cosa. Si alguien ya tiene cuenta y le toca otro rol, no le crees otra: en su renglón, menú **⋯** → **Editar**, marca el rol nuevo y guarda. El sistema no deja usar el mismo correo ni la misma matrícula en dos cuentas. Quien tiene varios roles pasa de un panel a otro desde el menú con su nombre, arriba a la derecha. La contraseña inicial díla en persona, no por un chat. Cada quien la cambia al entrar.

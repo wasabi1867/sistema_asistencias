@@ -106,6 +106,8 @@ export interface Cuenta {
   email: string | null
   departamento: string | null
   activo?: boolean
+  /** Las claves de los laboratorios que atiende como laboratorista (D21). */
+  laboratorios?: string[]
 }
 
 export interface Laboratorio {

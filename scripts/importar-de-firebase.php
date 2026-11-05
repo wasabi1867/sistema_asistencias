@@ -347,6 +347,18 @@ final class Importacion
                 $this->contar("cuentas ($rol)");
             }
         }
+        // En Firebase no se sabía qué laboratorios atiende cada laboratorista: el que no
+        // tenga ninguno queda con todos, como antes, y el administrador le quita los que
+        // no atiende (D21).
+        $sinAsignar = $this->ejecutar(
+            "INSERT INTO laboratorios_del_personal (usuario_id, laboratorio_id)
+             SELECT u.id, l.id FROM usuarios u CROSS JOIN laboratorios l
+             WHERE FIND_IN_SET('laboratorista', u.roles) AND l.activo
+               AND NOT EXISTS (SELECT 1 FROM laboratorios_del_personal lp WHERE lp.usuario_id = u.id)"
+        );
+        if ($sinAsignar > 0) {
+            $this->avisos[] = 'Los laboratoristas importados quedaron con todos los laboratorios. En Cuentas, quítale a cada uno los que no atiende';
+        }
     }
 
     private function materiasYCursos(): void
