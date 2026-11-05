@@ -87,9 +87,9 @@ export default function PaginaPrincipal() {
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="border-b bg-card">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center gap-3 px-4 py-2 sm:h-20 sm:px-6 sm:py-0">
-          <Logo conTecnm className="hidden h-12 sm:flex" />
-          <Logo className="sm:hidden" />
+        <div className="mx-auto flex min-h-16 max-w-6xl items-center gap-3 px-4 py-2 sm:h-24 sm:px-6 sm:py-0">
+          <Logo conTecnm className="hidden h-16 sm:flex" />
+          <Logo className="h-12 sm:hidden" />
           <div className="min-w-0 flex-1 sm:ml-2">
             <p className="truncate text-xs text-muted-foreground">Control de asistencias</p>
             {/* En el teléfono el nombre ocupa hasta dos renglones: cortado, "Taller de Progra…" no se distinguía de otros laboratorios. */}

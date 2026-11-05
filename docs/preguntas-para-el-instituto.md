@@ -182,7 +182,7 @@ Respuesta (4 de noviembre de 2026, parcial): no la contestó directamente. Cuand
 ## Otros comentarios del 4 de noviembre de 2026
 
 Del jefe de carrera, en la misma plática:
-- **Diseño:** le pareció "muy minimalista, demasiado básico". No tiene queja de los colores, pero pidió algunos elementos más grandes.
+- **Diseño:** le pareció "muy minimalista, demasiado básico". No tiene queja de los colores, pero pidió algunos elementos más grandes: se refería a los logos del instituto (lo aclaró David). **Hecho el 4 de noviembre de 2026.**
 - **Reportes:** se necesitan por laboratorio: quién entró, cuándo, de qué materia y cuántos alumnos.
 - **Para más adelante:** bloquear los equipos, entrar con el QR de la credencial, conectarse con Mindbox y usar inteligencia artificial. Ahora lo que se necesita es que el sistema funcione. El proyecto puede seguir hasta noveno semestre o servir como proyecto de titulación.
 

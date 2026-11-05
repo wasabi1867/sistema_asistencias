@@ -65,7 +65,7 @@ export default function Entrar() {
       <main className="flex flex-1 items-start justify-center px-4 pb-16 pt-4 sm:items-center sm:pt-0">
         <div className="w-full max-w-sm">
           <div className="mb-6 flex flex-col items-center text-center">
-            <Logo className="h-14" />
+            <Logo conTecnm className="h-20" />
             <h1 className="mt-5 text-2xl font-semibold tracking-tight">Acceso del personal</h1>
             <p className="mt-1 text-sm text-muted-foreground">Docentes, laboratoristas y administración</p>
           </div>
