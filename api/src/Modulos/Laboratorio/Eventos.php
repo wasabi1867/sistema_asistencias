@@ -75,6 +75,7 @@ final class Eventos
     {
         $e = $c->peticion->cuerpo();
         $laboratorio = Laboratorios::porClave($c->bd, $e->texto('laboratorio', 'el laboratorio', 30));
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $laboratorio['id']);
         $valores = ['laboratorio_id' => $laboratorio['id'], 'creado_por' => $c->usuarioConSesion()->id] + self::datos($e, nuevo: true);
         $id = $c->cambios->crear('eventos', $valores, $valores['nombre'], $laboratorio['id']);
         return Respuesta::creado(self::formato(self::porId($c->bd, $id)));
@@ -83,6 +84,7 @@ final class Eventos
     private static function editar(Contexto $c): array
     {
         $evento = self::porId($c->bd, $c->peticion->id());
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $evento['laboratorio_id']);
         $c->cambios->actualizar('eventos', $evento['id'], self::datos($c->peticion->cuerpo(), nuevo: false), $evento['nombre'], $evento['laboratorio_id']);
         return self::formato(self::porId($c->bd, $evento['id']));
     }
@@ -90,6 +92,7 @@ final class Eventos
     private static function eliminar(Contexto $c): Respuesta
     {
         $evento = self::porId($c->bd, $c->peticion->id());
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $evento['laboratorio_id']);
         $c->cambios->eliminar('eventos', $evento['id'], $evento['nombre'], $evento['laboratorio_id']);
         return Respuesta::vacia();
     }

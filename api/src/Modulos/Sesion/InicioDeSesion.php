@@ -61,7 +61,7 @@ final class InicioDeSesion
             $c->bd->ejecutar('UPDATE usuarios SET password_hash = ? WHERE id = ?', [password_hash($contrasena, PASSWORD_DEFAULT), $fila['id']]);
         }
 
-        $cuenta = Usuario::desdeFila($fila);
+        $cuenta = Usuario::cargar($c->bd, $fila);
         $c->sesion->iniciar($cuenta->id);
         $c->cambiarUsuario($cuenta);
         $c->bitacora->registrar('iniciar_sesion', 'usuarios', $cuenta->id);

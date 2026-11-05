@@ -128,6 +128,7 @@ final class Equipos
     private static function editar(Contexto $c): array
     {
         $equipo = self::porId($c->bd, $c->peticion->id());
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $equipo['laboratorio_id']);
         $e = $c->peticion->cuerpo();
         $valores = [];
         if ($e->tiene('fueraDeServicio')) {
@@ -167,6 +168,7 @@ final class Equipos
     private static function configurar(Contexto $c): array
     {
         $laboratorio = Laboratorios::porClave($c->bd, $c->peticion->parametro('clave'));
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $laboratorio['id']);
         $cantidad = $c->peticion->cuerpo()->entero('cantidad', 'la cantidad de equipos', 1, self::MAXIMO_POR_LABORATORIO);
 
         $deseadas = array_map(static fn (int $n) => "PC-$n", range(1, $cantidad));

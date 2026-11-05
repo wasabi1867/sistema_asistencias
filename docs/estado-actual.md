@@ -32,10 +32,11 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 **Docente** (`/docente`):
 - Abre la clase de uno de sus cursos con una práctica, ve en vivo quién entra y quién falta, registra a alguien a mano y la cierra (la salida de todos queda registrada).
+- Ve en su clase a los alumnos no inscritos que piden entrar, y los deja entrar por esa vez o los rechaza. Inscribirlos en el curso lo hace el administrador.
 - Exporta la hoja de registro en PDF o Excel.
 - Lleva sus prácticas, consulta sus clases anteriores y la asistencia de cada curso.
 
-**Laboratorista** (`/laboratorio` y `/clase-invitada`):
+**Laboratorista** (`/laboratorio` y `/clase-invitada`), en los laboratorios que le asignó el administrador (D21):
 - Quién está dentro y en qué computadora, con el mapa de equipos.
 - Equipos: fuera de servicio, notas y reportes de falla con su historial.
 - Horario del laboratorio, clases de maestro invitado y eventos.
@@ -46,7 +47,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 - Tablero con lo pendiente: clases abiertas, solicitudes de ingreso y avisos.
 - Alumnos: alta, edición, carga desde Excel y cambio de semestre o grupo en bloque.
 - Cursos e inscripciones (pegando una lista de números de control), materias y prácticas comunes.
-- Cuentas del personal, carreras, periodos y laboratorios.
+- Cuentas del personal, con los laboratorios que atiende cada laboratorista, carreras, periodos y laboratorios.
 
 **Por debajo:**
 - La API revisa la sesión y los roles en cada una de sus 84 rutas.
@@ -140,3 +141,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 26 de octubre de 2026 | #20 | La carga de alumnos acepta las listas de grupo del instituto tal como vienen (título arriba, "Matrícula" y "Estudiante" con el nombre completo) y enseña cómo separó cada nombre. **Tercera publicación en Hostinger** |
 | 4 de noviembre de 2026 | #28 | Logos del instituto más grandes en la portada, la elección del laboratorio, el acceso del personal y los paneles, como pidió el jefe de carrera |
 | 2 de noviembre de 2026 | #22 | Una cuenta por persona, con uno o varios roles (D20): al entrar ya no se elige el rol, y quien tiene varios cambia de panel desde el menú de su cuenta. Primera migración de la base, con su prueba. Preguntas 16 a 18 y A4 para el instituto. **Cuarta publicación en Hostinger**: base respaldada y migrada, sitio respaldado (142 archivos) y subido (104); `npm run prueba:produccion` pasa, con el inicio de sesión del administrador |
+| 4 de noviembre de 2026 | #24 | Respuestas del jefe de carrera a las preguntas para el instituto; la importación de Firebase ya no espera una autorización escrita (D12); sin cuentas por puesto (D20) |
+| 4 de noviembre de 2026 | #25 | El docente del curso resuelve las solicitudes para entrar a su clase: deja entrar por esa vez o rechaza (pregunta 10) |
+| 4 de noviembre de 2026 | #26 | Cada laboratorista atiende solo los laboratorios que le asigna el administrador (D21, pregunta 6). Segunda migración de la base: los laboratoristas que ya existían quedan con todos |
+| 4 de noviembre de 2026 | #27 | Al cargar una lista con el nombre completo, los nombres se corrigen en la vista previa antes de guardar, y los de tres palabras se marcan para revisar (pregunta 3) |

@@ -41,14 +41,16 @@ export default function PanelDelLaboratorista() {
   const router = useRouter()
   const { usuario } = useSesion(["laboratorista", "admin"])
   const [vista, irA] = useSeccion<IdDeVista>(IDS, "laboratorio")
-  const [laboratorios, setLaboratorios] = useState<Laboratorio[]>([])
+  const [laboratorios, setLaboratorios] = useState<Laboratorio[] | null>(null)
   const [clave, setClave] = useState("")
 
   useEffect(() => {
     if (!usuario) return
     api.laboratorios
       .listar()
-      .then((lista) => {
+      .then((todos) => {
+        // El laboratorista ve solo los que atiende; el administrador, todos (D21).
+        const lista = usuario.roles.includes("admin") ? todos : todos.filter((l) => usuario.laboratorios?.includes(l.clave))
         setLaboratorios(lista)
         const guardada = laboratorioDeEstaComputadora()
         setClave(lista.some((l) => l.clave === guardada) ? guardada : (lista[0]?.clave ?? ""))
@@ -56,7 +58,7 @@ export default function PanelDelLaboratorista() {
       .catch((error) => alertas.error("No se pudieron cargar los laboratorios", error))
   }, [usuario])
 
-  const laboratorio = laboratorios.find((l) => l.clave === clave) ?? null
+  const laboratorio = laboratorios?.find((l) => l.clave === clave) ?? null
   // Las clases abiertas, para poder cerrarlas en una emergencia (el docente se fue sin cerrar).
   const { datos: abiertas, recargar: recargarAbiertas } = useConsultaPeriodica(
     () => (laboratorio ? api.clases.listar({ laboratorio: laboratorio.clave, estado: "abiertas" }) : undefined),
@@ -86,6 +88,9 @@ export default function PanelDelLaboratorista() {
     router.push("/")
   }
 
+  if (usuario && laboratorios?.length === 0) {
+    return <SinLaboratorios esDocente={usuario.roles.includes("docente")} alCerrarSesion={cerrarSesion} />
+  }
   if (!usuario || !laboratorio) {
     return <Cargando />
   }
@@ -111,7 +116,7 @@ export default function PanelDelLaboratorista() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {laboratorios.map((l) => (
+              {(laboratorios ?? []).map((l) => (
                 <SelectItem key={l.clave} value={l.clave}>
                   {l.nombre}
                 </SelectItem>
@@ -156,5 +161,29 @@ export default function PanelDelLaboratorista() {
     >
       <Vista key={`${actual.id}-${laboratorio.clave}`} laboratorio={laboratorio} usuario={usuario} />
     </EstructuraDelPanel>
+  )
+}
+
+/** Un laboratorista sin laboratorios asignados no tiene nada que atender todavía (D21). */
+function SinLaboratorios({ esDocente, alCerrarSesion }: { esDocente: boolean; alCerrarSesion: () => void }) {
+  const router = useRouter()
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-4 text-center">
+      <Monitor className="h-8 w-8 text-muted-foreground" aria-hidden />
+      <div className="max-w-sm space-y-1">
+        <h1 className="text-lg font-semibold">No tienes laboratorios asignados</h1>
+        <p className="text-sm text-muted-foreground">Pide al administrador que te asigne los laboratorios que atiendes. Lo hace en Cuentas.</p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2">
+        {esDocente && (
+          <Button type="button" onClick={() => router.push(PANEL_DE.docente)}>
+            Ir al panel del docente
+          </Button>
+        )}
+        <Button type="button" variant="outline" onClick={alCerrarSesion}>
+          Cerrar sesión
+        </Button>
+      </div>
+    </main>
   )
 }

@@ -10,6 +10,7 @@ use Asistencias\Http\Enrutador;
 use Asistencias\Http\ErrorHttp;
 use Asistencias\Http\Respuesta;
 use Asistencias\Seguridad\Acceso;
+use Asistencias\Seguridad\Usuario;
 
 /**
  * Los laboratorios. Las pantallas y las direcciones los nombran por su clave
@@ -29,6 +30,18 @@ final class Laboratorios
      * El laboratorio activo con esa clave, o 404.
      * @return array{id: int, clave: string, nombre: string}
      */
+    /**
+     * El laboratorista solo actúa en los laboratorios que le asignó el administrador (D21).
+     * El administrador, en todos.
+     */
+    public static function exigirQueAtienda(BaseDeDatos $bd, Usuario $usuario, int $laboratorioId): void
+    {
+        if (!$usuario->atiende($laboratorioId)) {
+            $nombre = $bd->valor('SELECT nombre FROM laboratorios WHERE id = ?', [$laboratorioId]) ?? 'ese laboratorio';
+            throw ErrorHttp::sinPermiso("No atiendes el $nombre. Si te toca, pide al administrador que te lo asigne");
+        }
+    }
+
     public static function porClave(BaseDeDatos $bd, ?string $clave): array
     {
         $fila = $clave === null ? null : $bd->fila('SELECT id, clave, nombre FROM laboratorios WHERE clave = ? AND activo', [$clave]);

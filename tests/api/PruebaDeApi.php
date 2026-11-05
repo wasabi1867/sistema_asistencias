@@ -76,6 +76,9 @@ abstract class PruebaDeApi extends TestCase
         $this->admin = $this->insertar('usuarios', ['roles' => 'admin', 'email' => self::CORREO_ADMIN, 'nombre' => 'Ada', 'apellido' => 'Admin', 'password_hash' => $hash]);
         $this->laboratorista = $this->insertar('usuarios', ['roles' => 'laboratorista', 'matricula' => self::MATRICULA_LABORATORISTA, 'email' => 'laura@pruebas.test', 'nombre' => 'Laura', 'apellido' => 'Laboratorista', 'password_hash' => $hash]);
         $this->docente = $this->insertar('usuarios', ['roles' => 'docente', 'matricula' => self::MATRICULA_DOCENTE, 'email' => 'diego@pruebas.test', 'nombre' => 'Diego', 'apellido' => 'Docente', 'departamento' => 'Sistemas', 'password_hash' => $hash]);
+        // La laboratorista atiende todos los laboratorios, como los que ya existían al
+        // asignarlos (D21). LaboratoriosDelPersonalTest prueba con menos.
+        $this->pdo()->exec("INSERT INTO laboratorios_del_personal (usuario_id, laboratorio_id) SELECT $this->laboratorista, id FROM laboratorios");
     }
 
     protected function crearDocente(string $matricula, string $nombre = 'Otro', string $apellido = 'Docente'): int

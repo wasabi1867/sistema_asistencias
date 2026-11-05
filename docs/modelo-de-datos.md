@@ -42,6 +42,7 @@ erDiagram
 | | `carreras` | Las carreras del instituto |
 | | `periodos` | Los semestres escolares, con sus fechas |
 | Personas | `usuarios` | Cuentas del personal, una por persona, con uno o varios roles: administrador, laboratorista y docente |
+| | `laboratorios_del_personal` | Qué laboratorios atiende cada laboratorista (D21) |
 | | `alumnos` | Alumnos, con su número de control; no tienen cuenta |
 | Materias | `materias` | La materia en sí: nombre, clave, carrera y semestre |
 | | `cursos` | Una materia que un docente imparte a un grupo en un periodo |
@@ -160,6 +161,7 @@ Se cambió esto, por lo que hace el sistema actual:
 
 ## Decisiones de diseño
 
+- **Cada laboratorista atiende los laboratorios que le asigna el administrador** (D21), en `laboratorios_del_personal`. El administrador atiende todos sin estar ahí. Al importar de Firebase, que no lo guardaba, cada laboratorista queda con todos.
 - **Una cuenta por persona, con uno o varios roles** (D20). `usuarios.roles` es un `SET` que no puede quedar vacío; los permisos son la suma de los roles. El rol no se elige al iniciar sesión. En Firebase cada rol era una cuenta aparte: la importación une las que tienen el mismo correo o matrícula.
 - **Horas en hora local, no en UTC.** Ver la tabla anterior.
 - **Identificadores numéricos.** La matrícula, la clave del laboratorio y la etiqueta del equipo pueden corregirse sin romper las relaciones. Las pantallas siguen usando la matrícula y la clave.
@@ -173,7 +175,6 @@ Se cambió esto, por lo que hace el sistema actual:
 Están en [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md):
 - La lista oficial de carreras y las fechas de los periodos.
 - Cuántos laboratorios hay y cuántas computadoras tiene cada uno.
-- Quién autoriza el uso fuera de clase.
 - Si las prácticas son comunes o de cada docente; el esquema sirve para las dos respuestas.
 
 ## De Firebase a esta base

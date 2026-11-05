@@ -18,7 +18,7 @@ final class MigracionesTest extends PruebaDeApi
             [$codigo, $salida] = Entorno::correrScript('migrar.php', variables: ['ASISTENCIAS_DB_NAME' => $migrada]);
             $this->assertSame(0, $codigo, $salida);
 
-            $this->assertCount(19, $this->estructura($nueva));
+            $this->assertCount(20, $this->estructura($nueva));
             $this->assertSame($this->estructura($nueva), $this->estructura($migrada));
             $this->assertSame(
                 count(glob(dirname(__DIR__, 2) . '/db/migraciones/*.sql')),
@@ -47,6 +47,28 @@ final class MigracionesTest extends PruebaDeApi
 
             $this->assertSame('1 admin,2 docente,3 laboratorista', $this->valor("SELECT GROUP_CONCAT(id, ' ', roles ORDER BY id) FROM `$base`.usuarios"));
             $this->assertSame('admin', $this->valor("SELECT roles FROM `$base`.bitacora"));
+        } finally {
+            $this->pdo()->exec("DROP DATABASE IF EXISTS `$base`");
+        }
+    }
+
+    public function test_los_laboratoristas_que_ya_existian_quedan_con_todos_los_laboratorios(): void
+    {
+        $base = $this->baseConElEsquemaInstalado();
+        try {
+            $this->pdo()->exec(
+                "INSERT INTO `$base`.usuarios (id, rol, email, matricula, nombre, password_hash) VALUES
+                 (1, 'admin', 'jefa@pruebas.test', NULL, 'Juana', 'x'),
+                 (2, 'laboratorista', NULL, 'L100', 'Laura', 'x')"
+            );
+            $this->pdo()->exec("INSERT INTO `$base`.laboratorios (clave, nombre) VALUES ('a', 'Laboratorio A'), ('b', 'Laboratorio B')");
+
+            [$codigo, $salida] = Entorno::correrScript('migrar.php', variables: ['ASISTENCIAS_DB_NAME' => $base]);
+            $this->assertSame(0, $codigo, $salida);
+
+            $this->assertSame('2 a,2 b', $this->valor(
+                "SELECT GROUP_CONCAT(lp.usuario_id, ' ', l.clave ORDER BY l.clave) FROM `$base`.laboratorios_del_personal lp JOIN `$base`.laboratorios l ON l.id = lp.laboratorio_id"
+            ));
         } finally {
             $this->pdo()->exec("DROP DATABASE IF EXISTS `$base`");
         }
