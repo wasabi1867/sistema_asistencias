@@ -374,13 +374,16 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.getByRole("button", { name: /Cargar desde Excel/ }).click()
       await admin.locator('input[type="file"]').setInputFiles(archivo)
       await admin.getByText("2 alumnos en el archivo").waitFor()
-      const separados = admin.getByRole("dialog").getByRole("row", { name: /26303201/ })
-      if ((await separados.innerText()).replace(/\s+/g, " ").trim() !== "26303201 Del Ángel Ruiz María José")
-        throw new Error(`El nombre no se separó bien: ${await separados.innerText()}`)
+      const separado = [await admin.getByLabel("Apellidos de 26303201").inputValue(), await admin.getByLabel("Nombre de 26303201").inputValue()]
+      if (separado.join(" | ") !== "Del Ángel Ruiz | María José") throw new Error(`El nombre no se separó bien: ${separado.join(" | ")}`)
+      // Con tres palabras se marca para revisar, y se corrige ahí mismo antes de cargar.
+      await admin.getByRole("dialog").getByRole("row", { name: /26303202/ }).getByText("Revisa").waitFor()
+      await admin.getByLabel("Nombre de 26303202").fill("Tomás Eduardo")
       await admin.getByRole("button", { name: "Cargar alumnos" }).click()
       await aceptar(admin, "Alumnos cargados")
       await admin.getByText("20 alumnos").waitFor({ timeout: 10000 })
       await admin.getByRole("button", { name: "Acciones para María José Del Ángel Ruiz" }).waitFor()
+      await admin.getByRole("button", { name: "Acciones para Tomás Eduardo Ochoa Lara" }).waitFor()
     })
 
     await paso("el menú de un renglón abre el formulario y al cerrar la página sigue visible", async () => {
