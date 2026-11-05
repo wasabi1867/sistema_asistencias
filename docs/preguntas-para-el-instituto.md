@@ -70,7 +70,7 @@ Respuesta (4 de noviembre de 2026): si no hay maestro, el laboratorista decide y
 **6. ¿Cada laboratorista atiende siempre el mismo laboratorio, o cualquiera?**
 *Si no hay respuesta:* cualquier laboratorista podrá atender cualquier laboratorio.
 
-Respuesta (4 de noviembre de 2026): no. Cada laboratorista debe manejar solo los laboratorios que le asigne el administrador, y no debe poder cerrar la clase de un laboratorio que no le toca. Debe iniciar sesión una vez y tener ahí todos sus laboratorios. En la aplicación anterior, quien atiende dos tiene que salir y volver a entrar para cambiar de uno a otro. Los docentes sí pueden usar cualquier laboratorio, por eventos, concursos o exámenes. **El sistema todavía no asigna laboratorios a los laboratoristas.**
+Respuesta (4 de noviembre de 2026): no. Cada laboratorista debe manejar solo los laboratorios que le asigne el administrador, y no debe poder cerrar la clase de un laboratorio que no le toca. Debe iniciar sesión una vez y tener ahí todos sus laboratorios. En la aplicación anterior, quien atiende dos tiene que salir y volver a entrar para cambiar de uno a otro. Los docentes sí pueden usar cualquier laboratorio, por eventos, concursos o exámenes. **Hecho el 4 de noviembre de 2026** (D21): el administrador asigna en Cuentas los laboratorios de cada laboratorista.
 
 ## Sobre quién hace qué
 
@@ -109,7 +109,7 @@ Hoy el alumno solo escribe su número de control. El sistema lo deja entrar si e
 Si no se revisa, cualquier alumno con número de control puede entrar a cualquier clase. Se deja de saber quién faltó: solo quién vino.
 *Si no hay respuesta:* se seguirá revisando la inscripción.
 
-Respuesta (4 de noviembre de 2026): sí. El sistema está en internet, y cualquiera podría registrarse desde su casa en una clase que no es suya. Las solicitudes le parecen bien. Propone que también las pueda aprobar el docente de la materia, siempre que el alumno ya esté dado de alta en el sistema. **Hoy solo las aprueba el administrador.**
+Respuesta (4 de noviembre de 2026): sí. El sistema está en internet, y cualquiera podría registrarse desde su casa en una clase que no es suya. Las solicitudes le parecen bien. Propone que también las pueda aprobar el docente de la materia, siempre que el alumno ya esté dado de alta en el sistema. **Hecho el 4 de noviembre de 2026:** el docente del curso deja entrar por esa vez o rechaza; inscribir al alumno en el curso sigue siendo del administrador.
 
 ## Para probar con datos reales
 
@@ -184,7 +184,7 @@ Respuesta (4 de noviembre de 2026, parcial): no la contestó directamente. Cuand
 ## Otros comentarios del 4 de noviembre de 2026
 
 Del jefe de carrera, en la misma plática:
-- **Diseño:** le pareció "muy minimalista, demasiado básico". No tiene queja de los colores, pero pidió algunos elementos más grandes.
+- **Diseño:** le pareció "muy minimalista, demasiado básico". No tiene queja de los colores, pero pidió algunos elementos más grandes: se refería a los logos del instituto (lo aclaró David). **Hecho el 4 de noviembre de 2026.**
 - **Reportes:** se necesitan por laboratorio: quién entró, cuándo, de qué materia y cuántos alumnos.
 - **Para más adelante:** bloquear los equipos, entrar con el QR de la credencial, conectarse con Mindbox y usar inteligencia artificial. Ahora lo que se necesita es que el sistema funcione. El proyecto puede seguir hasta noveno semestre o servir como proyecto de titulación.
 

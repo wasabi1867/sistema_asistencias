@@ -116,6 +116,7 @@ final class ReportesDeEquipo
     private static function actualizar(Contexto $c): array
     {
         $reporte = self::porId($c->bd, $c->peticion->id());
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $reporte['laboratorio_id']);
         $e = $c->peticion->cuerpo();
         $valores = [];
         if ($e->tiene('estado')) {

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { CheckCircle2, ChevronDown, Download, Eye, EyeOff, FileSpreadsheet, FileText, Square, Trash2, UserPlus, Users, X } from "lucide-react"
+import { Check, CheckCircle2, ChevronDown, Download, Eye, EyeOff, FileSpreadsheet, FileText, Square, Trash2, UserPlus, Users, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, ErrorDeApi, type Clase, type Equipo } from "../../lib/api"
+import { api, ErrorDeApi, type Clase, type Equipo, type Solicitud } from "../../lib/api"
 import { alertas } from "../../lib/alertas"
 import { hojaDeClase, hojaDeRegistroExcel, hojaDeRegistroPdf } from "../../lib/exportar"
 import { hora, nombreDeEquipo, turno } from "../../lib/formato"
@@ -133,6 +133,8 @@ export function ClaseEnCurso({ claseId, alCerrarse }: { claseId: number; alCerra
 
       {registrando && <RegistroAMano clase={clase} alCerrar={() => setRegistrando(false)} alRegistrar={recargar} />}
 
+      {clase.tipo !== "invitado" && <PidenEntrar claseId={clase.id} alResolver={recargar} />}
+
       <div className="grid items-start gap-6 xl:grid-cols-3">
         <Panel
           titulo="Quiénes han entrado"
@@ -205,6 +207,61 @@ export function ClaseEnCurso({ claseId, alCerrarse }: { claseId: number; alCerra
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Alumnos que no están inscritos y piden entrar a esta clase. El docente los deja entrar
+ * por esta vez o los rechaza; inscribirlos en el curso lo hace el administrador.
+ * No se muestra nada mientras no haya solicitudes.
+ */
+function PidenEntrar({ claseId, alResolver }: { claseId: number; alResolver: () => void }) {
+  const { datos: solicitudes, recargar } = useConsultaPeriodica(() => api.solicitudes.listar({ clase: claseId, estado: "pendiente" }), 5000, [claseId])
+  if (!solicitudes?.length) return null
+
+  const resolver = async (solicitud: Solicitud, aprobar: boolean) => {
+    const comentario = aprobar ? undefined : await alertas.pedirTexto("¿Por qué se rechaza?", { etiqueta: "Comentario (opcional)" })
+    if (comentario === null) return
+    try {
+      await api.solicitudes.resolver(solicitud.id, aprobar ? "aprobada_temporal" : "rechazada", comentario)
+      alertas.breve(aprobar ? "Ya está dentro de la clase" : "Solicitud rechazada")
+      await recargar()
+      alResolver()
+    } catch (error) {
+      await alertas.error("No se pudo resolver la solicitud", error)
+    }
+  }
+
+  return (
+    <Panel
+      titulo="Piden entrar a la clase"
+      descripcion="No están inscritos en el curso. Si los dejas entrar es solo por hoy; para inscribirlos, avisa al administrador."
+      acciones={<Badge variant="warning">{solicitudes.length}</Badge>}
+      sinRelleno
+    >
+      <ul className="divide-y">
+        {solicitudes.map((s) => (
+          <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <p className="font-medium">
+                {s.alumno.nombre} {s.alumno.apellido} <span className="font-normal text-muted-foreground tabular-nums">({s.alumno.matricula})</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {s.motivo ?? "Sin motivo"} · {s.equipo ? nombreDeEquipo(s.equipo) : "Equipo propio"} · {hora(s.creadaEn)}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant="success" onClick={() => resolver(s, true)}>
+                <Check /> Dejar entrar
+              </Button>
+              <Button type="button" size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => resolver(s, false)}>
+                <X /> Rechazar
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   )
 }
 

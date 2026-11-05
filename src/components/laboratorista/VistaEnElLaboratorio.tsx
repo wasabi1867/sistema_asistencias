@@ -106,7 +106,7 @@ export function VistaEnElLaboratorio({ laboratorio, usuario }: PropsDeVista) {
       )}
       {deClase.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          Hay {deClase.length} {deClase.length === 1 ? "solicitud" : "solicitudes"} para entrar a una clase; esas las resuelve el administrador.
+          Hay {deClase.length} {deClase.length === 1 ? "solicitud" : "solicitudes"} para entrar a una clase; esas las resuelve el docente de la clase o el administrador.
         </p>
       )}
 

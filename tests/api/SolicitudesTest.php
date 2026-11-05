@@ -23,9 +23,9 @@ final class SolicitudesTest extends PruebaDeApi
         ]);
     }
 
-    private function resolver(int $id, string $estado, string $rol = 'admin', array $extra = []): Respuesta
+    private function resolver(int $id, string $estado, string $rol = 'admin', array $extra = [], ?string $usuario = null): Respuesta
     {
-        return $this->con($rol)->post("solicitudes/$id/resolver", ['estado' => $estado] + $extra);
+        return $this->con($rol, $usuario)->post("solicitudes/$id/resolver", ['estado' => $estado] + $extra);
     }
 
     public function test_el_alumno_no_inscrito_pide_entrar_y_se_avisa_al_administrador(): void
@@ -113,7 +113,7 @@ final class SolicitudesTest extends PruebaDeApi
         $this->assertSame([409, 'ya_resuelta'], [$otraVez->estado, $otraVez->json()['codigo']]);
     }
 
-    public function test_las_de_una_clase_las_resuelve_el_administrador_y_las_de_fuera_de_clase_tambien_el_laboratorista(): void
+    public function test_las_de_una_clase_las_resuelve_el_administrador_o_su_docente_y_las_de_fuera_de_clase_tambien_el_laboratorista(): void
     {
         $deClase = $this->ok($this->solicitar(), 201);
         $fuera = $this->ok($this->solicitar(['claseId' => null, 'laboratorio' => 'redes', 'equipo' => null, 'equipoPropio' => true, 'motivo' => 'Tarea']), 201);
@@ -128,6 +128,28 @@ final class SolicitudesTest extends PruebaDeApi
 
         $this->assertNull($this->valor('SELECT clase_id FROM asistencias WHERE solicitud_id = ?', [$fuera['id']]));
         $this->assertSame('Beto Bueno pide usar el Laboratorio de Redes', $this->valor('SELECT titulo FROM avisos WHERE solicitud_id = ?', [$fuera['id']]));
+    }
+
+    public function test_el_docente_del_curso_deja_entrar_por_esa_vez_pero_no_inscribe(): void
+    {
+        $solicitud = $this->ok($this->solicitar(), 201);
+
+        $inscribir = $this->resolver($solicitud['id'], 'aprobada_permanente', 'docente');
+        $this->assertSame([403, 'Inscribir al alumno en el curso lo hace el administrador. Puedes dejarlo entrar por esta vez'], [$inscribir->estado, $inscribir->json()['error']]);
+        $this->assertSame('pendiente', $this->valor('SELECT estado FROM solicitudes_ingreso WHERE id = ?', [$solicitud['id']]));
+
+        $resuelta = $this->ok($this->resolver($solicitud['id'], 'aprobada_temporal', 'docente'));
+
+        $this->assertSame(['aprobada_temporal', 'Diego Docente'], [$resuelta['estado'], $resuelta['resueltaPor']]);
+        $this->assertSame($this->docente, (int)$this->valor('SELECT registrada_por FROM asistencias WHERE solicitud_id = ?', [$solicitud['id']]));
+    }
+
+    public function test_otro_docente_no_resuelve_las_de_una_clase_que_no_es_suya(): void
+    {
+        $this->crearDocente('D777');
+        $solicitud = $this->ok($this->solicitar(), 201);
+
+        $this->assertSame(403, $this->resolver($solicitud['id'], 'rechazada', 'docente', usuario: 'D777')->estado);
     }
 
     public function test_el_personal_ve_las_solicitudes_y_las_marca_como_leidas(): void

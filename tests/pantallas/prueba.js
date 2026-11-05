@@ -204,6 +204,12 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await telefono.getByRole("heading", { name: "Solicitud enviada" }).waitFor()
     })
 
+    await paso("el docente ve en su clase al alumno que pide entrar", async () => {
+      await compu.getByRole("heading", { name: "Piden entrar a la clase" }).waitFor({ timeout: 15000 })
+      await compu.getByText("Voy a recuperar una práctica").waitFor()
+      await compu.getByRole("button", { name: /Dejar entrar/ }).waitFor()
+    })
+
     // El administrador
     const admin = await nuevo("administrador")
     await paso("el administrador entra desde /entrar", async () => {
@@ -459,12 +465,15 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.getByRole("cell", { name: /^Patricia Salas Ibarra/ }).waitFor()
     })
 
-    await paso("el administrador le agrega el rol de docente a la cuenta de un laboratorista", async () => {
+    await paso("el administrador le agrega el rol de docente a un laboratorista y le asigna su laboratorio", async () => {
       await admin.getByRole("tab", { name: "Laboratoristas" }).click()
+      // Creada sin laboratorios: todavía no atiende ninguno.
+      await admin.getByRole("row", { name: /Carlos Méndez Gil/ }).getByText("Ninguno").waitFor()
       await admin.getByRole("button", { name: "Acciones para Carlos Méndez Gil" }).click()
       await admin.getByRole("menuitem", { name: "Editar" }).click()
       await admin.getByRole("checkbox", { name: "Docente" }).check()
       await admin.locator("#cuenta-departamento").waitFor()
+      await admin.getByRole("checkbox", { name: "Taller de Programación" }).check()
       await captura(admin, "12b-roles-de-una-cuenta", false)
       await admin.getByRole("button", { name: "Guardar" }).click()
       await admin.getByRole("dialog").waitFor({ state: "detached" })
@@ -473,6 +482,8 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.getByRole("cell", { name: /^María López Ruiz/ }).waitFor()
       await admin.getByRole("row", { name: /Carlos Méndez Gil/ }).getByText("Laboratorista · Docente").waitFor()
       await captura(admin, "12c-cuenta-con-dos-roles", false)
+      await admin.getByRole("tab", { name: "Laboratoristas" }).click()
+      await admin.getByRole("row", { name: /Carlos Méndez Gil/ }).getByText("Taller de Programación").waitFor()
       await sinAlertaDeError(admin, "agregar un rol")
     })
 
@@ -523,6 +534,11 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await lab.getByRole("button", { name: /Taller de Programación/ }).click()
       await entrarComo(lab, "carlos.mendez@itspp.test", "laboratorista-local-2026", "/laboratorio")
       await lab.getByRole("heading", { name: "En el laboratorio", level: 1 }).waitFor()
+      // Solo atiende el Taller de Programación: es el único que puede elegir.
+      await lab.locator("#laboratorio-del-panel").click()
+      const opciones = await lab.getByRole("option").allTextContents()
+      if (opciones.join() !== "Taller de Programación") throw new Error(`Debería ver solo su laboratorio y ve: ${opciones.join(", ")}`)
+      await lab.keyboard.press("Escape")
       // También es docente: desde el menú de su cuenta va a ese panel y vuelve.
       await lab.getByRole("button", { name: /Cuenta de Carlos/ }).click()
       await lab.getByRole("menuitem", { name: "Ir al panel del docente" }).click()
