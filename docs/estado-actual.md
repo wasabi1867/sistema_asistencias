@@ -46,7 +46,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 **Administrador** (`/admin`):
 - Tablero con lo pendiente: clases abiertas, solicitudes de ingreso y avisos.
 - Alumnos: alta, edición, carga desde Excel y cambio de semestre o grupo en bloque.
-- Cursos e inscripciones (pegando una lista de números de control), materias y prácticas comunes.
+- Cursos e inscripciones (pegando una lista de números de control, o subiendo la lista de la materia que se baja de Mindbox), materias y prácticas comunes.
 - Cuentas del personal, con los laboratorios que atiende cada laboratorista, carreras, periodos y laboratorios.
 
 **Por debajo:**
@@ -145,3 +145,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 4 de noviembre de 2026 | #26 | Cada laboratorista atiende solo los laboratorios que le asigna el administrador (D21, pregunta 6). Segunda migración de la base: los laboratoristas que ya existían quedan con todos |
 | 4 de noviembre de 2026 | #27 | Al cargar una lista con el nombre completo, los nombres se corrigen en la vista previa antes de guardar, y los de tres palabras se marcan para revisar (pregunta 3) |
 | 4 de noviembre de 2026 | #28 | Logos del instituto más grandes en la portada, la elección del laboratorio, el acceso del personal y los paneles, como pidió el jefe de carrera |
+| 4 de noviembre de 2026 | #29 | En cada curso se sube la lista de la materia de Mindbox: inscribe a los que ya existen y da de alta, revisando su nombre, a los que faltan (preguntas 3 y 12) |

@@ -1,60 +1,12 @@
 import { useState } from "react"
 import { FileSpreadsheet, Upload } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { api, ErrorDeApi, type DatosDeAlumno, type Turno } from "../../../lib/api"
+import { api, ErrorDeApi, type DatosDeAlumno } from "../../../lib/api"
 import { alertas } from "../../../lib/alertas"
 import { leerHojaDeCalculo } from "../../../lib/exportar"
-
-/**
- * Columnas que se reconocen, sin importar mayúsculas ni acentos. Así sirve el archivo
- * del sistema escolar sin tener que acomodarlo.
- */
-const COLUMNAS: Record<keyof DatosDeAlumno, string[]> = {
-  matricula: ["matricula", "numero de control", "no. de control", "num control", "control"],
-  nombre: ["nombre", "nombres"],
-  apellido: ["apellido", "apellidos"],
-  carrera: ["carrera", "programa"],
-  semestre: ["semestre"],
-  turno: ["turno"],
-  grupo: ["grupo"],
-  activo: [],
-}
-
-/** Columna con el nombre completo, como en las listas de grupo del instituto. */
-const NOMBRE_COMPLETO = ["estudiante", "alumno", "nombre completo", "nombre del alumno", "nombre del estudiante"]
-
-// Van pegadas al apellido que sigue: "Del Ángel", "De la Cruz".
-const PARTICULAS = new Set(["de", "del", "la", "las", "los", "san", "santa", "mc", "mac", "van", "von"])
-
-const normalizar = (texto: string) =>
-  texto
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim()
-
-/**
- * Separa un nombre escrito como en las listas del instituto, apellido paterno, materno y
- * nombres ("Del Ángel Contreras Jesús Alejandro"). Con tres palabras no hay forma de saber
- * si son dos apellidos o dos nombres: se suponen dos apellidos, que es lo común, y se
- * marca para revisarlo.
- */
-function separarNombreCompleto(completo: string) {
-  const palabras = completo.split(/\s+/).filter(Boolean)
-  const apellidos: string[] = []
-  let i = 0
-  for (let n = 0; n < 2 && i < palabras.length - 1; n++) {
-    while (i < palabras.length - 2 && PARTICULAS.has(normalizar(palabras[i]))) apellidos.push(palabras[i++])
-    apellidos.push(palabras[i++])
-  }
-  return { apellido: apellidos.join(" "), nombre: palabras.slice(i).join(" ") }
-}
-
-/** Con tres palabras pueden ser dos apellidos y un nombre, o un apellido y dos nombres. */
-const esDudoso = (completo: string) => completo.split(/\s+/).filter(Boolean).length === 3
+import { alumnoSinNombre, COLUMNAS_QUE_FALTAN, leerListaDeAlumnos } from "../../../lib/listasDeAlumnos"
+import { RevisionDeNombres } from "./RevisionDeNombres"
 
 /**
  * Carga de alumnos desde Excel o CSV: crea a los nuevos y actualiza a los que ya
@@ -69,7 +21,6 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
   const [enviando, setEnviando] = useState(false)
   // Los nombres venían en una sola columna y el sistema los separó: hay que revisarlos.
   const [nombresSeparados, setNombresSeparados] = useState(false)
-  // Por alumno, si su nombre pudo separarse de dos formas.
   const [dudosos, setDudosos] = useState<boolean[]>([])
 
   const corregir = (i: number, campo: "nombre" | "apellido", valor: string) =>
@@ -79,41 +30,15 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
     if (!file) return
     setErrores([])
     try {
-      const filas = await leerHojaDeCalculo(file)
-      // Las listas del instituto traen arriba la materia, el periodo y el grupo: el
-      // encabezado es el primer renglón que tiene la columna de la matrícula.
-      const inicio = filas.findIndex((r) => r.some((col) => COLUMNAS.matricula.includes(normalizar(col))))
-      const [encabezado = [], ...renglones] = filas.slice(Math.max(inicio, 0))
-      const indices = Object.fromEntries(
-        Object.entries(COLUMNAS).map(([campo, nombres]) => [campo, encabezado.findIndex((col) => nombres.includes(normalizar(col)))]),
-      ) as Record<keyof DatosDeAlumno, number>
-      const separar = indices.nombre < 0 || indices.apellido < 0
-      const nombreCompleto = encabezado.findIndex((col) => NOMBRE_COMPLETO.includes(normalizar(col)))
-      if (inicio < 0 || (separar && nombreCompleto < 0)) {
-        await alertas.aviso(
-          "Faltan columnas",
-          "El archivo necesita la columna Matrícula (o Número de control) y las de Nombre y Apellidos, o una sola con el nombre completo (Estudiante o Alumno).",
-        )
+      const lista = leerListaDeAlumnos(await leerHojaDeCalculo(file))
+      if (!lista) {
+        await alertas.aviso("Faltan columnas", COLUMNAS_QUE_FALTAN)
         return
       }
-      const celda = (r: string[], campo: keyof DatosDeAlumno) => (indices[campo] >= 0 ? r[indices[campo]] || null : null)
-      // +2: el renglón del encabezado más uno, contando desde 1.
-      const conMatricula = renglones.map((r, i) => ({ r, renglon: inicio + i + 2 })).filter(({ r }) => celda(r, "matricula"))
-      setRenglonDe(conMatricula.map(({ renglon }) => renglon))
-      setNombresSeparados(separar)
-      setDudosos(conMatricula.map(({ r }) => separar && esDudoso(r[nombreCompleto] ?? "")))
-      setAlumnos(
-        conMatricula
-          .map(({ r }) => r)
-          .map((r) => ({
-            matricula: String(celda(r, "matricula")).toUpperCase(),
-            ...(separar ? separarNombreCompleto(r[nombreCompleto] ?? "") : { nombre: celda(r, "nombre") ?? "", apellido: celda(r, "apellido") ?? "" }),
-            carrera: celda(r, "carrera"),
-            semestre: celda(r, "semestre") ? Number(String(celda(r, "semestre")).replace(/\D/g, "")) || null : null,
-            turno: (celda(r, "turno")?.toLowerCase() as Turno | undefined) ?? null,
-            grupo: celda(r, "grupo"),
-          })),
-      )
+      setRenglonDe(lista.renglones)
+      setNombresSeparados(lista.nombresSeparados)
+      setDudosos(lista.dudosos)
+      setAlumnos(lista.alumnos)
       setArchivo(file.name)
     } catch (error) {
       await alertas.error("No se pudo leer el archivo", error)
@@ -122,9 +47,9 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
 
   const cargar = async () => {
     if (!alumnos?.length) return
-    const sinNombre = alumnos.findIndex((a) => !a.nombre.trim())
-    if (sinNombre >= 0) {
-      await alertas.aviso("Falta un nombre", `El alumno ${alumnos[sinNombre].matricula} quedó sin nombre. Escríbelo en la lista antes de cargar.`)
+    const sinNombre = alumnoSinNombre(alumnos)
+    if (sinNombre) {
+      await alertas.aviso("Falta un nombre", `El alumno ${sinNombre.matricula} quedó sin nombre. Escríbelo en la lista antes de cargar.`)
       return
     }
     setEnviando(true)
@@ -154,58 +79,13 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
             Matrícula y Estudiante. Los que ya existen se actualizan; lo que el archivo deja vacío no borra lo que ya se sabía.
           </DialogDescription>
         </DialogHeader>
-        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition-colors focus-within:border-ring hover:border-primary/50 hover:bg-accent/40">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
-            <FileSpreadsheet className="h-5 w-5" aria-hidden />
-          </span>
-          <span className="font-medium">{archivo || "Elegir archivo"}</span>
-          <span className="text-xs text-muted-foreground">.xlsx, .xls o .csv</span>
-          <input type="file" accept=".xlsx,.xls,.csv" className="sr-only" onChange={(e) => leer(e.target.files?.[0])} />
-        </label>
+        <SelectorDeArchivo archivo={archivo} alElegir={leer} />
         {alumnos && (
           <p className="text-sm">
             <span className="font-medium">{alumnos.length} alumnos en el archivo.</span> <span className="text-muted-foreground">Por ejemplo: {alumnos.slice(0, 3).map((a) => `${a.matricula} ${a.nombre} ${a.apellido}`).join("; ")}</span>
           </p>
         )}
-        {alumnos && nombresSeparados && (
-          <div className="max-h-72 overflow-y-auto rounded-lg border p-3 text-sm">
-            <p className="font-medium">El nombre venía completo en una columna y se separó así. Si alguno quedó mal, corrígelo aquí antes de cargar.</p>
-            {dudosos.some(Boolean) && (
-              <p className="mb-2 text-muted-foreground">
-                Los marcados con <span className="font-medium text-foreground">Revisa</span> tienen tres palabras: pueden ser dos apellidos y un nombre, o un apellido y dos nombres.
-              </p>
-            )}
-            <table className="mt-1 w-full">
-              <thead className="text-left text-muted-foreground">
-                <tr>
-                  <th className="pb-1 font-normal">Matrícula</th>
-                  <th className="pb-1 font-normal">Apellidos</th>
-                  <th className="pb-1 font-normal">Nombre</th>
-                </tr>
-              </thead>
-              <tbody>
-                {alumnos.map((a, i) => (
-                  <tr key={`${a.matricula}-${i}`}>
-                    <td className="whitespace-nowrap pr-2 tabular-nums">
-                      {a.matricula}
-                      {dudosos[i] && (
-                        <Badge variant="warning" className="ml-1.5">
-                          Revisa
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="py-0.5 pr-2">
-                      <Input value={a.apellido} onChange={(e) => corregir(i, "apellido", e.target.value)} aria-label={`Apellidos de ${a.matricula}`} className="h-8" />
-                    </td>
-                    <td className="py-0.5">
-                      <Input value={a.nombre} onChange={(e) => corregir(i, "nombre", e.target.value)} aria-label={`Nombre de ${a.matricula}`} className="h-8" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {alumnos && nombresSeparados && <RevisionDeNombres alumnos={alumnos} dudosos={dudosos} alCorregir={corregir} />}
         {errores.length > 0 && (
           <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             <p className="font-semibold">No se guardó ninguno. Corrige estos renglones y vuelve a cargar el archivo:</p>
@@ -226,5 +106,30 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** El recuadro para elegir un Excel o CSV. */
+export function SelectorDeArchivo({ archivo, alElegir, compacto = false }: { archivo: string; alElegir: (archivo: File | undefined) => void; compacto?: boolean }) {
+  return (
+    <label
+      className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed text-center transition-colors focus-within:border-ring hover:border-primary/50 hover:bg-accent/40 ${compacto ? "p-4" : "p-8"}`}
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
+        <FileSpreadsheet className="h-5 w-5" aria-hidden />
+      </span>
+      <span className="font-medium">{archivo || "Elegir archivo"}</span>
+      <span className="text-xs text-muted-foreground">.xlsx, .xls o .csv</span>
+      <input
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="sr-only"
+        onChange={(e) => {
+          alElegir(e.target.files?.[0])
+          // Así se puede volver a elegir el mismo archivo después de corregirlo.
+          e.target.value = ""
+        }}
+      />
+    </label>
   )
 }

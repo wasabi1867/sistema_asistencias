@@ -75,6 +75,8 @@ Un curso es una materia que un docente da a un grupo en un periodo. En **Cursos*
 
 Luego haz clic en el curso y, en **Inscribir: pega los números de control**, pega los del grupo: uno por renglón, o separados por comas o espacios. Puedes copiarlos directo de la columna del Excel. El sistema dice qué pasó con cada uno, por ejemplo si un número no existe porque falta cargar a ese alumno.
 
+**Con la lista de la materia de Mindbox es más rápido:** en el mismo curso, en **O sube la lista de la materia**, elige el Excel tal como lo bajaste. Se inscriben de una vez los que ya están dados de alta. Los que no, aparecen abajo con su nombre separado: revísalo, sobre todo los marcados con **Revisa**, y presiona **Dar de alta e inscribir**. A esos les faltará la carrera, el semestre y el grupo, que completas en **Alumnos**. Así cada semestre bajas la lista de cada materia y la subes a su curso, sin buscar alumno por alumno, y los irregulares quedan en las materias que de verdad llevan.
+
 Solo los alumnos inscritos en el curso pueden registrar su entrada a sus clases. Los demás pueden pedir permiso desde la pantalla de registro, y las solicitudes te llegan al **Tablero**. El docente también las ve en su clase y puede dejar entrar al alumno por esa vez o rechazarlo. Inscribirlo en el curso, con **Inscribirlo al curso**, solo lo puedes hacer tú.
 
 ## 6. Probar una clase

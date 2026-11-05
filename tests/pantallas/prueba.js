@@ -403,6 +403,38 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.keyboard.press("Escape")
     })
 
+    await paso("en un curso sube la lista de la materia: inscribe a los que existen y da de alta a los demás", async () => {
+      const libro = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(
+        libro,
+        XLSX.utils.aoa_to_sheet([
+          ["Programación Web"],
+          ["No.", "Matrícula", "Estudiante"],
+          [1, 26303001, "García Torres Ana Sofía"],
+          [2, 26303011, "Vargas Medina Renata"],
+          [3, 26303301, "De la Cruz Peña Ana Lucía"],
+        ]),
+        "Hoja1",
+      )
+      const archivo = path.join(SALIDA, "lista-de-la-materia.xlsx")
+      XLSX.writeFile(libro, archivo)
+      await admin.locator("aside nav").getByRole("button", { name: "Cursos", exact: true }).click()
+      await admin.getByRole("cell", { name: "Programación Web" }).first().click()
+      const dialogo = admin.getByRole("dialog", { name: /Programación Web/ })
+      await dialogo.locator('input[type="file"]').setInputFiles(archivo)
+      // Renata ya existía y queda inscrita; Ana Lucía no estaba dada de alta.
+      await dialogo.getByText("Este alumno no está dado de alta", { exact: false }).waitFor()
+      const separado = [await admin.getByLabel("Apellidos de 26303301").inputValue(), await admin.getByLabel("Nombre de 26303301").inputValue()]
+      if (separado.join(" | ") !== "De la Cruz Peña | Ana Lucía") throw new Error(`El nombre no se separó bien: ${separado.join(" | ")}`)
+      await dialogo.getByText(/Vargas Medina Renata/).waitFor()
+      await dialogo.getByRole("button", { name: "Dar de alta e inscribir" }).click()
+      await aceptar(admin, "Alumnos dados de alta e inscritos")
+      await dialogo.getByText(/De la Cruz Peña Ana Lucía/).waitFor()
+      await captura(admin, "12d-lista-de-la-materia", false)
+      await admin.keyboard.press("Escape")
+      await admin.getByRole("dialog").waitFor({ state: "detached" })
+    })
+
     await paso("una alerta encima de un diálogo recibe el foco y Escape cierra solo el de arriba", async () => {
       await admin.locator("aside nav").getByRole("button", { name: "Cuentas del personal" }).click()
       await admin.getByRole("button", { name: "Nueva cuenta" }).click()
@@ -477,7 +509,7 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.waitForTimeout(800)
       await captura(admin, "13-admin-oscuro")
       await admin.locator("aside nav").getByRole("button", { name: "Alumnos" }).click()
-      await admin.getByText("20 alumnos").waitFor()
+      await admin.getByText("21 alumnos").waitFor()
       await captura(admin, "14-admin-alumnos-oscuro")
     })
 
@@ -490,7 +522,7 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await movil.getByRole("button", { name: "Abrir el menú" }).click()
       await movil.getByRole("dialog").getByRole("button", { name: "Alumnos" }).click()
       await movil.getByRole("heading", { name: "Alumnos", level: 1 }).waitFor()
-      await movil.getByText("20 alumnos").waitFor()
+      await movil.getByText("21 alumnos").waitFor()
       await sinDesbordeHorizontal(movil, "alumnos en el teléfono")
       await captura(movil, "16-admin-alumnos-telefono")
     })

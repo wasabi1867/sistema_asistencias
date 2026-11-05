@@ -87,7 +87,7 @@ npm run build   # compila con webpack y revisa los tipos; falla si hay errores
 `tests/pantallas/` recorre el sistema en un navegador de verdad, contra el sitio compilado y la API real, en 49 pasos. Cubre:
 - **Laboratorio y alumno:** elegir el laboratorio; el docente abre la clase; un alumno se registra desde el teléfono; uno no inscrito pide permiso y el administrador lo aprueba.
 - **Docente:** registra a alguien a mano, descarga la hoja en PDF y en Excel, quita una entrada y cierra la clase.
-- **Administrador:** sus secciones, la carga de alumnos desde Excel y desde una lista de grupo (título arriba y el nombre completo en una columna, corrigiendo un nombre antes de cargar), crear cuentas, agregarle un rol a una cuenta, crear carreras y el tema oscuro.
+- **Administrador:** sus secciones, la carga de alumnos desde Excel y desde una lista de grupo (título arriba y el nombre completo en una columna, corrigiendo un nombre antes de cargar), subir la lista de una materia a su curso (inscribe a los que existen y da de alta a los demás), crear cuentas, agregarle un rol a una cuenta, crear carreras y el tema oscuro.
 - **Laboratorista:** pasar al panel del docente y volver (también es docente), sus vistas, reportar una falla, una clase de maestro invitado y la bitácora.
 
 En cada paso revisa además que no haya errores en la consola, respuestas 5xx de la API ni desborde horizontal en el teléfono. Deja capturas en `tests/pantallas/capturas/`, que git ignora.
