@@ -148,7 +148,7 @@ final class PermisosTest extends PruebaDeApi
 
             'pedir ingreso' => ['/solicitudes', 'POST', 'solicitudes', ['laboratorio' => 'redes', 'matricula' => '23303001'], self::TODOS],
             'ver las solicitudes' => ['/solicitudes', 'GET', 'solicitudes', null, self::SESION],
-            'resolver una de clase' => ['/solicitudes/{id}/resolver', 'POST', 'solicitudes/{solicitudDeClase}/resolver', ['estado' => 'rechazada'], self::ADMIN],
+            'resolver una de clase' => ['/solicitudes/{id}/resolver', 'POST', 'solicitudes/{solicitudDeClase}/resolver', ['estado' => 'rechazada'], self::ADMIN_Y_SU_DOCENTE],
             'resolver una de fuera de clase' => ['/solicitudes/{id}/resolver', 'POST', 'solicitudes/{solicitudFuera}/resolver', ['estado' => 'rechazada'], self::PERSONAL],
             'marcar una solicitud' => ['/solicitudes/{id}', 'PUT', 'solicitudes/{solicitudDeClase}', ['leida' => true], self::PERSONAL],
 

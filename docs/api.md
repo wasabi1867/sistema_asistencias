@@ -169,7 +169,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 |---|---|---|
 | `POST /solicitudes` | Pública | El alumno pide entrar a una clase (o usar el laboratorio fuera de clase) |
 | `GET /solicitudes` | Sesión | Con filtros (`laboratorio`, `estado`, `clase`) |
-| `POST /solicitudes/{id}/resolver` | Admin (de una clase); Personal (fuera de clase) | `aprobada_temporal` (entra ya), `aprobada_permanente` (entra y queda inscrito) o `rechazada` |
+| `POST /solicitudes/{id}/resolver` | De una clase: admin, o el docente del curso salvo `aprobada_permanente`. Fuera de clase: personal | `aprobada_temporal` (entra ya), `aprobada_permanente` (entra y queda inscrito) o `rechazada` |
 | `PUT /solicitudes/{id}` | Personal | Marca leída |
 | `GET /avisos` | Personal | Los avisos, con el estado actual de lo que avisan |
 | `PUT /avisos/{id}`, `POST /avisos/leidos` | Personal | Marca uno, o todos, como leídos |
