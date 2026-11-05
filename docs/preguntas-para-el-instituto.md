@@ -135,7 +135,7 @@ Respuesta:
 
 **11. Autorización por escrito** para usar los datos personales de los alumnos en el sistema nuevo y pasar a él los que ya están en Firebase. Se pide con el oficio dirigido al jefe de división de Sistemas Computacionales; si le corresponde a otra área (Centro de Cómputo o Subdirección Académica), el oficio le pide canalizarlo. ¿El aviso de privacidad del instituto ya cubre este uso, o hay que agregarlo?
 
-Respuesta (4 de noviembre de 2026, parcial): "No hay como tal nada que tenga que ver con los datos: hay una responsabilidad, pero no hay una firma de documento." No contestó lo del aviso de privacidad. Falta decidir si esto basta para importar los datos de Firebase.
+Respuesta (4 de noviembre de 2026, parcial): "No hay como tal nada que tenga que ver con los datos: hay una responsabilidad, pero no hay una firma de documento." No contestó lo del aviso de privacidad. David decidió tomar esta respuesta de palabra el mismo día, así que no se pide un documento firmado (D12 de [decisiones.md](decisiones.md)).
 
 **12. La lista de alumnos del semestre en Excel**, de servicios escolares, con estas columnas en el primer renglón: **Número de control, Nombre, Apellidos, Carrera, Semestre, Turno, Grupo**. Una fila por alumno. Así se carga tal cual en el sistema; hay una plantilla en [plantilla-alumnos.xlsx](plantilla-alumnos.xlsx).
 

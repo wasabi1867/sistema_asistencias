@@ -33,7 +33,7 @@ Lo averiguado el 22 de octubre de 2026:
 - Lo que haga falta para un piloto (un grupo, un docente, un laboratorio) se carga a mano en el sistema nuevo. Al importar, el script empata lo que ya exista (ver abajo).
 
 **Lo que hace falta antes del día del cambio** (pedido a Andrés y al instituto; ver [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md), sección "Para probar con datos reales"):
-- La autorización por escrito del instituto para usar los datos personales de los alumnos en el sistema nuevo y pasar a él los de Firebase.
+- ~~La autorización por escrito del instituto~~. Ya no hace falta: el 4 de noviembre de 2026 el jefe de carrera de Sistemas Computacionales dijo que no hay un documento que se firme para esto, y David decidió tomar su respuesta de palabra (D12 de [decisiones.md](decisiones.md)).
 - Acceso de lectura al proyecto de Firebase, para revisar los datos y simular la importación.
 - La fecha del cambio, acordada con quienes usan la aplicación anterior.
 

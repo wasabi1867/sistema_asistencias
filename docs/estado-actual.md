@@ -88,7 +88,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 ## Qué no se ha verificado
 
 - **Una clase completa en el sitio publicado:** abrir una clase, registrar a un alumno desde un teléfono y cerrarla. Se hará al cargar los primeros datos reales, para no dejar datos de prueba en la base de producción.
-- **La importación con los datos reales de Firebase.** No se han descargado: falta la autorización del instituto.
+- **La importación con los datos reales de Firebase.** No se han descargado: falta el acceso de lectura a Firebase. La autorización ya no detiene la importación: el 4 de noviembre de 2026 se tomó de palabra la respuesta del jefe de carrera (D12).
 - **Las reglas de seguridad de Firebase.** Por cómo funciona la aplicación de Vercel (escribe sin iniciar sesión y compara las contraseñas en el navegador), lo más probable es que dejen leer y escribir a cualquiera.
 - **Un lector de pantalla** y un **lector de credencial físico**.
 - **Un teléfono real.** Se probó con el ancho de un teléfono en el navegador de la computadora.
@@ -104,7 +104,6 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
    - entregar al instituto la presentación, el oficio y el cuestionario (listos desde el 23 de octubre);
    - quién usa y quién controla la aplicación de Vercel y Firebase (Andrés no los controla: los pide a quien los maneja);
    - acceso de lectura a Firebase, que da esa persona;
-   - la autorización por escrito para usar los datos de los alumnos;
    - la lista de alumnos en Excel, las materias con sus horarios y el personal;
    - un piloto y la fecha del cambio.
 2. **Respaldar la base cada semana** mientras se use, y antes del piloto y del día del cambio ("Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos)). El primero se hizo el 23 de octubre. Desde el 24, una tarea programada en la computadora de David lo hace cada viernes, con copia cifrada en Google Drive. Solo hay que autorizar la IP en MySQL remoto ese rato y quitarla después.

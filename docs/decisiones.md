@@ -101,7 +101,7 @@ El primer administrador es la cuenta de David, no una compartida. Las demás cue
 
 *22 de octubre de 2026.*
 
-La versión original sigue en uso en https://asistencialaboratorios.vercel.app y guarda en Firebase. Sus datos se importan el día en que se deja de usar, no antes. Las dos aplicaciones no se usan a la vez en las clases. Antes de descargar los datos hace falta la autorización por escrito del instituto, porque son datos personales de los alumnos. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md).
+La versión original sigue en uso en https://asistencialaboratorios.vercel.app y guarda en Firebase. Sus datos se importan el día en que se deja de usar, no antes. Las dos aplicaciones no se usan a la vez en las clases. Antes de descargar los datos hacía falta la autorización por escrito del instituto, porque son datos personales de los alumnos. El 4 de noviembre de 2026 el jefe de carrera de Sistemas Computacionales respondió que no hay un documento que se firme para esto, solo la responsabilidad de quien maneja los datos. David decidió tomar su respuesta de palabra, así que ya no se espera un documento firmado. Los datos siguen siendo personales: se descargan solo el día del cambio y con acceso de solo lectura, se guardan fuera del repositorio y se usan solo para la importación. Los pasos están en [cambio-de-firebase.md](cambio-de-firebase.md).
 
 **Por qué:** lo que se importe antes quedaría incompleto, y con las dos en uso los alumnos tendrían que registrarse dos veces.
 
