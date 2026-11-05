@@ -144,3 +144,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 4 de noviembre de 2026 | #25 | El docente del curso resuelve las solicitudes para entrar a su clase: deja entrar por esa vez o rechaza (pregunta 10) |
 | 4 de noviembre de 2026 | #26 | Cada laboratorista atiende solo los laboratorios que le asigna el administrador (D21, pregunta 6). Segunda migración de la base: los laboratoristas que ya existían quedan con todos |
 | 4 de noviembre de 2026 | #27 | Al cargar una lista con el nombre completo, los nombres se corrigen en la vista previa antes de guardar, y los de tres palabras se marcan para revisar (pregunta 3) |
+| 4 de noviembre de 2026 | #28 | Logos del instituto más grandes en la portada, la elección del laboratorio, el acceso del personal y los paneles, como pidió el jefe de carrera |

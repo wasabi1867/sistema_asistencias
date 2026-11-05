@@ -15,7 +15,7 @@ export function SeleccionDeLaboratorio({ laboratorios, alElegir }: { laboratorio
   return (
     <div className="mx-auto w-full max-w-2xl">
       <div className="mb-8 flex flex-col items-center text-center">
-        <Logo conTecnm className="h-14" />
+        <Logo conTecnm className="h-24" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight sm:text-3xl">Control de asistencias</h1>
         <p className="mt-2 text-muted-foreground">¿En qué laboratorio está esta computadora? Se recuerda para la próxima vez.</p>
       </div>

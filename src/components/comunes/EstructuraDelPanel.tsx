@@ -63,7 +63,7 @@ export function EstructuraDelPanel<T extends string>({
 
   const menu = (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 shrink-0 items-center border-b px-4">
+      <div className="flex h-20 shrink-0 items-center border-b px-4">
         <Marca subtitulo={panel} />
       </div>
       {arribaDelMenu && <div className="border-b p-3">{arribaDelMenu}</div>}
@@ -127,13 +127,13 @@ export function EstructuraDelPanel<T extends string>({
       )}
 
       <div className={conMenu ? "lg:pl-64" : ""}>
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:px-6">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 lg:h-20 border-b bg-background/85 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:px-6">
           {conMenu ? (
             <Button type="button" variant="ghost" size="icon" className="-ml-2 lg:hidden" onClick={() => setMenuAbierto(true)} aria-label="Abrir el menú">
               <Menu />
             </Button>
           ) : (
-            <Marca subtitulo={panel} className="mr-2 hidden sm:flex" />
+            <Marca subtitulo={panel} className="mr-2 hidden sm:flex" tamano="h-12 lg:h-14" />
           )}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold sm:text-lg">{titulo}</h1>
