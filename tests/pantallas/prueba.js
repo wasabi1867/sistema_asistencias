@@ -204,6 +204,24 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await telefono.getByRole("heading", { name: "Solicitud enviada" }).waitFor()
     })
 
+    await paso("una alumna que no está dada de alta pide su alta desde la clase", async () => {
+      await telefono.getByRole("heading", { name: "¿Quién eres?" }).waitFor({ timeout: 10000 })
+      await telefono.locator("#matricula").fill("26303099")
+      await telefono.getByRole("button", { name: /Continuar/ }).click()
+      await telefono.getByRole("button", { name: "Traigo mi propio equipo" }).click()
+      await telefono.getByRole("button", { name: "Registrar entrada con mi equipo" }).click()
+      await alerta(telefono, "No encontramos ese número de control")
+      await botonAceptar(telefono).click()
+      await telefono.getByRole("dialog", { name: "Pedir mi alta" }).waitFor()
+      await telefono.locator("#alta-nombre").fill("Nora")
+      await telefono.locator("#alta-apellido").fill("Nueva Pérez")
+      await telefono.locator("#alta-semestre").fill("3")
+      await sinDesbordeHorizontal(telefono, "pedir el alta en el teléfono")
+      await captura(telefono, "07b-telefono-pedir-alta")
+      await telefono.getByRole("button", { name: "Enviar solicitud" }).click()
+      await telefono.getByRole("heading", { name: "Solicitud de alta enviada" }).waitFor()
+    })
+
     await paso("el docente ve en su clase al alumno que pide entrar", async () => {
       await compu.getByRole("heading", { name: "Piden entrar a la clase" }).waitFor({ timeout: 15000 })
       await compu.getByText("Voy a recuperar una práctica").waitFor()
@@ -221,11 +239,31 @@ async function entrarComo(page, usuario, contrasena, ruta) {
 
     await paso("el tablero muestra la clase abierta y la solicitud; se aprueba por esa vez", async () => {
       await admin.getByText("Voy a recuperar una práctica").first().waitFor({ timeout: 15000 })
-      await admin.locator("aside nav").getByRole("button", { name: /Tablero\s*1/ }).waitFor({ timeout: 35000 })
+      await admin.locator("aside nav").getByRole("button", { name: /Tablero\s*2/ }).waitFor({ timeout: 35000 })
       await captura(admin, "08-tablero")
       await admin.getByRole("button", { name: /Dejar entrar esta vez/ }).click()
       await breve(admin, "Aprobada: ya está dentro")
       await admin.getByText("No hay solicitudes por resolver").waitFor()
+    })
+
+    await paso("el administrador revisa el alta, corrige el apellido y la da de alta inscrita en el curso", async () => {
+      await admin.getByText("Nora Nueva Pérez").waitFor({ timeout: 20000 })
+      await admin.getByRole("button", { name: /Revisar y dar de alta/ }).click()
+      await admin.getByRole("dialog", { name: "Dar de alta a 26303099" }).waitFor()
+      await admin.locator("#revisar-apellido").fill("Nueva")
+      await admin.getByText("Inscribirlo en Programación Web").waitFor()
+      await admin.getByRole("button", { name: "Dar de alta", exact: true }).click()
+      await aceptar(admin, "Alumno dado de alta")
+      await admin.getByText("Nadie ha pedido su alta").waitFor()
+    })
+
+    await paso("ya dada de alta, registra su entrada", async () => {
+      await telefono.getByRole("heading", { name: "¿Quién eres?" }).waitFor({ timeout: 10000 })
+      await telefono.locator("#matricula").fill("26303099")
+      await telefono.getByRole("button", { name: /Continuar/ }).click()
+      await telefono.getByRole("button", { name: "Traigo mi propio equipo" }).click()
+      await telefono.getByRole("button", { name: "Registrar entrada con mi equipo" }).click()
+      await telefono.getByRole("heading", { name: /¡Listo, Nora!/ }).waitFor()
     })
 
     // De vuelta con el docente
@@ -307,7 +345,7 @@ async function entrarComo(page, usuario, contrasena, ruta) {
 
     // Las secciones del administrador
     const secciones = [
-      ["Alumnos", "15 alumnos"],
+      ["Alumnos", "16 alumnos"],
       ["Cursos", "Programación Web"],
       ["Materias y prácticas", "Fundamentos de Base de Datos"],
       ["Cuentas del personal", "María"],
@@ -352,7 +390,7 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.getByText("3 alumnos en el archivo").waitFor()
       await admin.getByRole("button", { name: "Cargar alumnos" }).click()
       await aceptar(admin, "Alumnos cargados")
-      await admin.getByText("18 alumnos").waitFor({ timeout: 10000 })
+      await admin.getByText("19 alumnos").waitFor({ timeout: 10000 })
     })
 
     await paso("también carga una lista de grupo del instituto, con título arriba y el nombre completo en una columna", async () => {
@@ -381,7 +419,7 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.getByLabel("Nombre de 26303202").fill("Tomás Eduardo")
       await admin.getByRole("button", { name: "Cargar alumnos" }).click()
       await aceptar(admin, "Alumnos cargados")
-      await admin.getByText("20 alumnos").waitFor({ timeout: 10000 })
+      await admin.getByText("21 alumnos").waitFor({ timeout: 10000 })
       await admin.getByRole("button", { name: "Acciones para María José Del Ángel Ruiz" }).waitFor()
       await admin.getByRole("button", { name: "Acciones para Tomás Eduardo Ochoa Lara" }).waitFor()
     })
@@ -509,7 +547,7 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await admin.waitForTimeout(800)
       await captura(admin, "13-admin-oscuro")
       await admin.locator("aside nav").getByRole("button", { name: "Alumnos" }).click()
-      await admin.getByText("21 alumnos").waitFor()
+      await admin.getByText("22 alumnos").waitFor()
       await captura(admin, "14-admin-alumnos-oscuro")
     })
 
@@ -522,7 +560,7 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await movil.getByRole("button", { name: "Abrir el menú" }).click()
       await movil.getByRole("dialog").getByRole("button", { name: "Alumnos" }).click()
       await movil.getByRole("heading", { name: "Alumnos", level: 1 }).waitFor()
-      await movil.getByText("21 alumnos").waitFor()
+      await movil.getByText("22 alumnos").waitFor()
       await sinDesbordeHorizontal(movil, "alumnos en el teléfono")
       await captura(movil, "16-admin-alumnos-telefono")
     })

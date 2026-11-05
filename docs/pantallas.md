@@ -8,12 +8,12 @@ Stack: React 18, TypeScript, Tailwind, componentes de shadcn/ui (sobre Radix), l
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `/` | Alumnos | La computadora del laboratorio (y el teléfono del alumno): la clase abierta y el registro de entrada en dos pasos, número de control y computadora. El alumno no escribe ningún otro dato. El laboratorio se elige una vez y se recuerda en el navegador. |
+| `/` | Alumnos | La computadora del laboratorio (y el teléfono del alumno): la clase abierta y el registro de entrada en dos pasos, número de control y computadora. El alumno no escribe ningún otro dato; si su número de control no está en el sistema, puede pedir su alta. El laboratorio se elige una vez y se recuerda en el navegador. |
 | `/entrar` | Personal | Inicio de sesión de docentes, laboratoristas y administradores, sin elegir el rol: la cuenta va al último panel que usó en esa computadora o al primero que le toque (D20). Se llega con el botón **Personal** de `/`. |
 | `/docente` | Docente | Abre la clase de uno de sus cursos, ve quién entra, la exporta y la cierra. Sus prácticas, sus clases anteriores y la asistencia del curso. |
 | `/laboratorio` | Laboratorista y administrador | Lo que pasa en el laboratorio (con el mapa de equipos), historial, reportes, bitácora, equipos, horario, invitados y eventos. |
 | `/clase-invitada` | Laboratorista y administrador | Una clase de maestro invitado, abierta desde `/laboratorio`. |
-| `/admin` | Administrador | Tablero, alumnos (con carga desde Excel), cursos, materias y prácticas, cuentas del personal, carreras, periodos y laboratorios. |
+| `/admin` | Administrador | Tablero (con las solicitudes de ingreso y de alta), alumnos (con carga desde Excel), cursos, materias y prácticas, cuentas del personal, carreras, periodos y laboratorios. |
 
 La sección abierta de un panel va en la dirección (`/admin?seccion=alumnos`), con `useSeccion`: recargar, usar "atrás" o compartir el enlace deja a la persona donde estaba.
 
@@ -84,8 +84,8 @@ npm run build   # compila con webpack y revisa los tipos; falla si hay errores
 
 ## Prueba de las pantallas
 
-`tests/pantallas/` recorre el sistema en un navegador de verdad, contra el sitio compilado y la API real, en 49 pasos. Cubre:
-- **Laboratorio y alumno:** elegir el laboratorio; el docente abre la clase; un alumno se registra desde el teléfono; uno no inscrito pide permiso y el administrador lo aprueba.
+`tests/pantallas/` recorre el sistema en un navegador de verdad, contra el sitio compilado y la API real, en 54 pasos. Cubre:
+- **Laboratorio y alumno:** elegir el laboratorio; el docente abre la clase; un alumno se registra desde el teléfono; uno no inscrito pide permiso y el administrador lo aprueba; una alumna que no está dada de alta pide su alta, el administrador la aprueba corrigiendo su apellido y ella registra su entrada.
 - **Docente:** registra a alguien a mano, descarga la hoja en PDF y en Excel, quita una entrada y cierra la clase.
 - **Administrador:** sus secciones, la carga de alumnos desde Excel y desde una lista de grupo (título arriba y el nombre completo en una columna, corrigiendo un nombre antes de cargar), subir la lista de una materia a su curso (inscribe a los que existen y da de alta a los demás), crear cuentas, agregarle un rol a una cuenta, crear carreras y el tema oscuro.
 - **Laboratorista:** pasar al panel del docente y volver (también es docente), sus vistas, reportar una falla, una clase de maestro invitado y la bitácora.

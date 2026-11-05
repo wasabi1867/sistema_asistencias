@@ -33,6 +33,8 @@ erDiagram
     laboratorios ||--o{ solicitudes_ingreso : ""
     clases ||--o{ solicitudes_ingreso : ""
     alumnos ||--o{ solicitudes_ingreso : ""
+    laboratorios ||--o{ solicitudes_de_alta : ""
+    clases ||--o{ solicitudes_de_alta : ""
     laboratorios ||--o{ eventos : ""
 ```
 
@@ -54,6 +56,7 @@ erDiagram
 | Operación | `clases` | Cada sesión en un laboratorio, regular o de maestro invitado |
 | | `asistencias` | Cada entrada a un laboratorio, en clase o fuera de ella, con su salida |
 | | `solicitudes_ingreso` | Alumnos que piden entrar a una clase en la que no están inscritos, o usar el laboratorio fuera de clase |
+| | `solicitudes_de_alta` | Alumnos que no están dados de alta y piden su alta desde la pantalla de registro (D22) |
 | Otros | `eventos` | Talleres y actividades del laboratorio fuera de clase |
 | | `avisos` | Avisos para el administrador y el laboratorista |
 | | `bitacora` | Quién hizo qué, cuándo y desde dónde |
@@ -114,6 +117,7 @@ Además de que la API las revise, la base rechaza lo que las rompe, aunque llegu
 - Hay a lo más una pendiente por alumno, laboratorio y clase.
 - La que está resuelta tiene fecha de resolución.
 - Solo se aprueba inscribiendo al alumno si es de una clase, porque fuera de clase no hay curso.
+- Hay a lo más una solicitud de alta pendiente por número de control.
 
 **Sin repetir**
 - Un curso (materia, periodo y grupo).

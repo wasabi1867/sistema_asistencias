@@ -27,6 +27,7 @@ final class Rutas
         Modulos\Clases\RegistroDeEntrada::class,
         Modulos\Clases\Asistencias::class,
         Modulos\Solicitudes\Solicitudes::class,
+        Modulos\Solicitudes\SolicitudesDeAlta::class,
         Modulos\Avisos\Avisos::class,
         Modulos\Laboratorio\Eventos::class,
         Modulos\Consultas\ConsultaDeBitacora::class,

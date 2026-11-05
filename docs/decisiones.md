@@ -14,7 +14,7 @@ El equipo pasó a trabajar en `wasabi1867/sistema_asistencias`, que Andrés arm�
 
 *21 de octubre de 2026.*
 
-Materias como catálogo, cursos por periodo (materia, grupo, docente y periodo) e inscripciones como tabla, entre otras cosas. Las 20 tablas y lo que cambió respecto de la base original están en [modelo-de-datos.md](modelo-de-datos.md).
+Materias como catálogo, cursos por periodo (materia, grupo, docente y periodo) e inscripciones como tabla, entre otras cosas. Las tablas y lo que cambió respecto de la base original están en [modelo-de-datos.md](modelo-de-datos.md).
 
 **Por qué:** la base original repetía datos y no tenía llaves foráneas. Cada semestre había que recapturar las materias, y la pantalla de asistencia descargaba a todos los alumnos al navegador.
 
@@ -264,3 +264,22 @@ Detalles:
 - Lo pidió el instituto. La persona responsable de un laboratorio responde por él.
 - Una tabla y no un campo de la cuenta: los laboratorios no son fijos y un laboratorista puede atender varios.
 - Con la asignación vacía no atiende ninguno, en lugar de todos. Es lo más restrictivo, y el aviso en el panel dice qué hacer.
+
+## D22. El alumno que no está dado de alta pide su alta, y la aprueba el administrador
+
+*5 de noviembre de 2026.*
+
+El jefe de carrera pidió que el alumno que llega después de la carga pueda pedir su alta, y aprobarla él (pregunta 3 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md)). Cuando un número de control no está en el sistema, la pantalla de registro ofrece **Pedir mi alta**: el alumno escribe su nombre, sus apellidos y, si los sabe, su semestre y su grupo. La solicitud se guarda en `solicitudes_de_alta` y aparece en el Tablero del administrador, en **Piden su alta**.
+
+El administrador la revisa, corrige o completa los datos (carrera, semestre, grupo y turno) y la aprueba o la rechaza. Al aprobarla:
+- se crea el alumno;
+- si la pidió desde la clase de un curso, queda inscrito en ese curso, salvo que el administrador quite esa casilla;
+- si mientras esperaba ya lo dieron de alta, por ejemplo con la lista de la materia, se queda con los datos que tenía: la solicitud no los cambia.
+
+Al aprobarla no se registra su entrada: el alumno la registra con su número de control, como cualquiera.
+
+**Por qué:**
+- **La aprueba el administrador.** El jefe de carrera pidió aprobarla él, y en el sistema eso es el rol de administrador (D20). El docente y el laboratorista no la aprueban: es lo más restrictivo que deja operar (D13). Es provisional mientras el instituto define qué hace cada rol (pregunta 7).
+- **Una tabla aparte, no un alumno desactivado.** Así nadie entra a la lista de alumnos solo por escribir un número de control, y lo que se pide sin sesión no toca a los alumnos.
+- **Límites contra el abuso.** Se pide sin sesión, igual que el registro, así que hay dos límites: una sola solicitud pendiente por número de control, y a lo más 40 por hora desde una misma red. Ese número deja pasar a un salón entero, que sale a internet por la misma red.
+- **No lo deja entrar al aprobarla**, a diferencia de las solicitudes para entrar a una clase: el alta puede aprobarse horas después, con la clase ya cerrada.

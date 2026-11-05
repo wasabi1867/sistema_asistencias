@@ -36,6 +36,7 @@ final class Estadisticas
             'materias' => (int)$bd->valor('SELECT COUNT(*) FROM materias WHERE activa'),
             'cursosDelPeriodo' => $periodo === null ? 0 : (int)$bd->valor('SELECT COUNT(*) FROM cursos WHERE periodo_id = ?', [$periodo]),
             'solicitudesPendientes' => (int)$bd->valor("SELECT COUNT(*) FROM solicitudes_ingreso WHERE estado = 'pendiente'"),
+            'altasPendientes' => (int)$bd->valor("SELECT COUNT(*) FROM solicitudes_de_alta WHERE estado = 'pendiente'"),
             'reportesAbiertos' => (int)$bd->valor("SELECT COUNT(*) FROM reportes_de_equipo WHERE estado <> 'resuelto'"),
         ];
 

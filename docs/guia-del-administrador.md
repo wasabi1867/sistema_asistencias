@@ -79,6 +79,8 @@ Luego haz clic en el curso y, en **Inscribir: pega los números de control**, pe
 
 Solo los alumnos inscritos en el curso pueden registrar su entrada a sus clases. Los demás pueden pedir permiso desde la pantalla de registro, y las solicitudes te llegan al **Tablero**. El docente también las ve en su clase y puede dejar entrar al alumno por esa vez o rechazarlo. Inscribirlo en el curso, con **Inscribirlo al curso**, solo lo puedes hacer tú.
 
+**Alumnos que llegan después de la carga.** Si un alumno escribe un número de control que no está en el sistema, la pantalla le ofrece **Pedir mi alta**. Escribe su nombre y, si los sabe, su semestre y su grupo. Su solicitud te llega al **Tablero**, en **Piden su alta**. Presiona **Revisar y dar de alta**, corrige su nombre si hace falta, completa la carrera, el semestre, el grupo y el turno, y presiona **Dar de alta**. Si la pidió desde una clase, queda inscrito en ese curso; si no quieres inscribirlo ahí, quita la casilla. Luego registra su entrada como cualquiera. Si no es alumno del instituto, presiona **Rechazar**.
+
 ## 6. Probar una clase
 
 1. **En la computadora del laboratorio** (o en cualquier navegador), abre el sitio y elige el laboratorio. Se hace una sola vez: la computadora lo recuerda.

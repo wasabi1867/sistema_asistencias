@@ -12,6 +12,7 @@ import { PANEL_DE } from "../../lib/rutas"
 import { useConsultaPeriodica } from "../../hooks/useConsultaPeriodica"
 import { Cifra, Panel, PuntoEnVivo, SinDatos } from "../comunes/Bloques"
 import type { PropsDeSeccion } from "./seccion"
+import { SolicitudesDeAltaPendientes } from "./SolicitudesDeAlta"
 
 const ESTADO_DE_SOLICITUD = { pendiente: "Pendiente", aprobada_temporal: "Aprobada por esa vez", aprobada_permanente: "Aprobada e inscrito", rechazada: "Rechazada" }
 const ESTADO_DE_REPORTE = { reportado: "Reportada", en_proceso: "En proceso", resuelto: "Resuelta" }
@@ -23,6 +24,7 @@ export function Tablero({ irA }: PropsDeSeccion) {
   const { datos: estadisticas } = useConsultaPeriodica(() => api.estadisticas(), 30000, [])
   const { datos: abiertas, recargar: recargarClases } = useConsultaPeriodica(() => api.clases.listar({ estado: "abiertas" }), 10000, [])
   const { datos: solicitudes, recargar: recargarSolicitudes } = useConsultaPeriodica(() => api.solicitudes.listar({ estado: "pendiente" }), 10000, [])
+  const { datos: altas, recargar: recargarAltas } = useConsultaPeriodica(() => api.solicitudesDeAlta.listar({ estado: "pendiente" }), 15000, [])
   const [soloNoLeidos, setSoloNoLeidos] = useState(true)
   const { datos: avisos, recargar: recargarAvisos } = useConsultaPeriodica(() => api.avisos.listar(soloNoLeidos ? { leido: false } : {}), 15000, [soloNoLeidos])
 
@@ -81,7 +83,8 @@ export function Tablero({ irA }: PropsDeSeccion) {
     return null
   }
 
-  const pendientes = estadisticas?.solicitudesPendientes ?? 0
+  // Las de entrar a una clase y las de alta: las dos esperan al administrador.
+  const pendientes = estadisticas ? estadisticas.solicitudesPendientes + estadisticas.altasPendientes : 0
   const fallas = estadisticas?.reportesAbiertos ?? 0
 
   return (
@@ -97,7 +100,7 @@ export function Tablero({ irA }: PropsDeSeccion) {
         />
         <Cifra etiqueta="Materias" valor={estadisticas?.materias} icono={BookOpen} detalle="En el catálogo" alElegir={() => irA("materias")} />
         <Cifra etiqueta="Cursos" valor={estadisticas?.cursosDelPeriodo} icono={ClipboardCheck} detalle="En el periodo actual" alElegir={() => irA("cursos")} />
-        <Cifra etiqueta="Solicitudes" valor={estadisticas?.solicitudesPendientes} icono={UserPlus} tono={pendientes > 0 ? "warning" : "neutral"} detalle={pendientes > 0 ? "Por resolver" : "Al día"} />
+        <Cifra etiqueta="Solicitudes" valor={estadisticas ? pendientes : undefined} icono={UserPlus} tono={pendientes > 0 ? "warning" : "neutral"} detalle={pendientes > 0 ? "Por resolver" : "Al día"} />
         <Cifra
           etiqueta="Fallas abiertas"
           valor={estadisticas?.reportesAbiertos}
@@ -155,6 +158,8 @@ export function Tablero({ irA }: PropsDeSeccion) {
               </ul>
             )}
           </Panel>
+
+          <SolicitudesDeAltaPendientes solicitudes={altas} alResolver={recargarAltas} />
 
           <Panel
             titulo="Avisos"
