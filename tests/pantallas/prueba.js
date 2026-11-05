@@ -204,6 +204,12 @@ async function entrarComo(page, usuario, contrasena, ruta) {
       await telefono.getByRole("heading", { name: "Solicitud enviada" }).waitFor()
     })
 
+    await paso("el docente ve en su clase al alumno que pide entrar", async () => {
+      await compu.getByRole("heading", { name: "Piden entrar a la clase" }).waitFor({ timeout: 15000 })
+      await compu.getByText("Voy a recuperar una práctica").waitFor()
+      await compu.getByRole("button", { name: /Dejar entrar/ }).waitFor()
+    })
+
     // El administrador
     const admin = await nuevo("administrador")
     await paso("el administrador entra desde /entrar", async () => {

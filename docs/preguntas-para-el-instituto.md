@@ -107,7 +107,7 @@ Hoy el alumno solo escribe su número de control. El sistema lo deja entrar si e
 Si no se revisa, cualquier alumno con número de control puede entrar a cualquier clase. Se deja de saber quién faltó: solo quién vino.
 *Si no hay respuesta:* se seguirá revisando la inscripción.
 
-Respuesta (4 de noviembre de 2026): sí. El sistema está en internet, y cualquiera podría registrarse desde su casa en una clase que no es suya. Las solicitudes le parecen bien. Propone que también las pueda aprobar el docente de la materia, siempre que el alumno ya esté dado de alta en el sistema. **Hoy solo las aprueba el administrador.**
+Respuesta (4 de noviembre de 2026): sí. El sistema está en internet, y cualquiera podría registrarse desde su casa en una clase que no es suya. Las solicitudes le parecen bien. Propone que también las pueda aprobar el docente de la materia, siempre que el alumno ya esté dado de alta en el sistema. **Hecho el 4 de noviembre de 2026:** el docente del curso deja entrar por esa vez o rechaza; inscribir al alumno en el curso sigue siendo del administrador.
 
 ## Para probar con datos reales
 
