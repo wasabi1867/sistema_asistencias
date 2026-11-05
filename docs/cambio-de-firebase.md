@@ -90,7 +90,7 @@ En la misma ventana, desde la carpeta del repositorio:
 php scripts/instalar.php
 ```
 
-Crea las 20 tablas y carga los datos iniciales: laboratorios, carreras y los equipos del Taller de Programación. Si la base ya tiene tablas, se niega a correr.
+Crea las 21 tablas y carga los datos iniciales: laboratorios, carreras y los equipos del Taller de Programación. Si la base ya tiene tablas, se niega a correr.
 
 ## 3. Primer administrador
 
@@ -230,7 +230,7 @@ php scripts/exportar-datos.php "$env:USERPROFILE\hostinger-itspp\respaldos\labor
 ```
 
 - Lee todas las tablas como estaban en un mismo instante, aunque haya una clase abierta. No cambia nada en la base.
-- El archivo anota las migraciones que tenía la base y termina con `-- Fin del respaldo: N renglones de 20 tablas.` Si esa línea falta, el respaldo quedó cortado y no sirve.
+- El archivo anota las migraciones que tenía la base y termina con `-- Fin del respaldo: N renglones de 21 tablas.` Si esa línea falta, el respaldo quedó cortado y no sirve.
 - **Tiene datos personales.** Va fuera del repositorio. La segunda copia, fuera de la computadora, va cifrada.
 - **Dónde está la copia cifrada** (desde el 24 de octubre de 2026):
   - En el Google Drive de David, con un remoto `crypt` de rclone. Cifra el contenido y los nombres; Google solo ve datos ilegibles.

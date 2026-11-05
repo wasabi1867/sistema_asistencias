@@ -382,6 +382,27 @@ export interface Solicitud {
   resueltaPor: string | null
 }
 
+/** Un alumno que no está dado de alta pide su alta desde la pantalla de registro. */
+export interface SolicitudDeAlta {
+  id: number
+  estado: "pendiente" | "aprobada" | "rechazada"
+  matricula: string
+  nombre: string
+  apellido: string
+  semestre: number | null
+  grupo: string | null
+  laboratorio: { clave: string; nombre: string }
+  clase: { id: number; materia: string; grupo: string | null; docente: string | null; abierta: boolean } | null
+  dadoDeAlta: boolean
+  comentario: string | null
+  creadaEn: string
+  resueltaEn: string | null
+  resueltaPor: string | null
+}
+
+/** Lo que el administrador corrige o completa al aprobar una solicitud de alta. */
+export type DatosDeAlta = Partial<Pick<DatosDeAlumno, "nombre" | "apellido" | "carrera" | "semestre" | "turno" | "grupo">> & { inscribir?: boolean; comentario?: string }
+
 export type TipoDeAviso = "solicitud" | "equipo" | "clase" | "sistema"
 
 export interface Aviso {
@@ -438,6 +459,7 @@ export interface Estadisticas {
   materias: number
   cursosDelPeriodo: number
   solicitudesPendientes: number
+  altasPendientes: number
   reportesAbiertos: number
   laboratorio?: {
     equipos: { total: number; ocupados: number; fueraDeServicio: number; libres: number }
@@ -620,6 +642,15 @@ export const api = {
     listar: (filtros: { laboratorio?: string; estado?: EstadoDeSolicitud; clase?: number } = {}) => obtener<Solicitud[]>("solicitudes", filtros),
     resolver: (id: number, estado: Exclude<EstadoDeSolicitud, "pendiente">, comentario?: string) => crear<Solicitud>(`solicitudes/${id}/resolver`, { estado, comentario }),
     marcarLeida: (id: number, leida = true) => cambiar<void>(`solicitudes/${id}`, { leida }),
+  },
+
+  solicitudesDeAlta: {
+    /** Pública: la manda el alumno que no está dado de alta. */
+    crear: (datos: { laboratorio: string; matricula: string; nombre: string; apellido: string; semestre?: number | null; grupo?: string | null; claseId?: number }) =>
+      crear<SolicitudDeAlta>("solicitudes-de-alta", datos),
+    listar: (filtros: { estado?: SolicitudDeAlta["estado"] } = {}) => obtener<SolicitudDeAlta[]>("solicitudes-de-alta", filtros),
+    aprobar: (id: number, datos: DatosDeAlta = {}) => crear<SolicitudDeAlta>(`solicitudes-de-alta/${id}/resolver`, { estado: "aprobada", ...datos }),
+    rechazar: (id: number, comentario?: string) => crear<SolicitudDeAlta>(`solicitudes-de-alta/${id}/resolver`, { estado: "rechazada", comentario }),
   },
 
   avisos: {

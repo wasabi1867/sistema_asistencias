@@ -18,7 +18,7 @@ final class MigracionesTest extends PruebaDeApi
             [$codigo, $salida] = Entorno::correrScript('migrar.php', variables: ['ASISTENCIAS_DB_NAME' => $migrada]);
             $this->assertSame(0, $codigo, $salida);
 
-            $this->assertCount(20, $this->estructura($nueva));
+            $this->assertCount(21, $this->estructura($nueva));
             $this->assertSame($this->estructura($nueva), $this->estructura($migrada));
             $this->assertSame(
                 count(glob(dirname(__DIR__, 2) . '/db/migraciones/*.sql')),

@@ -56,6 +56,7 @@ final class PermisosTest extends PruebaDeApi
             'solicitudFuera' => $this->insertar('solicitudes_ingreso', ['laboratorio_id' => $this->laboratorio('redes'), 'alumno_id' => $a2]),
             'evento' => $this->insertar('eventos', ['laboratorio_id' => $this->laboratorio(), 'nombre' => 'Hackatón']),
             'aviso' => $this->insertar('avisos', ['tipo' => 'sistema', 'titulo' => 'Aviso']),
+            'solicitudDeAlta' => $this->insertar('solicitudes_de_alta', ['matricula' => '24303099', 'nombre' => 'N', 'apellido' => 'A', 'laboratorio_id' => $this->laboratorio()]),
             'horario' => $this->insertar('horarios', ['curso_id' => $curso, 'laboratorio_id' => $this->laboratorio(), 'dia_semana' => 1, 'hora_inicio' => '08:00', 'hora_fin' => '10:00']),
         ];
     }
@@ -151,6 +152,9 @@ final class PermisosTest extends PruebaDeApi
             'resolver una de clase' => ['/solicitudes/{id}/resolver', 'POST', 'solicitudes/{solicitudDeClase}/resolver', ['estado' => 'rechazada'], self::ADMIN_Y_SU_DOCENTE],
             'resolver una de fuera de clase' => ['/solicitudes/{id}/resolver', 'POST', 'solicitudes/{solicitudFuera}/resolver', ['estado' => 'rechazada'], self::PERSONAL],
             'marcar una solicitud' => ['/solicitudes/{id}', 'PUT', 'solicitudes/{solicitudDeClase}', ['leida' => true], self::PERSONAL],
+            'pedir el alta' => ['/solicitudes-de-alta', 'POST', 'solicitudes-de-alta', ['laboratorio' => 'redes', 'matricula' => '24303100', 'nombre' => 'N', 'apellido' => 'A'], self::TODOS],
+            'ver las solicitudes de alta' => ['/solicitudes-de-alta', 'GET', 'solicitudes-de-alta', null, self::ADMIN],
+            'resolver una solicitud de alta' => ['/solicitudes-de-alta/{id}/resolver', 'POST', 'solicitudes-de-alta/{solicitudDeAlta}/resolver', ['estado' => 'rechazada'], self::ADMIN],
 
             'ver los avisos' => ['/avisos', 'GET', 'avisos', null, self::PERSONAL],
             'marcar un aviso' => ['/avisos/{id}', 'PUT', 'avisos/{aviso}', ['leido' => true], self::PERSONAL],

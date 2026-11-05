@@ -46,7 +46,7 @@ export default function PanelDelAdministrador() {
 
   const actual = SECCIONES.find((s) => s.id === seccion) ?? SECCIONES[0]
   const Seccion = actual.componente
-  const secciones = SECCIONES.map((s) => (s.id === "tablero" ? { ...s, pendientes: estadisticas?.solicitudesPendientes } : s))
+  const secciones = SECCIONES.map((s) => (s.id === "tablero" ? { ...s, pendientes: estadisticas && estadisticas.solicitudesPendientes + estadisticas.altasPendientes } : s))
 
   return (
     <EstructuraDelPanel

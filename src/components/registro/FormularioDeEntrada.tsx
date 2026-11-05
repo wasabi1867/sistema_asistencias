@@ -8,9 +8,10 @@ import { alertas } from "../../lib/alertas"
 import { hora, nombreDeEquipo } from "../../lib/formato"
 import { Campo } from "../comunes/Bloques"
 import { CuadriculaDeEquipos, PROPIO } from "./CuadriculaDeEquipos"
+import { PedirAlta } from "./PedirAlta"
 
 type Paso = "quien" | "equipo" | "listo"
-type Resultado = { tipo: "entrada"; nombre: string; materia: string; equipo: string | null; hora: string } | { tipo: "solicitud"; materia: string }
+type Resultado = { tipo: "entrada"; nombre: string; materia: string; equipo: string | null; hora: string } | { tipo: "solicitud"; materia: string } | { tipo: "alta" }
 
 // Cuánto se queda la confirmación antes de dejar la pantalla lista para el siguiente.
 const SEGUNDOS_DE_CONFIRMACION = 6
@@ -43,6 +44,7 @@ export function FormularioDeEntrada({
   const [apellido, setApellido] = useState("")
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState<Resultado | null>(null)
+  const [pidiendoAlta, setPidiendoAlta] = useState(false)
   // Evita registros dobles con internet lento, antes de que el botón se desactive.
   const enviandoRef = useRef(false)
   const tituloDelResultado = useRef<HTMLHeadingElement>(null)
@@ -50,6 +52,10 @@ export function FormularioDeEntrada({
   const hayClase = clases.length > 0
   const soloDeInvitado = hayClase && clases.every((clase) => clase.tipo === "invitado")
   const pideCodigo = clases.some((clase) => clase.pideCodigo)
+  // La clase de un curso en la que quedaría inscrito al aprobarle el alta. Si hay más de
+  // una abierta no se sabe cuál es la suya, y el administrador lo inscribe después.
+  const regulares = clases.filter((clase) => clase.tipo === "regular")
+  const claseDelAlta = regulares.length === 1 ? regulares[0] : null
   const quien = soloDeInvitado && deFuera ? `${nombre} ${apellido}`.trim() : matricula
 
   const reiniciar = useCallback(() => {
@@ -125,12 +131,28 @@ export function FormularioDeEntrada({
     } else if (codigoDeError === "equipo_ocupado" || codigoDeError === "equipo_fuera_de_servicio") {
       setEquipo("")
       await alertas.aviso("Elige otra computadora", mensaje)
-    } else if (codigoDeError === "matricula_no_encontrada" || codigoDeError === "codigo_incorrecto") {
+    } else if (codigoDeError === "matricula_no_encontrada") {
       setPaso("quien")
-      await alertas.aviso(codigoDeError === "codigo_incorrecto" ? "El código no es correcto" : "No encontramos ese número de control", mensaje)
+      await ofrecerAlta()
+    } else if (codigoDeError === "codigo_incorrecto") {
+      setPaso("quien")
+      await alertas.aviso("El código no es correcto", mensaje)
     } else {
       await alertas.error("No se pudo registrar tu entrada", error)
     }
+  }
+
+  /**
+   * El número de control no está dado de alta: puede estar mal escrito, o el alumno llegó
+   * después de que se cargó la lista. En ese caso pide su alta (pregunta 3).
+   */
+  const ofrecerAlta = async () => {
+    const quiere = await alertas.confirmar(
+      "No encontramos ese número de control",
+      `Revisa que ${matricula} esté bien escrito. Si lo está y todavía no estás en el sistema, pide tu alta: el administrador la revisa.`,
+      { aceptar: "Pedir mi alta" },
+    )
+    if (quiere) setPidiendoAlta(true)
   }
 
   /** El alumno no está inscrito: puede pedirle al administrador que lo deje entrar. */
@@ -170,15 +192,22 @@ export function FormularioDeEntrada({
 
   if (paso === "listo" && resultado) {
     const esEntrada = resultado.tipo === "entrada"
+    const esAlta = resultado.tipo === "alta"
     return (
       <section className="flex flex-col items-center rounded-xl border bg-card px-6 py-10 text-center shadow-sm sm:px-8" aria-label="Registro de entrada">
         <div className={cn("flex h-16 w-16 items-center justify-center rounded-full", esEntrada ? "bg-success/15 text-success" : "bg-info/15 text-info")}>
           {esEntrada ? <CheckCircle2 className="h-9 w-9" aria-hidden /> : <Send className="h-8 w-8" aria-hidden />}
         </div>
         <h2 ref={tituloDelResultado} tabIndex={-1} className="mt-4 text-2xl font-semibold tracking-tight outline-none">
-          {esEntrada ? `¡Listo, ${resultado.nombre}!` : "Solicitud enviada"}
+          {esEntrada ? `¡Listo, ${resultado.nombre}!` : esAlta ? "Solicitud de alta enviada" : "Solicitud enviada"}
         </h2>
-        <p className="mt-1 text-muted-foreground">{esEntrada ? "Tu entrada quedó registrada." : `Espera a que el administrador la revise para entrar a ${resultado.materia}.`}</p>
+        <p className="mt-1 text-muted-foreground">
+          {esEntrada
+            ? "Tu entrada quedó registrada."
+            : esAlta
+              ? "Cuando el administrador la apruebe, registra tu entrada con tu número de control."
+              : `Espera a que el administrador la revise para entrar a ${resultado.materia}.`}
+        </p>
         {esEntrada && (
           <dl className="mt-6 grid w-full max-w-md divide-y rounded-lg border text-sm sm:grid-cols-[2fr_1fr_1fr] sm:divide-x sm:divide-y-0">
             {[
@@ -207,6 +236,19 @@ export function FormularioDeEntrada({
 
   return (
     <section className="rounded-xl border bg-card p-5 shadow-sm sm:p-8" aria-label="Registro de entrada">
+      {pidiendoAlta && (
+        <PedirAlta
+          laboratorio={laboratorio}
+          matricula={matricula}
+          clase={claseDelAlta}
+          alCerrar={() => setPidiendoAlta(false)}
+          alEnviar={() => {
+            setPidiendoAlta(false)
+            setResultado({ tipo: "alta" })
+            setPaso("listo")
+          }}
+        />
+      )}
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-primary">Registro de entrada</p>

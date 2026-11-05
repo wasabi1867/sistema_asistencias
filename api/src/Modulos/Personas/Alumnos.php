@@ -253,7 +253,7 @@ final class Alumnos
     }
 
     /** Los datos de un alumno. Si es nuevo se leen todos; al editar, solo los que vinieron. */
-    private static function datos(BaseDeDatos $bd, Entrada $e, bool $nuevo): array
+    public static function datos(BaseDeDatos $bd, Entrada $e, bool $nuevo): array
     {
         $valores = [];
         $leer = static fn (string $campo) => $nuevo || $e->tiene($campo);

@@ -171,6 +171,9 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 | `GET /solicitudes` | Sesión | Con filtros (`laboratorio`, `estado`, `clase`) |
 | `POST /solicitudes/{id}/resolver` | De una clase: admin, o el docente del curso salvo `aprobada_permanente`. Fuera de clase: personal de ese laboratorio | `aprobada_temporal` (entra ya), `aprobada_permanente` (entra y queda inscrito) o `rechazada` |
 | `PUT /solicitudes/{id}` | Personal | Marca leída |
+| `POST /solicitudes-de-alta` | Pública | El alumno que no está dado de alta pide su alta: número de control, nombre, apellidos y, si los sabe, semestre y grupo. Con `claseId`, la de un curso abierta en ese laboratorio. Una pendiente por número de control y 40 por hora desde una misma red (D22) |
+| `GET /solicitudes-de-alta?estado=` | Admin | Las solicitudes de alta |
+| `POST /solicitudes-de-alta/{id}/resolver` | Admin | `aprobada` o `rechazada`. Al aprobarla se pueden corregir `nombre`, `apellido`, `carrera`, `semestre`, `grupo` y `turno`; se crea el alumno y, si la pidió desde una clase, queda inscrito en ese curso salvo con `inscribir: false` |
 | `GET /avisos` | Personal | Los avisos, con el estado actual de lo que avisan |
 | `PUT /avisos/{id}`, `POST /avisos/leidos` | Personal | Marca uno, o todos, como leídos |
 | `GET /eventos` | Sesión | Talleres y actividades |
@@ -213,6 +216,6 @@ Para correr la API en una computadora:
 
 [`db/esquema.sql`](../db/esquema.sql) siempre describe la base completa; [docs/modelo-de-datos.md](modelo-de-datos.md) explica cada tabla.
 
-Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: `001-cuentas-con-varios-roles.sql` es el primero y `002-laboratorios-por-laboratorista.sql` el segundo. `tests/api/MigracionesTest.php` crea una base con el esquema con que se instaló producción (`tests/api/migraciones/esquema-instalado-2026-10-22.sql`), le aplica las migraciones y revisa que quede igual que una creada con `db/esquema.sql`. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
+Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: `001-cuentas-con-varios-roles.sql` es el primero, `002-laboratorios-por-laboratorista.sql` el segundo y `003-solicitudes-de-alta.sql` el tercero. `tests/api/MigracionesTest.php` crea una base con el esquema con que se instaló producción (`tests/api/migraciones/esquema-instalado-2026-10-22.sql`), le aplica las migraciones y revisa que quede igual que una creada con `db/esquema.sql`. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
 
 Antes de aplicar una migración en producción se respalda la base. Un respaldo solo se restaura sobre el esquema de su misma versión: `scripts/restaurar.php` lo revisa. Ver "Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).

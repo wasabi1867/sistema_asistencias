@@ -28,6 +28,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 **Alumno** (sin cuenta, en `/`):
 - Registra su entrada con su número de control y la computadora que ocupa, o que trae la suya. No escribe ningún otro dato: su nombre y su carrera los toma la base.
 - Si no está inscrito en el curso de la clase, puede pedir permiso para entrar.
+- Si su número de control no está en el sistema, porque llegó después de la carga, pide su alta (D22).
 - Puede usar el lector de credencial en lugar de escribir el número.
 
 **Docente** (`/docente`):
@@ -44,13 +45,13 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 - Finalizar una clase que el docente dejó abierta.
 
 **Administrador** (`/admin`):
-- Tablero con lo pendiente: clases abiertas, solicitudes de ingreso y avisos.
+- Tablero con lo pendiente: clases abiertas, solicitudes de ingreso, solicitudes de alta y avisos. Al aprobar un alta corrige los datos del alumno, y si la pidió desde una clase queda inscrito en ese curso.
 - Alumnos: alta, edición, carga desde Excel y cambio de semestre o grupo en bloque.
 - Cursos e inscripciones (pegando una lista de números de control, o subiendo la lista de la materia que se baja de Mindbox), materias y prácticas comunes.
 - Cuentas del personal, con los laboratorios que atiende cada laboratorista, carreras, periodos y laboratorios.
 
 **Por debajo:**
-- La API revisa la sesión y los roles en cada una de sus 84 rutas.
+- La API revisa la sesión y los roles en cada una de sus 87 rutas.
 - Cada persona tiene una sola cuenta, con uno o varios roles, y puede hacer lo de todos ellos. Al entrar no elige el rol, y pasa de un panel a otro desde el menú de su cuenta (D20 de [decisiones.md](decisiones.md)).
 - Las reglas del registro (clase abierta, alumno inscrito, computadora libre, sin entrar dos veces) las hace cumplir el servidor, y la base las garantiza aunque lleguen dos registros a la vez.
 - Todo cambio queda en la bitácora, con quién, cuándo y desde dónde.
@@ -76,7 +77,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | Las reglas de la base | 35 intentos de romperlas, en MariaDB 11.5 y MySQL 8.0 | 21 de octubre |
 | La importación de Firebase | Con datos de prueba inventados que imitan las colecciones de Firebase (`tests/api/firebase/`) | 22 de octubre |
 | Las pantallas | `npm run lint` y `npm run build` sin errores | 22 de octubre, en cada pull request |
-| Los flujos de las pantallas | 49 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre; los 49, el 2 de noviembre |
+| Los flujos de las pantallas | 54 pasos en el navegador (`npm run prueba:pantallas`), a lo ancho de una computadora y de un teléfono (390 px), contra el sitio compilado y la API real. Pasan en Edge con jsPDF 4, incluida la hoja de registro en PDF. En GitHub corren en Chrome en cada pull request | 23 de octubre; los 49, el 2 de noviembre |
 | Las dependencias de las pantallas | `npm audit --omit=dev`: quedan solo avisos de Next.js (de su servidor, que no se usa) y de PostCSS y Tailwind (solo corren al compilar) | 23 de octubre |
 | El encabezado del registro en el teléfono | El nombre de los cuatro laboratorios se lee completo a 360 y 390 px | 23 de octubre |
 | La vigilancia del sitio | Sus tres revisiones, a mano contra el sitio publicado: la página responde, la API devuelve 4 laboratorios y el certificado vence el 6 de diciembre de 2026. Una dirección inexistente hace fallar la revisión. Primera corrida en GitHub, después de publicar: bien | 24 de octubre |
@@ -147,3 +148,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 4 de noviembre de 2026 | #28 | Logos del instituto más grandes en la portada, la elección del laboratorio, el acceso del personal y los paneles, como pidió el jefe de carrera |
 | 4 de noviembre de 2026 | #29 | En cada curso se sube la lista de la materia de Mindbox: inscribe a los que ya existen y da de alta, revisando su nombre, a los que faltan (preguntas 3 y 12) |
 | 5 de noviembre de 2026 | #30 | **Quinta publicación en Hostinger**, con #24 a #29: base respaldada y migrada (002, laboratorios por laboratorista), sitio respaldado (154 archivos) y subido (104); `npm run prueba:produccion` pasa, con el inicio de sesión del administrador |
+| 5 de noviembre de 2026 | #31 | El alumno que no está dado de alta pide su alta desde el registro, y el administrador la aprueba desde el Tablero (D22, pregunta 3). Tercera migración de la base |

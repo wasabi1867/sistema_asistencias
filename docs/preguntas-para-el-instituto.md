@@ -48,7 +48,7 @@ Respuesta:
 Respuesta (4 de noviembre de 2026): sale de Mindbox, el sistema escolar del instituto. De ahí el jefe de carrera baja la lista de cada materia en Excel, con matrícula y nombre completo, y prefiere eso a capturar alumno por alumno: pegaría las listas en el formato que le demos. Pide:
 - Que el sistema muestre una vista previa antes de guardar, para corregir los nombres que se separen mal (apellidos compuestos como "Del Ángel"). **Hecho:** la carga acepta las listas con el nombre completo desde el 26 de octubre de 2026, y desde el 4 de noviembre los nombres se corrigen en la vista previa.
 - Que al pasar de semestre el alumno deje sus materias anteriores y reciba todas las de su nuevo semestre. A los irregulares, más o menos uno de cada 20, los ajusta a mano. En la aplicación anterior había que quitar y poner las materias de cada alumno una por una, y eso no es práctico.
-- Que el alumno que llega después de la carga pueda pedir su alta, y que la apruebe el jefe de carrera.
+- Que el alumno que llega después de la carga pueda pedir su alta, y que la apruebe el jefe de carrera. **Hecho el 5 de noviembre de 2026:** la pide desde la pantalla de registro y la aprueba el administrador (D22).
 
 **Hecho el 4 de noviembre de 2026:** en cada curso se sube la lista de su materia tal como sale de Mindbox; inscribe a los que ya existen y da de alta a los demás. Así no hace falta quitar y poner materias alumno por alumno, y los irregulares quedan en las materias que llevan.
 

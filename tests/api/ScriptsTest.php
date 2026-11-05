@@ -12,7 +12,7 @@ final class ScriptsTest extends PruebaDeApi
         try {
             [$codigo, $salida] = Entorno::correrScript('instalar.php', variables: ['ASISTENCIAS_DB_NAME' => $base]);
             $this->assertSame(0, $codigo, $salida);
-            $this->assertSame(20, (int)$this->valor('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?', [$base]));
+            $this->assertSame(21, (int)$this->valor('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?', [$base]));
             $this->assertSame(4, (int)$this->valor("SELECT COUNT(*) FROM `$base`.laboratorios"));
             $this->assertSame(25, (int)$this->valor("SELECT COUNT(*) FROM `$base`.equipos"));
 
@@ -102,11 +102,11 @@ final class ScriptsTest extends PruebaDeApi
         try {
             $contenido = (string)file_get_contents($archivo);
             $this->assertStringContainsString('-- Migraciones aplicadas: ' . self::migraciones() . "\n", $contenido);
-            $this->assertMatchesRegularExpression('/-- Fin del respaldo: \d+ renglones de 20 tablas\.\n$/', $contenido);
+            $this->assertMatchesRegularExpression('/-- Fin del respaldo: \d+ renglones de 21 tablas\.\n$/', $contenido);
 
             [$codigo, $salida] = Entorno::correrScript('restaurar.php', [$archivo], variables: ['ASISTENCIAS_DB_NAME' => $base]);
             $this->assertSame(0, $codigo, $salida);
-            $this->assertStringContainsString('de 20 tablas', $salida);
+            $this->assertStringContainsString('de 21 tablas', $salida);
             foreach (['alumnos', 'asistencias', 'usuarios', 'equipos', 'bitacora'] as $tabla) {
                 $this->assertSame(
                     $this->valor("SELECT COUNT(*) FROM `$tabla`"),
