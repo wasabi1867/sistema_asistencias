@@ -1,7 +1,9 @@
 import { useState } from "react"
 import { FileSpreadsheet, Upload } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { api, ErrorDeApi, type DatosDeAlumno, type Turno } from "../../../lib/api"
 import { alertas } from "../../../lib/alertas"
 import { leerHojaDeCalculo } from "../../../lib/exportar"
@@ -37,7 +39,8 @@ const normalizar = (texto: string) =>
 /**
  * Separa un nombre escrito como en las listas del instituto, apellido paterno, materno y
  * nombres ("Del Ángel Contreras Jesús Alejandro"). Con tres palabras no hay forma de saber
- * si son dos apellidos o dos nombres: se suponen dos apellidos, que es lo común.
+ * si son dos apellidos o dos nombres: se suponen dos apellidos, que es lo común, y se
+ * marca para revisarlo.
  */
 function separarNombreCompleto(completo: string) {
   const palabras = completo.split(/\s+/).filter(Boolean)
@@ -49,6 +52,9 @@ function separarNombreCompleto(completo: string) {
   }
   return { apellido: apellidos.join(" "), nombre: palabras.slice(i).join(" ") }
 }
+
+/** Con tres palabras pueden ser dos apellidos y un nombre, o un apellido y dos nombres. */
+const esDudoso = (completo: string) => completo.split(/\s+/).filter(Boolean).length === 3
 
 /**
  * Carga de alumnos desde Excel o CSV: crea a los nuevos y actualiza a los que ya
@@ -63,6 +69,11 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
   const [enviando, setEnviando] = useState(false)
   // Los nombres venían en una sola columna y el sistema los separó: hay que revisarlos.
   const [nombresSeparados, setNombresSeparados] = useState(false)
+  // Por alumno, si su nombre pudo separarse de dos formas.
+  const [dudosos, setDudosos] = useState<boolean[]>([])
+
+  const corregir = (i: number, campo: "nombre" | "apellido", valor: string) =>
+    setAlumnos((lista) => lista && lista.map((a, j) => (j === i ? { ...a, [campo]: valor } : a)))
 
   const leer = async (file: File | undefined) => {
     if (!file) return
@@ -90,6 +101,7 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
       const conMatricula = renglones.map((r, i) => ({ r, renglon: inicio + i + 2 })).filter(({ r }) => celda(r, "matricula"))
       setRenglonDe(conMatricula.map(({ renglon }) => renglon))
       setNombresSeparados(separar)
+      setDudosos(conMatricula.map(({ r }) => separar && esDudoso(r[nombreCompleto] ?? "")))
       setAlumnos(
         conMatricula
           .map(({ r }) => r)
@@ -110,6 +122,11 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
 
   const cargar = async () => {
     if (!alumnos?.length) return
+    const sinNombre = alumnos.findIndex((a) => !a.nombre.trim())
+    if (sinNombre >= 0) {
+      await alertas.aviso("Falta un nombre", `El alumno ${alumnos[sinNombre].matricula} quedó sin nombre. Escríbelo en la lista antes de cargar.`)
+      return
+    }
     setEnviando(true)
     try {
       const r = await api.alumnos.cargarLote(alumnos)
@@ -151,22 +168,38 @@ export function CargaDesdeArchivo({ alCerrar, alCargar }: { alCerrar: () => void
           </p>
         )}
         {alumnos && nombresSeparados && (
-          <div className="max-h-48 overflow-y-auto rounded-lg border p-3 text-sm">
-            <p className="mb-1 font-medium">El nombre venía completo en una columna. Se separó así; si alguno quedó mal, corrígelo después en el alumno:</p>
-            <table className="w-full">
+          <div className="max-h-72 overflow-y-auto rounded-lg border p-3 text-sm">
+            <p className="font-medium">El nombre venía completo en una columna y se separó así. Si alguno quedó mal, corrígelo aquí antes de cargar.</p>
+            {dudosos.some(Boolean) && (
+              <p className="mb-2 text-muted-foreground">
+                Los marcados con <span className="font-medium text-foreground">Revisa</span> tienen tres palabras: pueden ser dos apellidos y un nombre, o un apellido y dos nombres.
+              </p>
+            )}
+            <table className="mt-1 w-full">
               <thead className="text-left text-muted-foreground">
                 <tr>
-                  <th className="font-normal">Matrícula</th>
-                  <th className="font-normal">Apellidos</th>
-                  <th className="font-normal">Nombre</th>
+                  <th className="pb-1 font-normal">Matrícula</th>
+                  <th className="pb-1 font-normal">Apellidos</th>
+                  <th className="pb-1 font-normal">Nombre</th>
                 </tr>
               </thead>
               <tbody>
-                {alumnos.map((a) => (
-                  <tr key={a.matricula}>
-                    <td>{a.matricula}</td>
-                    <td>{a.apellido}</td>
-                    <td>{a.nombre}</td>
+                {alumnos.map((a, i) => (
+                  <tr key={`${a.matricula}-${i}`}>
+                    <td className="whitespace-nowrap pr-2 tabular-nums">
+                      {a.matricula}
+                      {dudosos[i] && (
+                        <Badge variant="warning" className="ml-1.5">
+                          Revisa
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="py-0.5 pr-2">
+                      <Input value={a.apellido} onChange={(e) => corregir(i, "apellido", e.target.value)} aria-label={`Apellidos de ${a.matricula}`} className="h-8" />
+                    </td>
+                    <td className="py-0.5">
+                      <Input value={a.nombre} onChange={(e) => corregir(i, "nombre", e.target.value)} aria-label={`Nombre de ${a.matricula}`} className="h-8" />
+                    </td>
                   </tr>
                 ))}
               </tbody>
