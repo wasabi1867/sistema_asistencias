@@ -61,12 +61,12 @@ final class Clases
 
     /**
      * Quién lleva la clase (la cierra, registra a mano, corrige): el administrador, el
-     * laboratorista (para liberar el laboratorio si el docente se fue sin cerrarla) y,
-     * en una clase regular, el docente del curso.
+     * laboratorista de ese laboratorio (para liberarlo si el docente se fue sin cerrarla)
+     * y, en una clase regular, el docente del curso.
      */
     public static function puedeLlevar(Usuario $usuario, array $clase): bool
     {
-        return $usuario->esPersonal()
+        return $usuario->atiende($clase['laboratorio_id'])
             || ($usuario->esDocente() && $clase['tipo'] === 'regular' && $clase['curso_docente_id'] === $usuario->id);
     }
 
@@ -225,6 +225,7 @@ final class Clases
                 throw ErrorHttp::sinPermiso('Las clases de maestro invitado las abre el personal del laboratorio');
             }
             $laboratorio = Laboratorios::porClave($c->bd, $e->texto('laboratorio', 'el laboratorio', 30));
+            Laboratorios::exigirQueAtienda($c->bd, $usuario, $laboratorio['id']);
             $valores = [
                 'materia_invitado' => $e->texto('materia', 'la materia', 150),
                 'practica_invitado' => $e->texto('practica', 'la práctica', 150, false),

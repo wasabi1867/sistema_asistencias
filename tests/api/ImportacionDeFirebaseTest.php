@@ -50,6 +50,11 @@ final class ImportacionDeFirebaseTest extends PruebaDeApi
         $this->assertSame(['numero' => 1, 'titulo' => 'Formularios', 'descripcion' => 'Usar <form> y \\ diagonales', 'duracion_minutos' => 120, 'fecha' => '2026-10-20', 'docente' => 'D100'], $practica);
 
         $this->assertSame("O'Neil", $this->valor("SELECT apellido FROM usuarios WHERE matricula = 'D100'"));
+        // En Firebase no había laboratorios por laboratorista: queda con todos (D21).
+        $this->assertSame(
+            (int)$this->valor('SELECT COUNT(*) FROM laboratorios WHERE activo'),
+            (int)$this->valor("SELECT COUNT(*) FROM laboratorios_del_personal lp JOIN usuarios u ON u.id = lp.usuario_id WHERE u.matricula = 'L100'")
+        );
         $this->assertSame(['matutino', 5], array_values($this->fila("SELECT turno, semestre FROM alumnos WHERE matricula = '23303001'")));
     }
 

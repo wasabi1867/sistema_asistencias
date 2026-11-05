@@ -21,8 +21,10 @@ use Asistencias\Seguridad\Usuario;
 
 /**
  * Un alumno pide entrar a una clase en la que no está inscrito, o usar el laboratorio
- * fuera de clase. Las de una clase las resuelve el administrador; las de fuera de
- * clase, también el laboratorista (mientras el instituto no diga quién las autoriza).
+ * fuera de clase. Las de una clase las resuelve el administrador o el docente del
+ * curso; el docente lo deja entrar por esa vez o lo rechaza, pero inscribirlo en el
+ * curso queda para el administrador, que es quien maneja las inscripciones. Las de
+ * fuera de clase, también el laboratorista de ese laboratorio.
  * - aprobada_temporal: entra por esa vez.
  * - aprobada_permanente: entra y queda inscrito en el curso de la clase.
  * - rechazada.
@@ -32,7 +34,7 @@ final class Solicitudes
     private const RESOLUCIONES = ['aprobada_temporal', 'aprobada_permanente', 'rechazada'];
     private const SELECCION = "SELECT s.*, l.clave AS laboratorio_clave, l.nombre AS laboratorio_nombre,
             a.matricula, a.nombre, a.apellido, a.semestre, a.grupo, a.turno, ca.clave AS carrera_clave, ca.nombre AS carrera_nombre,
-            e.etiqueta AS equipo, cl.curso_id, cl.cerrada_en AS clase_cerrada_en,
+            e.etiqueta AS equipo, cl.curso_id, cl.cerrada_en AS clase_cerrada_en, cu.docente_id AS curso_docente_id,
             COALESCE(m.nombre, cl.materia_invitado) AS materia, cu.grupo AS curso_grupo,
             COALESCE(CONCAT(ud.nombre, ' ', ud.apellido), cl.docente_invitado) AS docente,
             CONCAT(ur.nombre, ' ', ur.apellido) AS resuelta_por_nombre
@@ -52,7 +54,7 @@ final class Solicitudes
         // Pública: la manda el alumno desde la página de registro.
         $r->post('/solicitudes', Acceso::Publica, static fn (Contexto $c) => self::crear($c));
         $r->get('/solicitudes', Acceso::Sesion, static fn (Contexto $c) => self::listar($c));
-        $r->post('/solicitudes/{id}/resolver', Acceso::Personal, static fn (Contexto $c) => self::resolver($c));
+        $r->post('/solicitudes/{id}/resolver', Acceso::Sesion, static fn (Contexto $c) => self::resolver($c));
         $r->put('/solicitudes/{id}', Acceso::Personal, static fn (Contexto $c) => self::marcarLeida($c));
     }
 
@@ -162,7 +164,9 @@ final class Solicitudes
         $usuario = $c->usuarioConSesion();
         $solicitud = self::porId($c->bd, $c->peticion->id(), bloquear: true);
         if (!self::puedeResolver($usuario, $solicitud)) {
-            throw ErrorHttp::sinPermiso('Las solicitudes para entrar a una clase las resuelve el administrador');
+            throw ErrorHttp::sinPermiso($solicitud['clase_id'] === null
+                ? 'Esta solicitud es de un laboratorio que no atiendes'
+                : 'Las solicitudes para entrar a una clase las resuelve el docente de la clase o el administrador');
         }
         if ($solicitud['estado'] !== 'pendiente') {
             throw ErrorHttp::conflicto('Esa solicitud ya se había resuelto', 'ya_resuelta');
@@ -171,6 +175,9 @@ final class Solicitudes
         $estado = $e->opcion('estado', 'la resolución', self::RESOLUCIONES);
         if ($estado === 'aprobada_permanente' && $solicitud['clase_id'] === null) {
             throw ErrorHttp::datosInvalidos('Una solicitud fuera de clase solo se aprueba por esa vez', 'estado');
+        }
+        if ($estado === 'aprobada_permanente' && !$usuario->esAdmin()) {
+            throw ErrorHttp::sinPermiso('Inscribir al alumno en el curso lo hace el administrador. Puedes dejarlo entrar por esta vez');
         }
 
         if ($estado !== 'rechazada') {
@@ -217,6 +224,14 @@ final class Solicitudes
 
     private static function puedeResolver(Usuario $usuario, array $solicitud): bool
     {
-        return $usuario->esAdmin() || ($solicitud['clase_id'] === null && $usuario->esPersonal());
+        if ($usuario->esAdmin()) {
+            return true;
+        }
+        if ($solicitud['clase_id'] === null) {
+            return $usuario->atiende($solicitud['laboratorio_id']);
+        }
+        // El docente del curso, que es quien está en la clase y sabe si el alumno es suyo
+        // (respuesta del jefe de carrera del 4 de noviembre de 2026, pregunta 10).
+        return $usuario->esDocente() && $solicitud['curso_docente_id'] === $usuario->id;
     }
 }

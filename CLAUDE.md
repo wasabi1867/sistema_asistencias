@@ -60,10 +60,10 @@ npm run prueba:produccion                # prueba rápida del sitio publicado
 |---|---|
 | [README.md](README.md) | Qué es, cómo correrlo y cómo publicarlo |
 | [docs/estado-actual.md](docs/estado-actual.md) | Qué funciona, qué se verificó, qué falta e historial de cambios |
-| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D20) con su fecha y su porqué |
+| [docs/decisiones.md](docs/decisiones.md) | Las decisiones (D1 a D21) con su fecha y su porqué |
 | [docs/guia-del-administrador.md](docs/guia-del-administrador.md) | Para el administrador, no técnica: dejar el sistema listo para una clase. Con la plantilla `docs/plantilla-alumnos.xlsx`. Si cambia una pantalla del administrador, se actualiza |
 | [docs/api.md](docs/api.md) | Organización de la API, configuración, las 84 rutas con sus permisos, pruebas y cambios a la base |
-| [docs/modelo-de-datos.md](docs/modelo-de-datos.md) | Las 19 tablas, las reglas que garantiza la base y la conversión desde Firebase |
+| [docs/modelo-de-datos.md](docs/modelo-de-datos.md) | Las 20 tablas, las reglas que garantiza la base y la conversión desde Firebase |
 | [docs/pantallas.md](docs/pantallas.md) | Las páginas, dónde está cada cosa en `src/`, diseño y convenciones |
 | [docs/cambio-de-firebase.md](docs/cambio-de-firebase.md) | Cómo es el hospedaje, cómo se publica, los respaldos de la base, y el día del cambio desde la aplicación de Vercel y Firebase |
 | [docs/preguntas-para-el-instituto.md](docs/preguntas-para-el-instituto.md) | Lo que falta que defina el instituto |

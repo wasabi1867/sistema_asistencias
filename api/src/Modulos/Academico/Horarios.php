@@ -103,6 +103,7 @@ final class Horarios
     private static function eliminar(Contexto $c): Respuesta
     {
         $horario = self::porId($c->bd, $c->peticion->id());
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $horario['laboratorio_id']);
         $c->cambios->eliminar('horarios', $horario['id'], "{$horario['materia']} {$horario['grupo']}", $horario['laboratorio_id']);
         return Respuesta::vacia();
     }
@@ -119,6 +120,11 @@ final class Horarios
         $laboratorio = $nuevo || $e->tiene('laboratorio')
             ? Laboratorios::porClave($c->bd, $e->texto('laboratorio', 'el laboratorio', 30))['id']
             : $actual['laboratorio_id'];
+        // Para mover un horario de laboratorio hay que atender los dos.
+        if ($actual !== null) {
+            Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $actual['laboratorio_id']);
+        }
+        Laboratorios::exigirQueAtienda($c->bd, $c->usuarioConSesion(), $laboratorio);
         $valores = [
             'curso_id' => $curso['id'],
             'laboratorio_id' => $laboratorio,

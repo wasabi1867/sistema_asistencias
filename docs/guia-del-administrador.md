@@ -31,6 +31,7 @@ En **Cuentas del personal**, elige la pestaña del rol (**Docentes**, **Laborato
 - Nombre y apellido.
 - **Correo** y/o **Matrícula o número de empleado:** con cualquiera de los dos se inicia sesión. Hace falta al menos uno.
 - Departamento, en los docentes.
+- **Laboratorios que atiende**, en los laboratoristas. Solo en esos abre y cierra clases, registra el uso fuera de clase y atiende los equipos. Sin ninguno marcado no puede atender nada. Tú atiendes todos, y los docentes dan clase en cualquiera.
 - **Contraseña inicial**, de al menos 8 caracteres.
 
 Una cuenta por persona: la bitácora registra quién hizo cada cosa. Si alguien ya tiene cuenta y le toca otro rol, no le crees otra: en su renglón, menú **⋯** → **Editar**, marca el rol nuevo y guarda. El sistema no deja usar el mismo correo ni la misma matrícula en dos cuentas. Quien tiene varios roles pasa de un panel a otro desde el menú con su nombre, arriba a la derecha. La contraseña inicial díla en persona, no por un chat. Cada quien la cambia al entrar.
@@ -74,7 +75,7 @@ Un curso es una materia que un docente da a un grupo en un periodo. En **Cursos*
 
 Luego haz clic en el curso y, en **Inscribir: pega los números de control**, pega los del grupo: uno por renglón, o separados por comas o espacios. Puedes copiarlos directo de la columna del Excel. El sistema dice qué pasó con cada uno, por ejemplo si un número no existe porque falta cargar a ese alumno.
 
-Solo los alumnos inscritos en el curso pueden registrar su entrada a sus clases. Los demás pueden pedir permiso desde la pantalla de registro, y las solicitudes te llegan al **Tablero**.
+Solo los alumnos inscritos en el curso pueden registrar su entrada a sus clases. Los demás pueden pedir permiso desde la pantalla de registro, y las solicitudes te llegan al **Tablero**. El docente también las ve en su clase y puede dejar entrar al alumno por esa vez o rechazarlo. Inscribirlo en el curso, con **Inscribirlo al curso**, solo lo puedes hacer tú.
 
 ## 6. Probar una clase
 
