@@ -2,11 +2,11 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 2 de noviembre de 2026 (una cuenta por persona, con uno o varios roles; cuarta publicación).
+Última actualización: 5 de noviembre de 2026 (quinta publicación, con los cambios que pidió el jefe de carrera).
 
 ## En resumen
 
-**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #22, es del 2 de noviembre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
+**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #29, es del 5 de noviembre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
 
 **En el instituto se sigue usando la versión anterior**, publicada en Vercel (https://asistencialaboratorios.vercel.app; su última publicación es del 15 de octubre de 2026), que guarda todo en Firebase. Sus datos son reales y siguen creciendo. El plan (decisión D12 de [decisiones.md](decisiones.md)):
 - un piloto del sistema nuevo con un grupo real;
@@ -146,3 +146,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 4 de noviembre de 2026 | #27 | Al cargar una lista con el nombre completo, los nombres se corrigen en la vista previa antes de guardar, y los de tres palabras se marcan para revisar (pregunta 3) |
 | 4 de noviembre de 2026 | #28 | Logos del instituto más grandes en la portada, la elección del laboratorio, el acceso del personal y los paneles, como pidió el jefe de carrera |
 | 4 de noviembre de 2026 | #29 | En cada curso se sube la lista de la materia de Mindbox: inscribe a los que ya existen y da de alta, revisando su nombre, a los que faltan (preguntas 3 y 12) |
+| 5 de noviembre de 2026 | #30 | **Quinta publicación en Hostinger**, con #24 a #29: base respaldada y migrada (002, laboratorios por laboratorista), sitio respaldado (154 archivos) y subido (104); `npm run prueba:produccion` pasa, con el inicio de sesión del administrador |
