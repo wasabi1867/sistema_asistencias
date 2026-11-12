@@ -326,3 +326,22 @@ Salió de la misma revisión que D23. Varias consultas armaban el pasado con los
 **Provisional:** las 6 horas son un número nuestro. Falta saber cuánto dura la clase más larga (pregunta 19).
 
 **Qué no se hizo:** el resumen de un curso (`GET /cursos/{id}/asistencia`) solo muestra a los inscritos de hoy; los dados de baja siguen en la lista de cada clase que les tocó. Y "leído" en los avisos sigue siendo uno para todos, no por persona.
+
+## D25. La sesión: de dónde se acepta, cuánto dura y cuándo deja de servir
+
+*12 de noviembre de 2026.*
+
+Salió de revisar el resto del sistema después de D23 y D24. No cambia la base.
+
+**Los intentos fallidos de iniciar sesión se cuentan por cuenta.** Antes eran 10 desde una dirección, con cualquier cuenta. Como todo el instituto puede salir a internet con una sola dirección, bastaba que una persona se equivocara 10 veces (o que alguien lo hiciera a propósito) para que nadie pudiera entrar durante 15 minutos. Ahora son 10 con una misma cuenta desde una misma dirección. Queda además un tope de 100 fallos por dirección con cualquier cuenta, contra quien prueba una contraseña en muchas cuentas.
+
+**En la bitácora no queda lo que se escribió en "usuario" si no es una cuenta.** A veces es una contraseña puesta en el campo equivocado. De una cuenta que existe queda su correo o su matrícula; de lo demás, una huella (`Cuenta que no existe (a1b2c3d4e5)`), que es la misma cada vez que se escribe lo mismo y con la que se cuentan sus intentos. Así una cuenta que no existe espera igual que una que existe, y la respuesta no dice cuál es cuál.
+
+**Lo que cambia datos solo se acepta desde el propio sitio.** La cookie es `SameSite=Lax`, pero eso no detiene a otro sitio del mismo dominio: para el navegador, `soycorrecaminos.xyz` (el sitio de la carrera) y `laboratorios.soycorrecaminos.xyz` son "el mismo sitio", y una página del primero podía mandar un formulario a la API con la sesión de quien la abriera. Ahora toda petición que no sea de lectura se rechaza con 403 si su encabezado `Origin` no es el del propio sitio ni uno de `origenes_permitidos`. El navegador lo manda siempre y una página no lo puede cambiar. Lo que no es un navegador no lo manda, y tampoco lleva la cookie de nadie.
+
+**La sesión dura de verdad 4 horas.** PHP borra las sesiones sin uso a los 24 minutos si no se le dice otra cosa, y no se le decía: un docente podía perder la sesión a media clase. Ahora la API fija ese tiempo en 4 horas y guarda sus sesiones en una carpeta propia, porque en la carpeta compartida las borraría cualquier otro sitio de la cuenta que conserve los 24 minutos. Si el servidor no deja crear la carpeta, se usa la de siempre.
+
+**Cambiar la contraseña cierra las demás sesiones de la cuenta.** Antes, quien tuviera una sesión abierta con la contraseña anterior la conservaba hasta 4 horas: cambiarla no servía para sacar a un intruso. Cada sesión guarda una marca de la contraseña con la que se abrió, y deja de servir cuando ya no coincide. Quien cambia la suya conserva la sesión desde la que lo hizo. Si el administrador restablece la de otro, a ese se le cierran todas.
+- Al publicar este cambio se cierran una vez las sesiones abiertas, porque no tienen marca.
+
+**Qué no se hizo:** el sitio de la carrera está en la misma cuenta de Hostinger, así que quien administre ese sitio puede leer los archivos de este. Eso no lo arregla el código: es de cómo está contratado el alojamiento.

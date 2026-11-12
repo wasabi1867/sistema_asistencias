@@ -30,7 +30,10 @@ final class Contexto
         $this->cambios = new Cambios($bd, $this->bitacora);
     }
 
-    /** La cuenta con sesión, o null. Una cuenta desactivada ya no tiene sesión. */
+    /**
+     * La cuenta con sesión, o null. Ya no tiene sesión una cuenta desactivada, ni la
+     * que cambió de contraseña después de abrirla.
+     */
     public function usuario(): ?Usuario
     {
         if (!$this->usuarioLeido) {
@@ -38,7 +41,7 @@ final class Contexto
             $id = $this->sesion->idDeUsuario();
             if ($id !== null) {
                 $fila = $this->bd->fila('SELECT * FROM usuarios WHERE id = ? AND activo', [$id]);
-                if ($fila === null) {
+                if ($fila === null || !$this->sesion->esDeLaContrasena($fila['password_hash'])) {
                     $this->sesion->cerrar();
                 } else {
                     $this->usuario = Usuario::cargar($this->bd, $fila);
