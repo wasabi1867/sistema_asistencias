@@ -281,5 +281,24 @@ Al aprobarla no se registra su entrada: el alumno la registra con su número de 
 **Por qué:**
 - **La aprueba el administrador.** El jefe de carrera pidió aprobarla él, y en el sistema eso es el rol de administrador (D20). El docente y el laboratorista no la aprueban: es lo más restrictivo que deja operar (D13). Es provisional mientras el instituto define qué hace cada rol (pregunta 7).
 - **Una tabla aparte, no un alumno desactivado.** Así nadie entra a la lista de alumnos solo por escribir un número de control, y lo que se pide sin sesión no toca a los alumnos.
-- **Límites contra el abuso.** Se pide sin sesión, igual que el registro, así que hay dos límites: una sola solicitud pendiente por número de control, y a lo más 40 por hora desde una misma red. Ese número deja pasar a un salón entero, que sale a internet por la misma red.
+- **Límites contra el abuso.** Se pide sin sesión, igual que el registro, así que hay dos límites: una sola solicitud pendiente por número de control, y a lo más 40 por hora desde una misma red. Ese número deja pasar a un salón entero, que sale a internet por la misma red. Desde D23 se cuenta por laboratorio.
 - **No lo deja entrar al aprobarla**, a diferencia de las solicitudes para entrar a una clase: el alta puede aprobarse horas después, con la clase ya cerrada.
+
+## D23. Los límites por red se cuentan por laboratorio, y la conexión con la base es estricta
+
+*12 de noviembre de 2026.*
+
+Salieron de una revisión de la base y de cómo la usa la API.
+
+**Los límites por red.** El registro de entrada y la solicitud de alta se hacen sin sesión, así que tienen un límite por dirección de red. Antes el límite era de toda la red: si el instituto sale a internet con una sola dirección, un grupo con muchos números de control sin dar de alta dejaba sin registro a los demás laboratorios. Ahora:
+- Los dos límites se cuentan por dirección **y por laboratorio**.
+- En el registro, cada número de control que no existe cuenta una sola vez, aunque se intente varias veces.
+- No cuenta el número de control de quien ya pidió su alta: a principio de semestre es normal que un grupo no esté cargado todavía (D22).
+- Los códigos de clase equivocados se cuentan aparte y por intento, porque solo hay 10,000 posibles. En la bitácora quedan como `codigo_fallido`.
+
+Los números no cambian: 30 fallos en 10 minutos en el registro y 40 solicitudes de alta por hora. No se sabe si el instituto sale a internet con una sola dirección; con el límite por laboratorio ya no importa.
+
+**El modo estricto.** El servidor de Hostinger no trae activado el modo estricto de SQL (`STRICT_TRANS_TABLES`): un texto que no cabe se recorta y un valor inválido se guarda vacío, sin error. Las bases de las pruebas sí lo traen, así que producción se comportaba distinto de lo probado. Ahora la API fija el mismo `sql_mode` al conectarse, en todos los servidores, igual que ya fijaba la zona horaria. Los scripts usan la misma conexión.
+
+**Por qué no depender del servidor:** en un plan compartido no se puede cambiar su configuración, y otro servidor u otro plan pueden traer otra.
+

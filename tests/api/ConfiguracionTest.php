@@ -32,6 +32,25 @@ final class ConfiguracionTest extends TestCase
         rmdir($this->carpeta);
     }
 
+    public function test_la_conexion_usa_el_modo_estricto_aunque_el_servidor_no_lo_traiga(): void
+    {
+        // El servidor de pruebas trae otros modos por omisión: si coinciden con los de la
+        // API es porque ella los puso.
+        $bd = new BaseDeDatos(new Configuracion(
+            getenv('ASISTENCIAS_PRUEBAS_DB_HOST') ?: '127.0.0.1',
+            (int)(getenv('ASISTENCIAS_PRUEBAS_DB_PORT') ?: 3306),
+            Entorno::pdo()->query('SELECT DATABASE()')->fetchColumn(),
+            getenv('ASISTENCIAS_PRUEBAS_DB_USER') ?: 'root',
+            getenv('ASISTENCIAS_PRUEBAS_DB_PASS') ?: '',
+        ));
+
+        $modos = explode(',', $bd->valor('SELECT @@SESSION.sql_mode'));
+        $esperados = explode(',', BaseDeDatos::MODO_SQL);
+
+        $this->assertEqualsCanonicalizing($esperados, $modos);
+        $this->assertNotEqualsCanonicalizing($esperados, explode(',', Entorno::pdo()->query('SELECT @@GLOBAL.sql_mode')->fetchColumn()));
+    }
+
     private function conArchivo(array $valores): Configuracion
     {
         file_put_contents("$this->carpeta/config.local.php", '<?php return ' . var_export($valores, true) . ';');

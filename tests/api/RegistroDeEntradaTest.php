@@ -212,6 +212,50 @@ final class RegistroDeEntradaTest extends PruebaDeApi
         $respuesta = $this->entrar(['matricula' => '23303001', 'equipoPropio' => true]);
 
         $this->assertSame(429, $respuesta->estado, (string)$respuesta);
+        // El límite es por laboratorio: en otro, el registro sigue (aquí no hay clase abierta).
+        $enOtro = $this->entrar(['laboratorio' => 'redes', 'matricula' => '23303001', 'equipoPropio' => true]);
+        $this->assertSame([409, 'sin_clase'], [$enOtro->estado, $enOtro->json()['codigo']]);
+    }
+
+    public function test_el_mismo_numero_de_control_equivocado_cuenta_una_sola_vez(): void
+    {
+        $this->fallosEnBitacora('registro_fallido', 40, static fn (int $i) => '10000001');
+
+        $this->ok($this->entrar(['matricula' => '23303001', 'equipoPropio' => true]), 201);
+    }
+
+    public function test_quien_ya_pidio_su_alta_no_cuenta_como_intento_fallido(): void
+    {
+        $this->fallosEnBitacora('registro_fallido', 40, static fn (int $i) => "2430400$i");
+        for ($i = 0; $i < 40; $i++) {
+            $this->insertar('solicitudes_de_alta', ['matricula' => "2430400$i", 'nombre' => 'N', 'apellido' => 'A', 'laboratorio_id' => $this->laboratorio(), 'ip' => '127.0.0.1']);
+        }
+
+        $this->ok($this->entrar(['matricula' => '23303001', 'equipoPropio' => true]), 201);
+    }
+
+    public function test_demasiados_codigos_equivocados_hacen_esperar_aunque_sean_del_mismo_alumno(): void
+    {
+        $servidor = Entorno::url(['ASISTENCIAS_EXIGIR_CODIGO_DE_CLASE' => '1']);
+        $equivocado = $this->entrar(['matricula' => ' 23303001', 'equipoPropio' => true, 'codigo' => '0000'], new Cliente($servidor));
+        $this->assertSame(403, $equivocado->estado);
+        $this->assertSame(
+            ['accion' => 'codigo_fallido', 'usuario' => '23303001', 'laboratorio_id' => $this->laboratorio()],
+            $this->fila('SELECT accion, usuario, laboratorio_id FROM bitacora ORDER BY id DESC LIMIT 1')
+        );
+        $this->fallosEnBitacora('codigo_fallido', 29, static fn (int $i) => '23303001');
+
+        $respuesta = $this->entrar(['matricula' => '23303001', 'equipoPropio' => true, 'codigo' => '4821'], new Cliente($servidor));
+
+        $this->assertSame(429, $respuesta->estado, (string)$respuesta);
+    }
+
+    /** Intentos fallidos anotados directo en la bitácora, como los deja el registro. */
+    private function fallosEnBitacora(string $accion, int $cuantos, callable $matricula): void
+    {
+        for ($i = 0; $i < $cuantos; $i++) {
+            $this->insertar('bitacora', ['accion' => $accion, 'usuario' => $matricula($i), 'laboratorio_id' => $this->laboratorio(), 'ip' => '127.0.0.1']);
+        }
     }
 
     /**
