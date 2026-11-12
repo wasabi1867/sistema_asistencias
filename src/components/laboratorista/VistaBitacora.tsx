@@ -22,6 +22,7 @@ export const ACCIONES: Record<string, string> = {
   cerrar_sesion: "Cierre de sesión",
   sesion_fallida: "Intento fallido de iniciar sesión",
   registro_fallido: "Registro de entrada fallido",
+  codigo_fallido: "Código de clase equivocado",
   abrir_clase: "Clase abierta",
   cerrar_clase: "Clase cerrada",
   quitar_asistencia: "Entrada quitada",

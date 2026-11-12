@@ -21,9 +21,11 @@ use Asistencias\Seguridad\Acceso;
  */
 final class RegistroDeEntrada
 {
-    // Matrículas inexistentes o códigos equivocados permitidos desde una dirección. Un
-    // laboratorio entero sale a internet con la misma dirección, así que el límite
-    // alcanza para muchos errores de dedo, pero no para probar matrículas en masa.
+    // Matrículas inexistentes o códigos equivocados permitidos desde una dirección, en
+    // un laboratorio. Un laboratorio entero sale a internet con la misma dirección, y
+    // puede que todo el instituto: por eso se cuenta por laboratorio, para que un grupo
+    // no deje sin registro a los demás. El límite alcanza para muchos errores de dedo,
+    // pero no para probar matrículas o códigos en masa.
     private const FALLOS_PERMITIDOS = 30;
     private const MINUTOS_DE_ESPERA = 10;
 
@@ -34,28 +36,38 @@ final class RegistroDeEntrada
 
     private static function entrar(Contexto $c): Respuesta
     {
-        $fallos = (int)$c->bd->valor(
-            "SELECT COUNT(*) FROM bitacora WHERE accion = 'registro_fallido' AND ip = ? AND fecha > NOW() - INTERVAL " . self::MINUTOS_DE_ESPERA . ' MINUTE',
-            [$c->peticion->ip]
+        $laboratorio = Laboratorios::porClave($c->bd, $c->peticion->cuerpo()->texto('laboratorio', 'el laboratorio', 30));
+        $desde = 'b.ip = ? AND b.laboratorio_id = ? AND b.fecha > NOW() - INTERVAL ' . self::MINUTOS_DE_ESPERA . ' MINUTE';
+        $parametros = [$c->peticion->ip, $laboratorio['id']];
+        // Cada número de control cuenta una vez aunque lo intente varias veces, y no
+        // cuenta el de quien ya pidió su alta: a principio de semestre es normal que un
+        // grupo entero no esté dado de alta todavía (D22).
+        $matriculas = (int)$c->bd->valor(
+            "SELECT COUNT(DISTINCT b.usuario) FROM bitacora b WHERE b.accion = 'registro_fallido' AND $desde
+             AND NOT EXISTS (SELECT 1 FROM solicitudes_de_alta s WHERE s.matricula = b.usuario)",
+            $parametros
         );
-        if ($fallos >= self::FALLOS_PERMITIDOS) {
+        // El código de la clase sí se cuenta por intento: son solo 10,000 posibles.
+        $codigos = (int)$c->bd->valor("SELECT COUNT(*) FROM bitacora b WHERE b.accion = 'codigo_fallido' AND $desde", $parametros);
+        if (max($matriculas, $codigos) >= self::FALLOS_PERMITIDOS) {
             throw new ErrorHttp(429, 'Demasiados intentos fallidos desde esta red. Espera unos minutos e inténtalo de nuevo');
         }
 
         try {
-            return self::registrarEntrada($c);
+            return self::registrarEntrada($c, $laboratorio);
         } catch (ErrorHttp $e) {
-            if (in_array($e->extra['codigo'] ?? null, ['matricula_no_encontrada', 'codigo_incorrecto'], true)) {
-                $c->bitacora->registrarAunqueFalle('registro_fallido', $e->getMessage(), null, (string)$c->peticion->cuerpo()->crudo('matricula'));
+            $accion = ['matricula_no_encontrada' => 'registro_fallido', 'codigo_incorrecto' => 'codigo_fallido'][$e->extra['codigo'] ?? ''] ?? null;
+            if ($accion !== null) {
+                $matricula = $c->peticion->cuerpo()->crudo('matricula');
+                $c->bitacora->registrarAunqueFalle($accion, $e->getMessage(), $laboratorio['id'], is_scalar($matricula) ? mb_strtoupper(trim((string)$matricula)) : '');
             }
             throw $e;
         }
     }
 
-    private static function registrarEntrada(Contexto $c): Respuesta
+    private static function registrarEntrada(Contexto $c, array $laboratorio): Respuesta
     {
         $e = $c->peticion->cuerpo();
-        $laboratorio = Laboratorios::porClave($c->bd, $e->texto('laboratorio', 'el laboratorio', 30));
         $tipo = $e->opcion('tipo', 'el tipo', ['alumno', 'docente', 'invitado'], false) ?? 'alumno';
         $etiqueta = Entradas::equipoElegido($e);
 

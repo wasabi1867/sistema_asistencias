@@ -18,6 +18,9 @@ use Throwable;
  */
 final class BaseDeDatos
 {
+    // Modos que existen tanto en MySQL como en MariaDB.
+    public const MODO_SQL = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
     private ?PDO $pdo = null;
 
     public function __construct(private readonly Configuracion $config)
@@ -47,7 +50,10 @@ final class BaseDeDatos
             // servidor esté en otra zona. Con desfase y no con nombre, porque las tablas
             // de zonas horarias de MySQL no siempre están cargadas.
             $desfase = (new DateTimeImmutable('now', new \DateTimeZone($this->config->zonaHoraria)))->format('P');
-            $this->pdo->exec("SET time_zone = '$desfase'");
+            // El modo estricto, igual en todos los servidores: un texto que no cabe o un
+            // valor inválido es un error, no algo que se recorta o se guarda vacío sin
+            // avisar. El servidor de Hostinger no lo trae activado.
+            $this->pdo->exec("SET time_zone = '$desfase', sql_mode = '" . self::MODO_SQL . "'");
         }
         return $this->pdo;
     }

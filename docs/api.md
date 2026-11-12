@@ -66,7 +66,7 @@ El personal inicia sesión con `POST /sesion` `{usuario, contrasena}`, donde `us
 - Una cuenta desactivada pierde la sesión de inmediato.
 - Después de 10 intentos fallidos desde una dirección hay que esperar 15 minutos.
 
-El alumno no inicia sesión ni da otros datos: registra su entrada con su número de control (`POST /registro/entrada`), y su nombre y su curso los busca la API. Después de 30 números de control o códigos de clase equivocados desde una dirección en 10 minutos, hay que esperar. El límite es alto porque todo un laboratorio sale a internet con la misma dirección.
+El alumno no inicia sesión ni da otros datos: registra su entrada con su número de control (`POST /registro/entrada`), y su nombre y su curso los busca la API. Después de 30 números de control que no existen, o de 30 códigos de clase equivocados, desde una dirección y en un mismo laboratorio en 10 minutos, hay que esperar. El límite es alto y por laboratorio porque un laboratorio entero, y puede que todo el instituto, sale a internet con la misma dirección. Cada número de control cuenta una vez, y no cuenta el de quien ya pidió su alta (D23).
 
 ## Rutas
 
@@ -171,7 +171,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 | `GET /solicitudes` | Sesión | Con filtros (`laboratorio`, `estado`, `clase`) |
 | `POST /solicitudes/{id}/resolver` | De una clase: admin, o el docente del curso salvo `aprobada_permanente`. Fuera de clase: personal de ese laboratorio | `aprobada_temporal` (entra ya), `aprobada_permanente` (entra y queda inscrito) o `rechazada` |
 | `PUT /solicitudes/{id}` | Personal | Marca leída |
-| `POST /solicitudes-de-alta` | Pública | El alumno que no está dado de alta pide su alta: número de control, nombre, apellidos y, si los sabe, semestre y grupo. Con `claseId`, la de un curso abierta en ese laboratorio. Una pendiente por número de control y 40 por hora desde una misma red (D22) |
+| `POST /solicitudes-de-alta` | Pública | El alumno que no está dado de alta pide su alta: número de control, nombre, apellidos y, si los sabe, semestre y grupo. Con `claseId`, la de un curso abierta en ese laboratorio. Una pendiente por número de control y 40 por hora desde una misma red en cada laboratorio (D22, D23) |
 | `GET /solicitudes-de-alta?estado=` | Admin | Las solicitudes de alta |
 | `POST /solicitudes-de-alta/{id}/resolver` | Admin | `aprobada` o `rechazada`. Al aprobarla se pueden corregir `nombre`, `apellido`, `carrera`, `semestre`, `grupo` y `turno`; se crea el alumno y, si la pidió desde una clase, queda inscrito en ese curso salvo con `inscribir: false` |
 | `GET /avisos` | Personal | Los avisos, con el estado actual de lo que avisan |

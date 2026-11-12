@@ -25,8 +25,9 @@ use Asistencias\Seguridad\Acceso;
  */
 final class SolicitudesDeAlta
 {
-    // Un salón entero puede salir a internet por la misma red: el límite deja pasar a
-    // un grupo y frena a quien mande solicitudes sin parar.
+    // Un salón entero puede salir a internet por la misma red, y puede que todo el
+    // instituto: el límite es por laboratorio, deja pasar a un grupo y frena a quien
+    // mande solicitudes sin parar.
     private const MAXIMO_POR_RED = 40;
     private const MINUTOS_POR_RED = 60;
     private const SELECCION = "SELECT s.*, l.clave AS laboratorio_clave, l.nombre AS laboratorio_nombre,
@@ -83,16 +84,15 @@ final class SolicitudesDeAlta
 
     private static function crear(Contexto $c): Respuesta
     {
+        $e = $c->peticion->cuerpo();
+        $laboratorio = Laboratorios::porClave($c->bd, $e->texto('laboratorio', 'el laboratorio', 30));
         $recientes = (int)$c->bd->valor(
-            'SELECT COUNT(*) FROM solicitudes_de_alta WHERE ip = ? AND creada_en > NOW() - INTERVAL ' . self::MINUTOS_POR_RED . ' MINUTE',
-            [$c->peticion->ip]
+            'SELECT COUNT(*) FROM solicitudes_de_alta WHERE ip = ? AND laboratorio_id = ? AND creada_en > NOW() - INTERVAL ' . self::MINUTOS_POR_RED . ' MINUTE',
+            [$c->peticion->ip, $laboratorio['id']]
         );
         if ($recientes >= self::MAXIMO_POR_RED) {
             throw new ErrorHttp(429, 'Llegaron demasiadas solicitudes desde esta red. Espera un rato o acude con el personal del laboratorio');
         }
-
-        $e = $c->peticion->cuerpo();
-        $laboratorio = Laboratorios::porClave($c->bd, $e->texto('laboratorio', 'el laboratorio', 30));
         $matricula = mb_strtoupper($e->texto('matricula', 'el número de control', 20));
         if (!preg_match('/^[A-Z0-9-]+$/', $matricula)) {
             throw ErrorHttp::datosInvalidos('Revisa tu número de control: solo letras, números y guiones', 'matricula');

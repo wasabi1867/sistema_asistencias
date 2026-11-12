@@ -79,6 +79,8 @@ final class SolicitudesDeAltaTest extends PruebaDeApi
         }
 
         $this->assertSame(429, $this->pedir()->estado);
+        // El límite es por laboratorio: desde otro sí se puede pedir.
+        $this->ok($this->pedir(['laboratorio' => 'redes', 'claseId' => null]), 201);
     }
 
     public function test_al_aprobarla_se_da_de_alta_con_lo_que_corrigio_el_administrador_y_queda_inscrito(): void
