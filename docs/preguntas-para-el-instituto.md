@@ -181,6 +181,14 @@ Si no hay respuesta, supondremos que el jefe de división avisa al administrador
 
 Respuesta (4 de noviembre de 2026, parcial): no la contestó directamente. Cuando cambia el jefe de un área, su correo del puesto pasa al siguiente (pregunta 16). En el sistema, el administrador le quita el rol a quien se va y se lo da a quien llega (D20). Falta saber quién avisa.
 
+## Sobre las clases
+
+Se agregó el 12 de noviembre de 2026.
+
+**19. ¿Cuánto dura la clase más larga que se da en un laboratorio?** ¿Hay clases o talleres de más de cuatro horas seguidas?
+Si un docente olvida cerrar su clase, el sistema la cierra solo para que el laboratorio y los alumnos no queden bloqueados (D24 de [decisiones.md](decisiones.md)).
+*Si no hay respuesta:* la cerrará a las 6 horas de abierta.
+
 ## Otros comentarios del 4 de noviembre de 2026
 
 Del jefe de carrera, en la misma plática:

@@ -302,3 +302,27 @@ Los números no cambian: 30 fallos en 10 minutos en el registro y 40 solicitudes
 
 **Por qué no depender del servidor:** en un plan compartido no se puede cambiar su configuración, y otro servidor u otro plan pueden traer otra.
 
+## D24. Lo que ya pasó no cambia cuando cambian el curso, la inscripción o el alumno
+
+*12 de noviembre de 2026.*
+
+Salió de la misma revisión que D23. Varias consultas armaban el pasado con los datos de hoy, así que un cambio hecho hoy reescribía las listas y los reportes de clases anteriores. Va con la cuarta migración de la base (`004-historial-que-no-se-reescribe`).
+
+**La baja de un curso se anota, no se borra.** `inscripciones.baja_en` guarda cuándo se dio de baja al alumno. Antes se borraba el renglón, y con él desaparecían sus faltas de las clases que sí le tocaron. Quien está dado de baja ya no aparece en el curso ni puede registrar su entrada. Si se le inscribe de nuevo, se quita la baja y conserva su fecha de inscripción.
+
+**La lista de una clase es de quienes estaban inscritos cuando se dio.** Antes era de los inscritos de hoy: a quien se inscribía a medio semestre le aparecían faltas en todas las clases anteriores. Ahora cuenta quien ya estaba inscrito cuando la clase terminó y no se había dado de baja. En una clase abierta es quien está inscrito en ese momento.
+
+**Cada clase guarda a su docente.** `clases.docente_id` se copia del curso al abrirla. Antes se leía del curso: al cambiar al docente de un curso, todas sus clases pasadas aparecían como del nuevo. El docente del curso se puede seguir cambiando, y solo cuenta para las clases que se abran después.
+
+**Un curso con clases no cambia de materia ni de periodo.** Cambiarlos convertía su historial en el de otra materia. La API responde 409 (`curso_con_clases`) y pide crear otro curso. El grupo y el docente sí se corrigen.
+
+**Cada asistencia guarda la carrera, el semestre, el turno y el grupo que tenía el alumno al entrar.** Antes los reportes los leían del alumno, y al pasar de semestre todo su historial salía con el semestre nuevo. Sustituye lo que decía el modelo de datos ("no se copian los datos del alumno en cada asistencia"). No se copia el nombre: una corrección al nombre sí debe verse en todo el historial. Las asistencias anteriores a la migración quedaron con los datos que tenía el alumno ese día, que es lo mejor que se sabe.
+
+**Una clase que se queda abierta la cierra el sistema.** Si nadie la cierra, el laboratorio no puede abrir otra, los alumnos siguen "dentro" y no pueden entrar a su siguiente clase, y las horas de uso se inflan. Ahora, pasadas `horas_maximas_de_clase` (6 por omisión; 0 lo apaga), el sistema la cierra:
+- La clase y las salidas quedan con la hora del límite, no con la hora en que se detectó.
+- Queda como `vencida`, sin nadie en "la cerró", y con un renglón de "Sistema" en la bitácora.
+- Se revisa en cada petición a la API, porque el plan de Hostinger no tiene tareas programadas. Es una consulta por un índice que casi siempre regresa vacía.
+
+**Provisional:** las 6 horas son un número nuestro. Falta saber cuánto dura la clase más larga (pregunta 19).
+
+**Qué no se hizo:** el resumen de un curso (`GET /cursos/{id}/asistencia`) solo muestra a los inscritos de hoy; los dados de baja siguen en la lista de cada clase que les tocó. Y "leído" en los avisos sigue siendo uno para todos, no por persona.

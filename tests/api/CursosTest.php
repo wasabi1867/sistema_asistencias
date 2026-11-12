@@ -77,16 +77,61 @@ final class CursosTest extends PruebaDeApi
         $this->ok($this->con('laboratorista')->post("cursos/$ajeno/alumnos", ['matriculas' => ['23303001']]));
     }
 
-    public function test_dar_de_baja_quita_la_inscripcion(): void
+    public function test_dar_de_baja_lo_quita_de_la_lista_sin_borrar_su_inscripcion(): void
     {
         $curso = $this->crearCurso();
-        $this->inscribir($curso, $this->crearAlumno('23303001'));
+        $ana = $this->crearAlumno('23303001');
+        $this->inscribir($curso, $ana);
         $docente = $this->con('docente');
 
         $this->ok($docente->delete("cursos/$curso/alumnos/23303001"), 204);
 
         $this->assertSame(404, $docente->delete("cursos/$curso/alumnos/23303001")->estado);
         $this->assertSame(1, (int)$this->valor("SELECT COUNT(*) FROM bitacora WHERE accion = 'dar_de_baja'"));
+        $this->assertSame([], $this->ok($docente->get("cursos/$curso/alumnos")));
+        $this->assertSame(0, $this->ok($docente->get("cursos/$curso"))['inscritos']);
+        $this->assertSame([], $this->ok($docente->get("cursos/$curso/asistencia"))['alumnos']);
+        $this->assertSame([], $this->ok($this->con('admin')->get('alumnos/23303001'))['cursos']);
+        $this->assertNotNull($this->valor('SELECT baja_en FROM inscripciones WHERE curso_id = ? AND alumno_id = ?', [$curso, $ana]));
+    }
+
+    public function test_quien_fue_dado_de_baja_ya_no_entra_y_al_inscribirlo_de_nuevo_conserva_su_fecha(): void
+    {
+        $curso = $this->crearCurso();
+        $ana = $this->crearAlumno('23303001');
+        $this->inscribir($curso, $ana);
+        $inscritoEn = $this->valor('SELECT inscrito_en FROM inscripciones WHERE alumno_id = ?', [$ana]);
+        $this->abrirClase($curso);
+        $docente = $this->con('docente');
+        $this->ok($docente->delete("cursos/$curso/alumnos/23303001"), 204);
+
+        $entrada = $this->anonimo()->post('registro/entrada', ['laboratorio' => 'programacion', 'matricula' => '23303001', 'equipoPropio' => true]);
+        $resultado = $this->ok($docente->post("cursos/$curso/alumnos", ['matriculas' => ['23303001']]));
+
+        $this->assertSame('no_inscrito', $entrada->json()['codigo']);
+        $this->assertSame(['23303001'], $resultado['inscritos']);
+        $this->assertSame(['inscrito_en' => $inscritoEn, 'baja_en' => null], $this->fila('SELECT inscrito_en, baja_en FROM inscripciones WHERE alumno_id = ?', [$ana]));
+        $this->ok($this->anonimo()->post('registro/entrada', ['laboratorio' => 'programacion', 'matricula' => '23303001', 'equipoPropio' => true]), 201);
+    }
+
+    public function test_un_curso_con_clases_no_cambia_de_materia_ni_de_periodo(): void
+    {
+        $curso = $this->crearCurso();
+        $sinClases = $this->crearCurso(grupo: '5B');
+        $otraMateria = $this->crearMateria('Bases de Datos');
+        $otroPeriodo = $this->insertar('periodos', ['nombre' => 'Siguiente', 'fecha_inicio' => date('Y-m-d', strtotime('+200 days')), 'fecha_fin' => date('Y-m-d', strtotime('+300 days'))]);
+        $materia = (int)$this->valor('SELECT materia_id FROM cursos WHERE id = ?', [$curso]);
+        $this->abrirClase($curso);
+        $admin = $this->con('admin');
+
+        $deMateria = $admin->put("cursos/$curso", ['materiaId' => $otraMateria]);
+        $dePeriodo = $admin->put("cursos/$curso", ['periodoId' => $otroPeriodo]);
+
+        $this->assertSame([409, 'curso_con_clases'], [$deMateria->estado, $deMateria->json()['codigo']]);
+        $this->assertSame([409, 'curso_con_clases'], [$dePeriodo->estado, $dePeriodo->json()['codigo']]);
+        // Lo demás sí se corrige, aunque la petición mande la misma materia.
+        $this->assertSame('5C', $this->ok($admin->put("cursos/$curso", ['materiaId' => $materia, 'grupo' => '5c']))['grupo']);
+        $this->ok($admin->put("cursos/$sinClases", ['materiaId' => $otraMateria]));
     }
 
     public function test_un_curso_con_clases_no_se_borra(): void

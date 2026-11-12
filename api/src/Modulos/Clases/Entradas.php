@@ -87,8 +87,14 @@ final class Entradas
                 }
             }
 
+            // Lo que es el alumno hoy se guarda con la entrada: cuando pase de semestre
+            // o cambie de grupo, los reportes de este periodo no cambian.
+            $deHoy = isset($persona['alumno_id'])
+                ? $bd->fila('SELECT carrera_id, semestre, turno, grupo FROM alumnos WHERE id = ?', [$persona['alumno_id']]) ?? []
+                : [];
+
             try {
-                $id = $bd->insertar('asistencias', [
+                $id = $bd->insertar('asistencias', $deHoy + [
                     'laboratorio_id' => $laboratorioId,
                     'clase_id' => $claseId,
                     'equipo_id' => $equipo['id'] ?? null,

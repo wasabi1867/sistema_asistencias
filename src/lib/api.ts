@@ -298,7 +298,7 @@ export interface Clase {
   abierta: boolean
   abiertaEn: string
   cerradaEn: string | null
-  cierre: "normal" | "externo" | "automatico" | null
+  cierre: "normal" | "externo" | "automatico" | "vencida" | null
   abiertaPor: string
   cerradaPor: string | null
   asistentes: number

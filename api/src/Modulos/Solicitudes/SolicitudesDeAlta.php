@@ -39,7 +39,7 @@ final class SolicitudesDeAlta
         LEFT JOIN clases cl ON cl.id = s.clase_id
         LEFT JOIN cursos cu ON cu.id = cl.curso_id
         LEFT JOIN materias m ON m.id = cu.materia_id
-        LEFT JOIN usuarios ud ON ud.id = cu.docente_id
+        LEFT JOIN usuarios ud ON ud.id = cl.docente_id
         LEFT JOIN usuarios ur ON ur.id = s.resuelta_por";
 
     public static function registrar(Enrutador $r): void
@@ -162,7 +162,7 @@ final class SolicitudesDeAlta
                 ...array_diff_key(Alumnos::datos($c->bd, $e, nuevo: false), ['matricula' => true]),
             ], "Alumno {$solicitud['matricula']}");
             if ($solicitud['curso_id'] !== null && $e->booleano('inscribir', true)) {
-                $c->bd->ejecutar('INSERT IGNORE INTO inscripciones (curso_id, alumno_id) VALUES (?, ?)', [$solicitud['curso_id'], $alumnoId]);
+                $c->bd->ejecutar('INSERT INTO inscripciones (curso_id, alumno_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE baja_en = NULL', [$solicitud['curso_id'], $alumnoId]);
             }
         }
 

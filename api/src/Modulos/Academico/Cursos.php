@@ -31,7 +31,7 @@ final class Cursos
             p.nombre AS periodo_nombre, CURDATE() BETWEEN p.fecha_inicio AND p.fecha_fin AS periodo_actual,
             u.nombre AS docente_nombre, u.apellido AS docente_apellido,
             l.clave AS laboratorio_clave, l.nombre AS laboratorio_nombre,
-            (SELECT COUNT(*) FROM inscripciones i WHERE i.curso_id = cu.id) AS inscritos
+            (SELECT COUNT(*) FROM inscripciones i WHERE i.curso_id = cu.id AND i.baja_en IS NULL) AS inscritos
         FROM cursos cu
         JOIN materias m ON m.id = cu.materia_id
         JOIN periodos p ON p.id = cu.periodo_id
@@ -124,6 +124,13 @@ final class Cursos
     {
         $curso = self::porId($c->bd, $c->peticion->id());
         $valores = self::datos($c, $c->peticion->cuerpo(), nuevo: false);
+        // Las clases muestran la materia y el periodo de su curso: cambiarlos cambiaría
+        // de materia las clases que ya se dieron. El grupo y el docente sí se corrigen
+        // (cada clase guarda a su docente).
+        $cambia = static fn (string $campo) => array_key_exists($campo, $valores) && $valores[$campo] !== $curso[$campo];
+        if (($cambia('materia_id') || $cambia('periodo_id')) && $c->bd->valor('SELECT 1 FROM clases WHERE curso_id = ? LIMIT 1', [$curso['id']]) !== null) {
+            throw ErrorHttp::conflicto('El curso ya tiene clases registradas: su materia y su periodo ya no se pueden cambiar. Crea otro curso', 'curso_con_clases');
+        }
         ErrorDeIntegridad::explicar(self::DUPLICADOS, static fn () => $c->cambios->actualizar('cursos', $curso['id'], $valores, self::descripcion($curso)));
         return self::formato(self::porId($c->bd, $curso['id']));
     }
@@ -147,7 +154,7 @@ final class Cursos
              FROM inscripciones i
              JOIN alumnos a ON a.id = i.alumno_id
              LEFT JOIN carreras c ON c.id = a.carrera_id
-             WHERE i.curso_id = ?
+             WHERE i.curso_id = ? AND i.baja_en IS NULL
              ORDER BY a.apellido, a.nombre, a.matricula',
             [$curso['id']]
         );
@@ -172,7 +179,7 @@ final class Cursos
         $marcas = implode(', ', array_fill(0, count($matriculas), '?'));
         $alumnos = [];
         foreach ($c->bd->filas(
-            "SELECT a.id, a.matricula, a.activo, i.alumno_id IS NOT NULL AS inscrito
+            "SELECT a.id, a.matricula, a.activo, i.alumno_id IS NOT NULL AS estuvo, i.alumno_id IS NOT NULL AND i.baja_en IS NULL AS inscrito
              FROM alumnos a LEFT JOIN inscripciones i ON i.alumno_id = a.id AND i.curso_id = ?
              WHERE a.matricula IN ($marcas)",
             [$curso['id'], ...$matriculas]
@@ -189,7 +196,10 @@ final class Cursos
                 !$alumno['activo'] => 'inactivos',
                 default => 'inscritos',
             };
-            if ($que === 'inscritos') {
+            if ($que === 'inscritos' && $alumno['estuvo']) {
+                // Lo habían dado de baja: vuelve con su fecha de inscripción original.
+                $c->bd->ejecutar('UPDATE inscripciones SET baja_en = NULL WHERE curso_id = ? AND alumno_id = ?', [$curso['id'], $alumno['id']]);
+            } elseif ($que === 'inscritos') {
                 $c->bd->insertar('inscripciones', ['curso_id' => $curso['id'], 'alumno_id' => $alumno['id']]);
             }
             $resultado[$que][] = $alumno['matricula'] ?? $matricula;
@@ -200,11 +210,15 @@ final class Cursos
         return $resultado;
     }
 
+    /**
+     * La inscripción no se borra, se le pone la fecha de la baja: el alumno sigue en
+     * las listas de las clases que le tocaron, con sus asistencias y sus faltas.
+     */
     private static function darDeBaja(Contexto $c): Respuesta
     {
         $curso = self::administrable($c);
         $alumno = Alumnos::porMatricula($c->bd, $c->peticion->parametro('matricula'));
-        if ($c->bd->ejecutar('DELETE FROM inscripciones WHERE curso_id = ? AND alumno_id = ?', [$curso['id'], $alumno['id']]) === 0) {
+        if ($c->bd->ejecutar('UPDATE inscripciones SET baja_en = NOW() WHERE curso_id = ? AND alumno_id = ? AND baja_en IS NULL', [$curso['id'], $alumno['id']]) === 0) {
             throw new ErrorHttp(404, 'El alumno no está inscrito en este curso');
         }
         $c->bitacora->registrar('dar_de_baja', 'cursos', $curso['id'], self::descripcion($curso) . ": alumno {$alumno['matricula']}");
@@ -219,7 +233,7 @@ final class Cursos
         $inscritos = $c->bd->filas(
             'SELECT a.id, a.matricula, a.nombre, a.apellido, i.inscrito_en
              FROM inscripciones i JOIN alumnos a ON a.id = i.alumno_id
-             WHERE i.curso_id = ? ORDER BY a.apellido, a.nombre, a.matricula',
+             WHERE i.curso_id = ? AND i.baja_en IS NULL ORDER BY a.apellido, a.nombre, a.matricula',
             [$curso['id']]
         );
         $asistencias = $c->bd->filas(

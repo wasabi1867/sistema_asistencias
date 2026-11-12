@@ -48,13 +48,13 @@ erDiagram
 | | `alumnos` | Alumnos, con su número de control; no tienen cuenta |
 | Materias | `materias` | La materia en sí: nombre, clave, carrera y semestre |
 | | `cursos` | Una materia que un docente imparte a un grupo en un periodo |
-| | `inscripciones` | Qué alumnos llevan cada curso y desde cuándo |
+| | `inscripciones` | Qué alumnos llevan cada curso, desde cuándo y, si se dieron de baja, hasta cuándo |
 | | `practicas` | Las prácticas de cada materia: comunes a todos sus docentes o propias de uno |
 | | `horarios` | En qué laboratorio, qué día y a qué hora se imparte cada curso |
 | Equipos | `equipos` | Las computadoras de cada laboratorio |
 | | `reportes_de_equipo` | Cada falla reportada y su seguimiento |
-| Operación | `clases` | Cada sesión en un laboratorio, regular o de maestro invitado |
-| | `asistencias` | Cada entrada a un laboratorio, en clase o fuera de ella, con su salida |
+| Operación | `clases` | Cada sesión en un laboratorio, regular o de maestro invitado, con el docente que la dio |
+| | `asistencias` | Cada entrada a un laboratorio, en clase o fuera de ella, con su salida y con la carrera, el semestre, el turno y el grupo que tenía el alumno |
 | | `solicitudes_ingreso` | Alumnos que piden entrar a una clase en la que no están inscritos, o usar el laboratorio fuera de clase |
 | | `solicitudes_de_alta` | Alumnos que no están dados de alta y piden su alta desde la pantalla de registro (D22) |
 | Otros | `eventos` | Talleres y actividades del laboratorio fuera de clase |
@@ -72,7 +72,7 @@ El alumno no se da de alta ni se inscribe: todo lo carga el personal antes de qu
 4. **El docente abre la clase** (`clases`) en el laboratorio.
 5. **El alumno escribe su número de control** y elige su computadora. La API lo busca en `alumnos`, revisa que esté en `inscripciones` de ese curso y crea su fila en `asistencias`.
 
-Si el alumno no está inscrito, puede pedir permiso (`solicitudes_ingreso`). El administrador lo deja entrar esa vez o lo inscribe en el curso. La inscripción también sirve para saber quién faltó: sin ella solo se sabría quién vino.
+Si el alumno no está inscrito, puede pedir permiso (`solicitudes_ingreso`). El administrador lo deja entrar esa vez o lo inscribe en el curso. La inscripción también sirve para saber quién faltó: sin ella solo se sabría quién vino. La lista de una clase es de quienes estaban inscritos cuando se dio: al que se inscribe después no se le cuentan las anteriores, y al que se da de baja se le conservan las que le tocaron (D24).
 
 El sistema original hacía la misma revisión con la lista de materias guardada en cada alumno de Firebase. Si el instituto prefiere que cualquier alumno entre a cualquier clase, es la pregunta 10 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md).
 
@@ -103,7 +103,7 @@ Además de que la API las revise, la base rechaza lo que las rompe, aunque llegu
 - En un laboratorio hay a lo más una clase abierta de cada tipo (regular o de maestro invitado).
 - Un curso no puede estar abierto en dos laboratorios a la vez.
 - La clase regular tiene curso; la de maestro invitado tiene la materia escrita a mano y no tiene curso.
-- Toda clase cerrada dice cómo se cerró.
+- Toda clase cerrada dice cómo se cerró: su docente o el personal, otra persona, la pestaña del docente o el sistema, por quedarse abierta (`vencida`).
 
 **Asistencias**
 - Un equipo tiene a lo más un ocupante, y un alumno o un usuario no puede estar dentro dos veces a la vez.
@@ -169,7 +169,7 @@ Se cambió esto, por lo que hace el sistema actual:
 - **Una cuenta por persona, con uno o varios roles** (D20). `usuarios.roles` es un `SET` que no puede quedar vacío; los permisos son la suma de los roles. El rol no se elige al iniciar sesión. En Firebase cada rol era una cuenta aparte: la importación une las que tienen el mismo correo o matrícula.
 - **Horas en hora local, no en UTC.** Ver la tabla anterior.
 - **Identificadores numéricos.** La matrícula, la clave del laboratorio y la etiqueta del equipo pueden corregirse sin romper las relaciones. Las pantallas siguen usando la matrícula y la clave.
-- **No se copian los datos del alumno en cada asistencia.** Los reportes toman la carrera del alumno y el grupo del curso. La contra es que, si un alumno cambia de carrera, sus asistencias pasadas salen con la carrera nueva.
+- **Lo que ya pasó no se reescribe** (D24). Cada asistencia guarda la carrera, el semestre, el turno y el grupo que tenía el alumno al entrar; cada clase, a su docente; y la baja de un curso se anota con su fecha en lugar de borrar la inscripción. El nombre del alumno no se copia: si se corrige, se corrige en todo el historial. Antes no se copiaba nada, y al pasar de semestre el historial de un alumno salía con el semestre nuevo.
 - **Prácticas comunes o propias.** El docente ve las comunes de la materia y las suyas. El administrador edita las comunes y cada docente las suyas.
 - **Uso fuera de clase.** Mientras el instituto no responda quién lo autoriza, se supone lo que se propone en la pregunta 5 de [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md): el laboratorista lo registra sin pedir permiso a nadie. Las solicitudes fuera de clase quedan listas para cuando se defina.
 - **Código de clase.** La base lo guarda; si el registro lo exige o no se decide en la pantalla de registro.
@@ -195,7 +195,7 @@ Están en [preguntas-para-el-instituto.md](preguntas-para-el-instituto.md):
 - **Inscripciones:** la lista de materias de cada alumno se convierte en filas de `inscripciones`, desde el inicio del periodo.
 - **Equipos:** los de Firebase reemplazan a los de los datos iniciales de ese laboratorio. Su estado de reparación se vuelve un reporte de falla.
 - **Clases y asistencias:**
-  - `ClassInformation` se convierte en clases y asistencias ya cerradas, con su hora.
+  - `ClassInformation` se convierte en clases y asistencias ya cerradas, con su hora. Cada asistencia queda con los datos que el alumno tiene al importar, porque Firebase no guardaba los de entonces.
   - Las clases de maestro invitado se atribuyen a una cuenta desactivada, "Importación de Firebase", porque Firebase no guardaba quién las abrió.
   - Un alumno que aparece en el historial pero ya no estaba en Firebase se crea desactivado.
 - **Solicitudes:** quedan ligadas a la clase que estaba abierta a esa hora. Las que quedaron sin resolver se marcan como rechazadas, con un comentario.

@@ -86,6 +86,6 @@ Solo los alumnos inscritos en el curso pueden registrar su entrada a sus clases.
 1. **En la computadora del laboratorio** (o en cualquier navegador), abre el sitio y elige el laboratorio. Se hace una sola vez: la computadora lo recuerda.
 2. **El docente** entra por **Personal** → **Docente**, elige el curso y la práctica, y presiona **Abrir la clase**. Ve en vivo quién entra y quién falta.
 3. **Un alumno inscrito**, desde esa computadora o desde su teléfono, escribe su número de control y elige su computadora, o **Traigo mi propio equipo**.
-4. **El docente** cierra la clase: se registra la salida de todos. Puede exportar la hoja de registro en PDF o Excel.
+4. **El docente** cierra la clase: se registra la salida de todos. Puede exportar la hoja de registro en PDF o Excel. Si se le olvida, el sistema la cierra a las 6 horas de abierta, y en el historial aparece que la cerró el sistema.
 
 Si algo no sale como se espera, anota qué pasó y a qué hora: la bitácora del sistema guarda quién hizo qué y cuándo.

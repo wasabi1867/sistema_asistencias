@@ -201,4 +201,92 @@ final class ClasesTest extends PruebaDeApi
 
         $this->assertSame(['invitado', 'Visita', null], [$registrada['tipo'], $registrada['nombre'], $registrada['equipo']]);
     }
+
+    public function test_la_lista_de_una_clase_pasada_es_de_quienes_estaban_inscritos_entonces(): void
+    {
+        $hace = static fn (string $cuanto) => date('Y-m-d H:i:s', strtotime($cuanto));
+        $clase = $this->abrirClase($this->curso);
+        $this->pdo()->prepare("UPDATE clases SET abierta_en = ?, cerrada_en = ?, cierre = 'normal' WHERE id = ?")
+            ->execute([$hace('-10 days'), $hace('-10 days +2 hours'), $clase]);
+        $inscripciones = [
+            // Inscrita desde antes: le toca la clase.
+            ['23303001', 'Ana', '-30 days', null],
+            // Se inscribió después de la clase: no es falta suya.
+            ['23303002', 'Beto', '-5 days', null],
+            // Se dio de baja después de la clase: la falta se queda.
+            ['23303003', 'Caro', '-30 days', '-2 days'],
+            // Se dio de baja antes de la clase: ya no le tocaba.
+            ['23303004', 'Dani', '-30 days', '-20 days'],
+        ];
+        foreach ($inscripciones as [$matricula, $nombre, $inscrito, $baja]) {
+            $this->insertar('inscripciones', [
+                'curso_id' => $this->curso, 'alumno_id' => $this->crearAlumno($matricula, $nombre, 'Alumno'),
+                'inscrito_en' => $hace($inscrito), 'baja_en' => $baja === null ? null : $hace($baja),
+            ]);
+        }
+
+        $lista = $this->ok($this->con('docente')->get("clases/$clase"))['lista'];
+
+        $this->assertSame(['23303001', '23303003'], array_column($lista['alumnos'], 'matricula'));
+        $this->assertSame([2, 0, 2], [$lista['inscritos'], $lista['presentes'], $lista['faltas']]);
+    }
+
+    public function test_la_clase_sigue_siendo_del_docente_que_la_dio_aunque_el_curso_cambie_de_docente(): void
+    {
+        $diego = $this->con('docente');
+        $clase = $this->ok($diego->post('clases', ['cursoId' => $this->curso]), 201)['id'];
+        $this->ok($diego->post("clases/$clase/cerrar"));
+        $otro = $this->crearDocente('D200', 'Olga', 'Otra');
+
+        $this->ok($this->con('admin')->put("cursos/$this->curso", ['docenteId' => $otro]));
+
+        $olga = $this->con('docente', 'D200');
+        $this->assertSame('Diego Docente', $this->ok($olga->get("clases/$clase"))['docente']);
+        $this->assertSame([$clase], array_column($this->ok($diego->get('clases?docente=yo'))['clases'], 'id'));
+        $this->assertSame([], $this->ok($olga->get('clases?docente=yo'))['clases']);
+        // Las clases nuevas del curso ya son de Olga.
+        $nueva = $this->ok($olga->post('clases', ['cursoId' => $this->curso]), 201);
+        $this->assertSame(['Olga Otra', $otro], [$nueva['docente'], $nueva['docenteId']]);
+        $this->assertSame(403, $diego->post("clases/{$nueva['id']}/cerrar")->estado);
+    }
+
+    public function test_una_clase_olvidada_la_cierra_el_sistema_a_la_hora_del_limite(): void
+    {
+        $olvidada = $this->abrirClase($this->curso);
+        $reciente = $this->abrirClaseDeInvitado();
+        $ana = $this->crearAlumno('23303001', 'Ana', 'Alumna');
+        $beto = $this->crearAlumno('23303002', 'Beto', 'Bueno');
+        $this->inscribir($this->curso, $ana, $beto);
+        $deAna = $this->registrarEntrada($olvidada, $ana, $this->equipo('PC-3'));
+        $deBeto = $this->registrarEntrada($olvidada, $beto);
+        $this->pdo()->exec("UPDATE clases SET abierta_en = NOW() - INTERVAL 50 HOUR WHERE id = $olvidada");
+        $this->pdo()->exec("UPDATE clases SET abierta_en = NOW() - INTERVAL 5 HOUR WHERE id = $reciente");
+        $this->pdo()->exec("UPDATE asistencias SET hora_entrada = NOW() - INTERVAL 49 HOUR WHERE id = $deAna");
+        // No debería haber una entrada después del límite; si la hay, su salida no queda antes que su entrada.
+        $this->pdo()->exec("UPDATE asistencias SET hora_entrada = NOW() - INTERVAL 1 HOUR WHERE id = $deBeto");
+
+        // Con el límite en cero no se cierra ninguna.
+        $sinLimite = new Cliente(Entorno::url(['ASISTENCIAS_HORAS_MAXIMAS_DE_CLASE' => '0']));
+        $this->assertCount(2, $sinLimite->get('clases/abiertas?laboratorio=programacion')->json());
+
+        // Cualquier petición las revisa, también una sin sesión.
+        $abiertas = $this->ok($this->anonimo()->get('clases/abiertas?laboratorio=programacion'));
+
+        $this->assertSame([$reciente], array_column($abiertas, 'id'));
+        $this->assertSame(
+            ['cierre' => 'vencida', 'cerrada_por' => null, 'horas' => 6],
+            $this->fila('SELECT cierre, cerrada_por, TIMESTAMPDIFF(HOUR, abierta_en, cerrada_en) AS horas FROM clases WHERE id = ?', [$olvidada])
+        );
+        $this->assertSame(1, (int)$this->valor('SELECT hora_salida = (SELECT cerrada_en FROM clases WHERE id = ?) FROM asistencias WHERE id = ?', [$olvidada, $deAna]));
+        $this->assertSame(1, (int)$this->valor('SELECT hora_salida = hora_entrada FROM asistencias WHERE id = ?', [$deBeto]));
+        $this->assertSame(
+            ['usuario' => 'Sistema', 'usuario_id' => null, 'detalles' => 'Cierre vencida: llevaba más de 6 horas abierta, 2 salidas registradas'],
+            $this->fila("SELECT usuario, usuario_id, detalles FROM bitacora WHERE accion = 'cerrar_clase'")
+        );
+        // El laboratorio y el equipo quedan libres, y la clase dice cómo se cerró.
+        $this->ok($this->con('docente')->post('clases', ['cursoId' => $this->curso]), 201);
+        $vista = $this->ok($this->con('admin')->get("clases/$olvidada"));
+        $this->assertSame(['vencida', null, false], [$vista['cierre'], $vista['cerradaPor'], $vista['abierta']]);
+        $this->ok($this->anonimo()->post('registro/entrada', ['laboratorio' => 'programacion', 'matricula' => '23303001', 'equipo' => 'PC-3']), 201);
+    }
 }

@@ -137,7 +137,7 @@ final class RegistroDeEntrada
                 ]),
             },
             // El docente entra a la clase de su curso si la hay; si no, a la que esté abierta.
-            'docente' => $regular !== null && $regular['curso_docente_id'] === $persona['usuario_id'] ? $regular : ($invitado ?? $regular),
+            'docente' => $regular !== null && $regular['docente_id'] === $persona['usuario_id'] ? $regular : ($invitado ?? $regular),
             'invitado' => $invitado ?? throw ErrorHttp::conflicto('En esta clase cada alumno se registra con su número de control', 'solo_alumnos'),
         };
     }

@@ -74,6 +74,40 @@ final class MigracionesTest extends PruebaDeApi
         }
     }
 
+    public function test_lo_ya_registrado_queda_con_el_docente_del_curso_y_los_datos_del_alumno(): void
+    {
+        $base = $this->baseConElEsquemaInstalado();
+        try {
+            $this->pdo()->exec(
+                "INSERT INTO `$base`.usuarios (id, rol, email, matricula, nombre, password_hash) VALUES
+                 (1, 'admin', 'jefa@pruebas.test', NULL, 'Juana', 'x'),
+                 (2, 'docente', NULL, 'D100', 'Diego', 'x');
+                 INSERT INTO `$base`.laboratorios (id, clave, nombre) VALUES (1, 'a', 'Laboratorio A');
+                 INSERT INTO `$base`.carreras (id, clave, nombre) VALUES (1, 'ISIC', 'Sistemas');
+                 INSERT INTO `$base`.periodos (id, nombre, fecha_inicio, fecha_fin) VALUES (1, 'Actual', '2026-08-01', '2026-12-31');
+                 INSERT INTO `$base`.materias (id, nombre) VALUES (1, 'Programación Web');
+                 INSERT INTO `$base`.cursos (id, materia_id, periodo_id, grupo, docente_id) VALUES (1, 1, 1, '5A', 2);
+                 INSERT INTO `$base`.alumnos (id, matricula, nombre, apellido, carrera_id, semestre, turno, grupo) VALUES (1, '23303001', 'Ana', 'Alumna', 1, 5, 'matutino', 'A');
+                 INSERT INTO `$base`.inscripciones (curso_id, alumno_id) VALUES (1, 1);
+                 INSERT INTO `$base`.clases (id, laboratorio_id, tipo, curso_id, abierta_por, cerrada_por, cerrada_en, cierre) VALUES (1, 1, 'regular', 1, 2, 2, NOW(), 'normal');
+                 INSERT INTO `$base`.clases (id, laboratorio_id, tipo, materia_invitado, abierta_por) VALUES (2, 1, 'invitado', 'Taller', 1);
+                 INSERT INTO `$base`.asistencias (laboratorio_id, clase_id, tipo_persona, alumno_id, hora_salida) VALUES (1, 1, 'alumno', 1, NOW());
+                 INSERT INTO `$base`.asistencias (laboratorio_id, clase_id, tipo_persona, invitado_nombre, invitado_apellido) VALUES (1, 2, 'invitado', 'Iván', 'Invitado')"
+            );
+
+            [$codigo, $salida] = Entorno::correrScript('migrar.php', variables: ['ASISTENCIAS_DB_NAME' => $base]);
+            $this->assertSame(0, $codigo, $salida);
+
+            $this->assertSame('1 2,2 -', $this->valor("SELECT GROUP_CONCAT(id, ' ', COALESCE(docente_id, '-') ORDER BY id) FROM `$base`.clases"));
+            $this->assertSame('1 5 matutino A,- - - -', $this->valor(
+                "SELECT GROUP_CONCAT(COALESCE(carrera_id, '-'), ' ', COALESCE(semestre, '-'), ' ', COALESCE(turno, '-'), ' ', COALESCE(grupo, '-') ORDER BY id) FROM `$base`.asistencias"
+            ));
+            $this->assertNull($this->valor("SELECT baja_en FROM `$base`.inscripciones"));
+        } finally {
+            $this->pdo()->exec("DROP DATABASE IF EXISTS `$base`");
+        }
+    }
+
     private function baseConElEsquemaInstalado(): string
     {
         $base = 'asistencias_migrada_' . bin2hex(random_bytes(3));

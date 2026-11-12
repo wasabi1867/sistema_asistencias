@@ -112,6 +112,7 @@ export function VistaHistorial({ laboratorio }: PropsDeVista) {
                         Abrió {clase.abiertaPor}
                         {clase.cerradaPor ? `, cerró ${clase.cerradaPor}` : ""}
                         {clase.cierre === "automatico" ? " (se cerró sola al cerrar la pestaña)" : ""}
+                        {clase.cierre === "vencida" ? ", la cerró el sistema porque se quedó abierta" : ""}
                       </span>
                     </div>
                     {(clase.personas ?? []).length === 0 ? (

@@ -63,7 +63,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 | Qué | Cómo | Cuándo |
 |---|---|---|
-| La API | 280 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo; la 11.8 con el aislamiento READ COMMITTED de Hostinger) y en MySQL 8.0 | 12 de noviembre, en cada pull request |
+| La API | 288 pruebas de PHPUnit contra una base real, en MariaDB 10.6 y 11.8 (la misma versión que Hostinger, también en la PC de desarrollo; la 11.8 con el aislamiento READ COMMITTED de Hostinger) y en MySQL 8.0 | 12 de noviembre, en cada pull request |
 | La primera migración (`001-cuentas-con-varios-roles`) | Una prueba crea una base con el esquema con que se instaló producción, le aplica las migraciones con `scripts/migrar.php` y la compara con una creada con `db/esquema.sql`; cada cuenta conserva su rol. Pasa en MariaDB 11.8.9 y MySQL 8.0 en la computadora. Aplicada en producción con `scripts/migrar.php`, después de respaldar la base (50 renglones): la única cuenta quedó con el rol de administrador | 2 de noviembre |
 | La base de Hostinger | Instalada con `scripts/instalar.php` por MySQL remoto con TLS verificado; los registros de cada tabla coinciden con una base local instalada igual, más el administrador | 22 de octubre |
 | Los respaldos de la base | Primer respaldo de producción con `scripts/exportar-datos.php` (47 renglones de 19 tablas), restaurado con `scripts/restaurar.php` en una base vacía de la computadora con el mismo resultado. Las pruebas cubren respaldos cortados o de otra versión del esquema | 23 de octubre |
@@ -99,6 +99,9 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 - Nada impide que alguien registre la entrada de un compañero con su número de control. El código de clase (`exigir_codigo_de_clase`) lo dificulta, pero está apagado.
 - Las listas en vivo se consultan cada pocos segundos; no llegan al instante.
+- Las asistencias anteriores a la cuarta migración quedaron con la carrera, el semestre y el grupo que el alumno tenía el día de la migración, no los del día en que entró (D24).
+- El resumen de asistencia de un curso solo muestra a los inscritos de hoy; los dados de baja siguen en la lista de cada clase que les tocó.
+- Una clase que se queda abierta se cierra sola a las 6 horas. El número es provisional (pregunta 19).
 
 ## Pendientes, en orden
 
@@ -151,3 +154,4 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 5 de noviembre de 2026 | #31 | El alumno que no está dado de alta pide su alta desde el registro, y el administrador la aprueba desde el Tablero (D22, pregunta 3). Tercera migración de la base |
 | 6 de noviembre de 2026 | #32 | **Sexta publicación en Hostinger**, con #31: base respaldada (62 renglones) y migrada (003, solicitudes de alta), sitio respaldado (164 archivos) y subido (105); `npm run prueba:produccion` pasa, con el inicio de sesión del administrador |
 | 12 de noviembre de 2026 | #33 | Los límites por red del registro y de la solicitud de alta se cuentan por laboratorio, y la conexión con la base usa el modo estricto aunque el servidor no lo traiga (D23). Sin cambios a la base |
+| 12 de noviembre de 2026 | #34 | El historial ya no se reescribe (D24): la baja de un curso se anota con su fecha, la lista de una clase es de quienes estaban inscritos entonces, cada clase guarda a su docente y cada asistencia los datos del alumno, un curso con clases no cambia de materia ni de periodo, y el sistema cierra la clase que se queda abierta más de 6 horas. Cuarta migración de la base; **falta aplicarla en producción** |
