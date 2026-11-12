@@ -54,18 +54,20 @@ Los datos reales no van en git. `api/config.local.php` (copia de [`config.ejempl
 | 200, 201, 204 | Bien: con datos, creado, o sin nada que devolver |
 | 400 | Un dato no sirve. Trae `campo` |
 | 401 | Sin sesión, o usuario y contraseña incorrectos |
-| 403 | Con sesión, pero sin permiso |
+| 403 | Con sesión, pero sin permiso. También lo que cambia datos y no viene del propio sitio (D25) |
 | 404 | No existe |
 | 409 | Choca con el estado actual: duplicado, equipo ocupado, clase cerrada, o un borrado del que dependen otros registros |
-| 429 | Demasiados intentos fallidos desde la misma dirección |
+| 429 | Demasiados intentos fallidos |
 
 ## Sesión
 
 El personal inicia sesión con `POST /sesion` `{usuario, contrasena}`, donde `usuario` es el correo o la matrícula. El rol no se manda: sale de la cuenta, que tiene uno o varios (`roles` en la respuesta) y puede hacer lo de todos ellos (D20). PHP guarda la sesión en el servidor; el navegador solo lleva la cookie `asistencias_sesion`, que JavaScript no puede leer.
 - La cookie es `SameSite=Lax`, así que no viaja en peticiones que vengan de otro sitio.
-- La sesión vence tras 4 horas sin usarse.
-- Una cuenta desactivada pierde la sesión de inmediato.
-- Después de 10 intentos fallidos desde una dirección hay que esperar 15 minutos.
+- Lo que no es de lectura (`POST`, `PUT`, `DELETE`) solo se acepta si el encabezado `Origin` es el del propio sitio o uno de `origenes_permitidos`; si no, 403. Sin `Origin`, como llega desde un script, se acepta (D25).
+- La sesión vence tras 4 horas sin usarse. La API fija ese tiempo y guarda las sesiones en una carpeta propia (`asistencias_sesiones`, dentro de la de sesiones del servidor).
+- Una cuenta desactivada pierde la sesión de inmediato. Al cambiar o restablecer una contraseña se cierran las demás sesiones de esa cuenta.
+- Después de 10 intentos fallidos con una misma cuenta desde una dirección hay que esperar 15 minutos. Las demás cuentas siguen entrando. La dirección tiene además un tope de 100 fallos con cualquier cuenta.
+- De un intento fallido queda en la bitácora el correo o la matrícula de la cuenta; si no existe, una huella y no lo que se escribió.
 
 El alumno no inicia sesión ni da otros datos: registra su entrada con su número de control (`POST /registro/entrada`), y su nombre y su curso los busca la API. Después de 30 números de control que no existen, o de 30 códigos de clase equivocados, desde una dirección y en un mismo laboratorio en 10 minutos, hay que esperar. El límite es alto y por laboratorio porque un laboratorio entero, y puede que todo el instituto, sale a internet con la misma dirección. Cada número de control cuenta una vez, y no cuenta el de quien ya pidió su alta (D23).
 
@@ -89,7 +91,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 | `POST /sesion` | Pública | Inicia sesión |
 | `GET /sesion` | Sesión | La cuenta con sesión (401 si no hay) |
 | `DELETE /sesion` | Pública | Cierra la sesión |
-| `PUT /sesion/contrasena` | Sesión | Cambia la contraseña propia, dando la actual |
+| `PUT /sesion/contrasena` | Sesión | Cambia la contraseña propia, dando la actual. Cierra sus otras sesiones |
 | `GET /laboratorios` | Pública | Los laboratorios activos (`?todos=1`, el administrador ve también los desactivados) |
 | `POST /laboratorios`, `PUT /laboratorios/{id}` | Admin | Crea o edita (o desactiva) un laboratorio |
 | `GET /carreras` | Sesión | Las carreras activas (`?todas=1` también las desactivadas) |
@@ -104,7 +106,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 | `GET /usuarios` | Sesión | El administrador ve todas las cuentas (`?rol=` da las que tienen ese rol, `?activo=`); los demás, los docentes y laboratoristas activos |
 | `GET /usuarios/{id}` | Admin | Una cuenta |
 | `POST /usuarios`, `PUT /usuarios/{id}` | Admin | Crea o edita (o desactiva) una cuenta, con sus roles (`roles`, al menos uno) y, si es laboratorista, los laboratorios que atiende (`laboratorios`, sus claves). Nadie se desactiva ni se quita el rol de administrador a sí mismo, y siempre queda un administrador |
-| `PUT /usuarios/{id}/contrasena` | Admin | Restablece la contraseña de otro |
+| `PUT /usuarios/{id}/contrasena` | Admin | Restablece la contraseña de otro y cierra sus sesiones |
 | `DELETE /usuarios/{id}` | Admin | Borra una cuenta sin historial |
 | `GET /alumnos` | Sesión | Búsqueda por matrícula o nombre, con filtros (`carrera`, `semestre`, `grupo`, `turno`, `activo`), por páginas |
 | `GET /alumnos/{matricula}` | Sesión | Un alumno y sus cursos |

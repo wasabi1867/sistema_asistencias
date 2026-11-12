@@ -23,6 +23,12 @@ final class Entorno
     private static string $base = '';
     private static string $raiz = '';
     private static string $carpetaTemporal = '';
+
+    /** Donde cada servidor de las pruebas guarda sus sesiones y sus bitácoras. */
+    public static function carpetaTemporal(): string
+    {
+        return self::$carpetaTemporal;
+    }
     /** @var array<string, array{url: string, proceso: resource}> servidores por configuración */
     private static array $servidores = [];
     /** Variables de entorno con la conexión a la base de pruebas, para la API y los scripts. */

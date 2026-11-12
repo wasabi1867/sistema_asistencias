@@ -137,6 +137,10 @@ final class Usuarios
         $cuenta = self::uno($c, $id);
         $hash = Contrasenas::cifrarNueva((string)$c->peticion->cuerpo()->crudo('contrasena'));
         $c->bd->ejecutar('UPDATE usuarios SET password_hash = ? WHERE id = ?', [$hash, $id]);
+        // Las sesiones abiertas de esa cuenta dejan de servir. Si es la propia, esta sigue.
+        if ($id === $c->usuarioConSesion()->id) {
+            $c->sesion->seguirCon($hash);
+        }
         $c->bitacora->registrar('restablecer_contrasena', 'usuarios', $id, self::descripcion($cuenta));
         return Respuesta::vacia();
     }

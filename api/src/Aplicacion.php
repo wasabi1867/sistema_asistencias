@@ -51,6 +51,7 @@ final class Aplicacion
             error_log('API asistencias: no se pudieron cerrar las clases vencidas: ' . $e);
         }
         try {
+            $this->revisarDeDondeViene($peticion);
             [$ruta, $parametros] = $this->enrutador->buscar($peticion->metodo, $peticion->ruta);
             $contexto = new Contexto($peticion->conParametros($parametros), $bd, $this->config, new Sesion($peticion->esHttps()));
             if (!$ruta->acceso->permite($contexto->usuario())) {
@@ -86,6 +87,39 @@ final class Aplicacion
         http_response_code($estado);
         if ($estado !== 204) {
             echo json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION);
+        }
+    }
+
+    /**
+     * Lo que cambia datos solo se acepta desde las páginas del propio sitio (o desde un
+     * origen configurado). La cookie de sesión es SameSite=Lax, pero eso no detiene a
+     * otro sitio del mismo dominio, como el de la carrera, que está un nivel arriba del
+     * subdominio: para el navegador son "el mismo sitio" (D25).
+     *
+     * El navegador manda Origin en toda petición que no es GET, y no deja que una
+     * página lo cambie. Lo que no es un navegador (scripts, pruebas) no lo manda, y
+     * tampoco lleva la cookie de nadie.
+     */
+    private function revisarDeDondeViene(Peticion $peticion): void
+    {
+        if (in_array($peticion->metodo, ['GET', 'HEAD', 'OPTIONS'], true)) {
+            return;
+        }
+        $origen = $peticion->encabezado('origin');
+        if ($origen === null) {
+            // Sin Origin, lo que el navegador dice de la petición.
+            if (in_array($peticion->encabezado('sec-fetch-site'), ['cross-site', 'same-site'], true)) {
+                throw ErrorHttp::sinPermiso('Esta petición no viene del sistema');
+            }
+            return;
+        }
+        if (in_array($origen, $this->config->origenesPermitidos, true)) {
+            return;
+        }
+        $partes = parse_url($origen);
+        $deOrigen = strtolower(($partes['host'] ?? '') . (isset($partes['port']) ? ':' . $partes['port'] : ''));
+        if ($deOrigen === '' || $deOrigen !== strtolower((string)$peticion->encabezado('host'))) {
+            throw ErrorHttp::sinPermiso('Esta petición no viene del sistema');
         }
     }
 
