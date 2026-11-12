@@ -25,6 +25,7 @@ final class Configuracion
         public readonly bool $exigirCodigoDeClase = false,
         public readonly bool $dbCifrada = false,
         public readonly string $dbAutoridades = '',
+        public readonly int $horasMaximasDeClase = 6,
     ) {
     }
 
@@ -66,6 +67,9 @@ final class Configuracion
             // de Git). Con él se comprueba que el servidor es quien dice ser; sin él, la
             // conexión va cifrada pero sin esa comprobación.
             dbAutoridades: (string)$leer('db_tls_ca', 'ASISTENCIAS_DB_TLS_CA', ''),
+            // Una clase que lleva abierta más horas que estas la cierra el sistema: se
+            // quedó olvidada. Con 0 no se cierra ninguna.
+            horasMaximasDeClase: max(0, (int)$leer('horas_maximas_de_clase', 'ASISTENCIAS_HORAS_MAXIMAS_DE_CLASE', 6)),
         );
     }
 }

@@ -154,6 +154,7 @@ abstract class PruebaDeApi extends TestCase
     {
         return $this->insertar('clases', [
             'laboratorio_id' => $this->laboratorio($laboratorio), 'tipo' => 'regular', 'curso_id' => $curso,
+            'docente_id' => $this->valor('SELECT docente_id FROM cursos WHERE id = ?', [$curso]),
             'practica_id' => $practica, 'abierta_por' => $abiertaPor ?? $this->docente, 'codigo' => $codigo,
         ]);
     }

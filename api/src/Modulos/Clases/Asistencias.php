@@ -22,16 +22,20 @@ use Asistencias\Seguridad\Acceso;
  */
 final class Asistencias
 {
+    // La carrera, el semestre, el grupo y el turno son los que tenía el alumno al entrar
+    // (van después de s.* para sustituir a sus columnas). Si entonces no tenía el dato,
+    // por ejemplo recién dado de alta, se usa el que tiene ahora.
     public const SELECCION = "SELECT s.*, e.etiqueta AS equipo, l.clave AS laboratorio_clave,
             COALESCE(a.matricula, u.matricula) AS matricula,
             COALESCE(a.nombre, u.nombre, s.invitado_nombre) AS nombre,
             COALESCE(a.apellido, u.apellido, s.invitado_apellido) AS apellido,
-            ca.clave AS carrera_clave, ca.nombre AS carrera_nombre, a.semestre, a.grupo, a.turno
+            ca.clave AS carrera_clave, ca.nombre AS carrera_nombre,
+            COALESCE(s.semestre, a.semestre) AS semestre, COALESCE(s.grupo, a.grupo) AS grupo, COALESCE(s.turno, a.turno) AS turno
         FROM asistencias s
         JOIN laboratorios l ON l.id = s.laboratorio_id
         LEFT JOIN equipos e ON e.id = s.equipo_id
         LEFT JOIN alumnos a ON a.id = s.alumno_id
-        LEFT JOIN carreras ca ON ca.id = a.carrera_id
+        LEFT JOIN carreras ca ON ca.id = COALESCE(s.carrera_id, a.carrera_id)
         LEFT JOIN usuarios u ON u.id = s.usuario_id";
 
     public static function registrar(Enrutador $r): void
@@ -103,7 +107,7 @@ final class Asistencias
             $parametros[] = Alumnos::porMatricula($c->bd, $matricula)['id'];
         }
         if (($carrera = $q->texto('carrera', 'la carrera', 150, false)) !== null) {
-            $condiciones[] = 'a.carrera_id = ?';
+            $condiciones[] = 'COALESCE(s.carrera_id, a.carrera_id) = ?';
             $parametros[] = Carreras::idPor($c->bd, $carrera);
         }
         if (($curso = $q->entero('curso', 'el curso', 1, null, false)) !== null) {

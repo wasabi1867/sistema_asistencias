@@ -33,6 +33,7 @@ Los datos reales no van en git. `api/config.local.php` (copia de [`config.ejempl
 | `db_tls` | `ASISTENCIAS_DB_TLS` | Cifrar la conexión con la base. Hace falta al conectarse a la de Hostinger desde otra computadora (MySQL remoto); en el servidor, con `localhost`, no. Si se pide y la conexión no queda cifrada, no se conecta |
 | `db_tls_ca` | `ASISTENCIAS_DB_TLS_CA` | Archivo de autoridades de certificados (por ejemplo, el `ca-bundle.crt` de Git) para comprobar el certificado del servidor. Sin él, la conexión va cifrada pero sin esa comprobación |
 | `zona_horaria` | `ASISTENCIAS_ZONA_HORARIA` | Por omisión `America/Hermosillo` |
+| `horas_maximas_de_clase` | `ASISTENCIAS_HORAS_MAXIMAS_DE_CLASE` | Horas después de las cuales el sistema cierra una clase que se quedó abierta (D24). Por omisión 6; con 0 no cierra ninguna |
 | `exigir_codigo_de_clase` | `ASISTENCIAS_EXIGIR_CODIGO_DE_CLASE` | Si el alumno tiene que escribir el código que se muestra en el aula al registrar su entrada. Por omisión, no |
 
 ## Convenciones
@@ -123,10 +124,10 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 | `PUT`, `DELETE /practicas/{id}` | Admin, o el docente si es suya | Una práctica ya usada en clase se desactiva en lugar de borrarse |
 | `GET /cursos` | Sesión | Los del periodo actual (`?periodo=id`, `?periodo=todos`, `?docente=yo`, `?materia=`, `?laboratorio=`) |
 | `GET /cursos/{id}` | Sesión | Un curso |
-| `POST /cursos`, `PUT`, `DELETE /cursos/{id}` | Admin | Crea, edita o borra (si no tiene clases) |
-| `GET /cursos/{id}/alumnos` | Sesión | Los inscritos |
-| `POST /cursos/{id}/alumnos` | Personal o su docente | Inscribe una lista de hasta 500 matrículas y dice qué pasó con cada una |
-| `DELETE /cursos/{id}/alumnos/{matricula}` | Personal o su docente | Da de baja del curso |
+| `POST /cursos`, `PUT`, `DELETE /cursos/{id}` | Admin | Crea, edita o borra (si no tiene clases). Con clases ya no cambia de materia ni de periodo: 409 `curso_con_clases` (D24) |
+| `GET /cursos/{id}/alumnos` | Sesión | Los inscritos, sin los dados de baja |
+| `POST /cursos/{id}/alumnos` | Personal o su docente | Inscribe una lista de hasta 500 matrículas y dice qué pasó con cada una. A quien estaba dado de baja lo vuelve a inscribir con su fecha original |
+| `DELETE /cursos/{id}/alumnos/{matricula}` | Personal o su docente | Da de baja del curso. La inscripción se conserva con la fecha de la baja, para las listas de las clases que le tocaron (D24) |
 | `GET /cursos/{id}/asistencia` | Sesión | Asistencias, faltas y porcentaje de cada inscrito. No cuenta como falta lo anterior a su inscripción |
 | `GET /horarios` | Sesión | El horario del periodo actual (`?laboratorio=`, `?docente=yo`, `?curso=`) |
 | `POST /horarios`, `PUT`, `DELETE /horarios/{id}` | Personal de ese laboratorio | Arma el horario. No deja encimar el laboratorio, el curso ni el docente |
@@ -150,7 +151,7 @@ El reparto es provisional mientras el instituto no defina los permisos (pregunta
 |---|---|---|
 | `GET /clases/abiertas?laboratorio=` | Pública | Qué clase hay en el laboratorio y si pide código (sin el código) |
 | `GET /clases` | Sesión | Con filtros (`laboratorio`, `estado`, `tipo`, `desde`, `hasta`, `docente=yo`, `curso`) y `?conAsistentes=1` para los reportes |
-| `GET /clases/{id}` | Sesión | La clase, quiénes entraron y, si es regular, la lista con las faltas. El código solo lo ve quien la lleva |
+| `GET /clases/{id}` | Sesión | La clase, quiénes entraron y, si es regular, la lista con las faltas de quienes estaban inscritos cuando se dio (D24). `cierre` dice cómo se cerró: `normal`, `externo`, `automatico` o `vencida`, cuando la cerró el sistema por quedarse abierta. El código solo lo ve quien la lleva |
 | `POST /clases` | Admin o su docente (regular); personal de ese laboratorio (de invitado) | Abre una clase |
 | `POST /clases/{id}/cerrar` | Quien lleva la clase: su docente, el administrador o el laboratorista de ese laboratorio | La cierra y registra la salida de todos. `{automatico: true}` cuando la cierra la pestaña del docente |
 | `POST /clases/{id}/asistencias` | Quien lleva la clase | Registra a mano a un inscrito o, en una clase de invitado, a alguien de fuera |
@@ -216,6 +217,6 @@ Para correr la API en una computadora:
 
 [`db/esquema.sql`](../db/esquema.sql) siempre describe la base completa; [docs/modelo-de-datos.md](modelo-de-datos.md) explica cada tabla.
 
-Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: `001-cuentas-con-varios-roles.sql` es el primero, `002-laboratorios-por-laboratorista.sql` el segundo y `003-solicitudes-de-alta.sql` el tercero. `tests/api/MigracionesTest.php` crea una base con el esquema con que se instaló producción (`tests/api/migraciones/esquema-instalado-2026-10-22.sql`), le aplica las migraciones y revisa que quede igual que una creada con `db/esquema.sql`. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
+Un cambio a una base ya instalada va en un archivo nuevo de `db/migraciones/` y, en el mismo commit, también en `db/esquema.sql`. Los archivos se numeran en orden: `001-cuentas-con-varios-roles.sql` es el primero, `002-laboratorios-por-laboratorista.sql` el segundo, `003-solicitudes-de-alta.sql` el tercero y `004-historial-que-no-se-reescribe.sql` el cuarto. `tests/api/MigracionesTest.php` crea una base con el esquema con que se instaló producción (`tests/api/migraciones/esquema-instalado-2026-10-22.sql`), le aplica las migraciones y revisa que quede igual que una creada con `db/esquema.sql`. Como la base de producción ya está instalada (22 de octubre de 2026), **todo cambio a la base lleva su migración**. `php scripts/migrar.php` aplica los pendientes y anota cada uno en la tabla `migraciones`; `instalar.php` los da por aplicados porque el esquema ya los incluye.
 
 Antes de aplicar una migración en producción se respalda la base. Un respaldo solo se restaura sobre el esquema de su misma versión: `scripts/restaurar.php` lo revisa. Ver "Respaldos" en [cambio-de-firebase.md](cambio-de-firebase.md#respaldos).

@@ -9,6 +9,7 @@ use Asistencias\Http\Enrutador;
 use Asistencias\Http\ErrorHttp;
 use Asistencias\Http\Peticion;
 use Asistencias\Http\Respuesta;
+use Asistencias\Modulos\Clases\Clases;
 use Asistencias\Seguridad\Sesion;
 use Throwable;
 
@@ -43,6 +44,12 @@ final class Aplicacion
 
         $bd = new BaseDeDatos($this->config);
         $contexto = null;
+        try {
+            Clases::cerrarLasVencidas($bd, $this->config->horasMaximasDeClase);
+        } catch (Throwable $e) {
+            // Que esto falle no impide atender la petición.
+            error_log('API asistencias: no se pudieron cerrar las clases vencidas: ' . $e);
+        }
         try {
             [$ruta, $parametros] = $this->enrutador->buscar($peticion->metodo, $peticion->ruta);
             $contexto = new Contexto($peticion->conParametros($parametros), $bd, $this->config, new Sesion($peticion->esHttps()));

@@ -27,4 +27,8 @@ return [
     // Si el alumno debe escribir el código que se muestra en el aula al registrar su
     // entrada. Evita que alguien registre a un compañero desde fuera del laboratorio.
     'exigir_codigo_de_clase' => false,
+
+    // Una clase que lleva abierta más horas que estas se quedó olvidada: el sistema
+    // la cierra y registra la salida de todos a esa hora. Con 0 no se cierra ninguna.
+    'horas_maximas_de_clase' => 6,
 ];

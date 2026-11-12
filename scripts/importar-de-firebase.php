@@ -555,7 +555,7 @@ final class Importacion
                     'SELECT id FROM practicas WHERE materia_id = ? AND (docente_id IS NULL OR docente_id <=> ?) AND titulo = ? LIMIT 1',
                     [$materiaId, $docente, $practica]
                 );
-                $clase += ['curso_id' => $curso, 'practica_id' => $practicaId, 'practica_invitado' => $practicaId === null ? $practica : null,
+                $clase += ['curso_id' => $curso, 'docente_id' => $docente, 'practica_id' => $practicaId, 'practica_invitado' => $practicaId === null ? $practica : null,
                     'abierta_por' => $docente ?? $this->cuentaDeImportacion()];
             }
             $claseId = $this->insertar('clases', $clase);
@@ -600,9 +600,15 @@ final class Importacion
             if ($etiqueta !== '' && $etiqueta !== 'personal' && $equipo === null) {
                 $this->avisos[] = "Una asistencia era del equipo \"$etiqueta\", que no existe; quedó como equipo propio";
             }
-            $this->insertar('asistencias', $persona + [
+            $asistencia = $this->insertar('asistencias', $persona + [
                 'laboratorio_id' => $laboratorio, 'clase_id' => $clase, 'equipo_id' => $equipo, 'hora_entrada' => $entrada, 'hora_salida' => $salida,
             ]);
+            // Firebase no guardó qué semestre o grupo tenía entonces: quedan los de hoy.
+            $this->ejecutar(
+                'UPDATE asistencias s JOIN alumnos a ON a.id = s.alumno_id
+                 SET s.carrera_id = a.carrera_id, s.semestre = a.semestre, s.turno = a.turno, s.grupo = a.grupo WHERE s.id = ?',
+                [$asistencia]
+            );
             $this->contar('asistencias');
         }
     }

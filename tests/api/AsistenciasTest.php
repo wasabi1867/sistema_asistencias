@@ -89,4 +89,21 @@ final class AsistenciasTest extends PruebaDeApi
         $this->assertSame(0, (int)$this->valor('SELECT COUNT(*) FROM asistencias'));
         $this->assertSame("23303001, clase $this->clase", $this->valor("SELECT detalles FROM bitacora WHERE accion = 'quitar_asistencia'"));
     }
+
+    public function test_el_historial_conserva_la_carrera_el_semestre_y_el_grupo_que_tenia_el_alumno_al_entrar(): void
+    {
+        $ana = $this->crearAlumno('23303001', carrera: 'ISIC');
+        $this->inscribir($this->curso, $ana);
+        $this->ok($this->anonimo()->post('registro/entrada', ['laboratorio' => 'programacion', 'matricula' => '23303001', 'equipoPropio' => true]), 201);
+
+        // Pasa de semestre y cambia de carrera.
+        $this->pdo()->prepare("UPDATE alumnos SET semestre = 6, grupo = 'B', turno = 'vespertino', carrera_id = ? WHERE id = ?")->execute([$this->carrera('IIND'), $ana]);
+
+        $docente = $this->con('docente');
+        $suya = $this->ok($docente->get('asistencias?alumno=23303001'))['asistencias'][0];
+        $this->assertSame(['ISIC', 5, 'A', 'matutino'], [$suya['carrera']['clave'], $suya['semestre'], $suya['grupo'], $suya['turno']]);
+        $this->assertSame(1, $this->ok($docente->get('asistencias?carrera=ISIC'))['total']);
+        $this->assertSame(0, $this->ok($docente->get('asistencias?carrera=IIND'))['total']);
+        $this->assertSame(5, $this->ok($docente->get("clases/$this->clase"))['personas'][0]['semestre']);
+    }
 }

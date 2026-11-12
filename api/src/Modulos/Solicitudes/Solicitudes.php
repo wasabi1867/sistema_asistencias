@@ -34,7 +34,7 @@ final class Solicitudes
     private const RESOLUCIONES = ['aprobada_temporal', 'aprobada_permanente', 'rechazada'];
     private const SELECCION = "SELECT s.*, l.clave AS laboratorio_clave, l.nombre AS laboratorio_nombre,
             a.matricula, a.nombre, a.apellido, a.semestre, a.grupo, a.turno, ca.clave AS carrera_clave, ca.nombre AS carrera_nombre,
-            e.etiqueta AS equipo, cl.curso_id, cl.cerrada_en AS clase_cerrada_en, cu.docente_id AS curso_docente_id,
+            e.etiqueta AS equipo, cl.curso_id, cl.cerrada_en AS clase_cerrada_en, cl.docente_id AS curso_docente_id,
             COALESCE(m.nombre, cl.materia_invitado) AS materia, cu.grupo AS curso_grupo,
             COALESCE(CONCAT(ud.nombre, ' ', ud.apellido), cl.docente_invitado) AS docente,
             CONCAT(ur.nombre, ' ', ur.apellido) AS resuelta_por_nombre
@@ -46,7 +46,7 @@ final class Solicitudes
         LEFT JOIN clases cl ON cl.id = s.clase_id
         LEFT JOIN cursos cu ON cu.id = cl.curso_id
         LEFT JOIN materias m ON m.id = cu.materia_id
-        LEFT JOIN usuarios ud ON ud.id = cu.docente_id
+        LEFT JOIN usuarios ud ON ud.id = cl.docente_id
         LEFT JOIN usuarios ur ON ur.id = s.resuelta_por";
 
     public static function registrar(Enrutador $r): void
@@ -184,7 +184,8 @@ final class Solicitudes
             $claseAbierta = $solicitud['clase_id'] === null || $solicitud['clase_cerrada_en'] === null;
             if ($estado === 'aprobada_permanente') {
                 $c->bd->ejecutar(
-                    'INSERT IGNORE INTO inscripciones (curso_id, alumno_id, solicitud_id) VALUES (?, ?, ?)',
+                    // Si ya estaba inscrito no cambia nada; si lo habían dado de baja, vuelve.
+                    'INSERT INTO inscripciones (curso_id, alumno_id, solicitud_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE baja_en = NULL',
                     [$solicitud['curso_id'], $solicitud['alumno_id'], $solicitud['id']]
                 );
             } elseif (!$claseAbierta) {

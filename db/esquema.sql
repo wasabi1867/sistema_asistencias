@@ -173,6 +173,9 @@ CREATE TABLE inscripciones (
   inscrito_en  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   -- Si entró por una solicitud aprobada, cuál.
   solicitud_id INT UNSIGNED NULL,
+  -- Cuándo se le dio de baja del curso. La inscripción no se borra: así las
+  -- listas de las clases que ya pasaron lo siguen mostrando (D24).
+  baja_en      DATETIME     NULL,
   PRIMARY KEY (curso_id, alumno_id),
   KEY ix_inscripciones_alumno (alumno_id),
   CONSTRAINT fk_inscripciones_curso FOREIGN KEY (curso_id) REFERENCES cursos (id) ON DELETE CASCADE,
@@ -290,6 +293,9 @@ CREATE TABLE clases (
   tipo                 ENUM('regular', 'invitado') NOT NULL,
   curso_id             INT UNSIGNED NULL,
   practica_id          INT UNSIGNED NULL,
+  -- El docente que dio la clase: el del curso al abrirla. Se guarda aquí porque
+  -- el docente de un curso puede cambiar a medio semestre (D24).
+  docente_id           INT UNSIGNED NULL,
   -- Solo en clases de invitado:
   docente_invitado     VARCHAR(200) NULL,
   departamento         VARCHAR(150) NULL,
@@ -305,8 +311,9 @@ CREATE TABLE clases (
   cerrada_por          INT UNSIGNED NULL,
   cerrada_en           DATETIME     NULL,
   -- normal: la cerró quien la abrió; externo: la cerró otra persona del
-  -- personal; automatico: se cerró sola al cerrar el docente la pestaña.
-  cierre               ENUM('normal', 'externo', 'automatico') NULL,
+  -- personal; automatico: se cerró sola al cerrar el docente la pestaña;
+  -- vencida: la cerró el sistema porque llevaba demasiadas horas abierta (D24).
+  cierre               ENUM('normal', 'externo', 'automatico', 'vencida') NULL,
   -- Solo tienen valor mientras la clase está abierta. Sus índices únicos impiden
   -- dos clases abiertas del mismo tipo en un laboratorio, o del mismo curso.
   laboratorio_abierto  VARCHAR(40) AS (IF(cerrada_en IS NULL, CONCAT(laboratorio_id, '-', tipo), NULL)) STORED,
@@ -322,11 +329,13 @@ CREATE TABLE clases (
   KEY ix_clases_practica (practica_id),
   KEY ix_clases_abierta_por (abierta_por),
   KEY ix_clases_cerrada_por (cerrada_por),
+  KEY ix_clases_docente (docente_id),
   CONSTRAINT fk_clases_laboratorio FOREIGN KEY (laboratorio_id) REFERENCES laboratorios (id),
   CONSTRAINT fk_clases_curso FOREIGN KEY (curso_id) REFERENCES cursos (id),
   CONSTRAINT fk_clases_practica FOREIGN KEY (practica_id) REFERENCES practicas (id),
   CONSTRAINT fk_clases_abierta_por FOREIGN KEY (abierta_por) REFERENCES usuarios (id),
   CONSTRAINT fk_clases_cerrada_por FOREIGN KEY (cerrada_por) REFERENCES usuarios (id),
+  CONSTRAINT fk_clases_docente FOREIGN KEY (docente_id) REFERENCES usuarios (id),
   CONSTRAINT ck_clases_tipo CHECK (
        (tipo = 'regular'  AND curso_id IS NOT NULL AND materia_invitado IS NULL)
     OR (tipo = 'invitado' AND curso_id IS NULL AND practica_id IS NULL AND materia_invitado IS NOT NULL)
@@ -349,6 +358,12 @@ CREATE TABLE asistencias (
   equipo_id          INT UNSIGNED NULL,
   tipo_persona       ENUM('alumno', 'docente', 'invitado') NOT NULL,
   alumno_id          INT UNSIGNED NULL,
+  -- La carrera, el semestre, el turno y el grupo que tenía el alumno al entrar:
+  -- los reportes de un semestre pasado no cambian cuando el alumno avanza (D24).
+  carrera_id         INT UNSIGNED NULL,
+  semestre           TINYINT UNSIGNED NULL,
+  turno              ENUM('matutino', 'vespertino') NULL,
+  grupo              VARCHAR(20)  NULL,
   usuario_id         INT UNSIGNED NULL,
   invitado_nombre    VARCHAR(100) NULL,
   invitado_apellido  VARCHAR(100) NULL,
@@ -375,12 +390,14 @@ CREATE TABLE asistencias (
   KEY ix_asistencias_hora_entrada (hora_entrada),
   KEY ix_asistencias_registrada_por (registrada_por),
   KEY ix_asistencias_solicitud (solicitud_id),
+  KEY ix_asistencias_carrera (carrera_id),
   CONSTRAINT fk_asistencias_laboratorio FOREIGN KEY (laboratorio_id) REFERENCES laboratorios (id),
   -- La clase y el equipo tienen que ser del mismo laboratorio que la asistencia.
   -- Con clase_id o equipo_id en NULL, la llave correspondiente no se revisa.
   CONSTRAINT fk_asistencias_clase FOREIGN KEY (clase_id, laboratorio_id) REFERENCES clases (id, laboratorio_id),
   CONSTRAINT fk_asistencias_equipo FOREIGN KEY (equipo_id, laboratorio_id) REFERENCES equipos (id, laboratorio_id),
   CONSTRAINT fk_asistencias_alumno FOREIGN KEY (alumno_id) REFERENCES alumnos (id),
+  CONSTRAINT fk_asistencias_carrera FOREIGN KEY (carrera_id) REFERENCES carreras (id),
   CONSTRAINT fk_asistencias_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
   CONSTRAINT fk_asistencias_registrada_por FOREIGN KEY (registrada_por) REFERENCES usuarios (id),
   -- fk_asistencias_solicitud se agrega al final, cuando ya existe solicitudes_ingreso.

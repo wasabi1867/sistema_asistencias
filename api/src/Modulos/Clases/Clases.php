@@ -27,7 +27,7 @@ use Asistencias\Seguridad\Usuario;
 final class Clases
 {
     private const SELECCION = "SELECT cl.*, l.clave AS laboratorio_clave, l.nombre AS laboratorio_nombre,
-            cu.grupo AS curso_grupo, cu.docente_id AS curso_docente_id, m.nombre AS curso_materia,
+            cu.grupo AS curso_grupo, m.nombre AS curso_materia,
             CONCAT(ud.nombre, ' ', ud.apellido) AS curso_docente,
             p.numero AS practica_numero, p.titulo AS practica_titulo,
             CONCAT(ua.nombre, ' ', ua.apellido) AS abierta_por_nombre,
@@ -37,7 +37,7 @@ final class Clases
         JOIN laboratorios l ON l.id = cl.laboratorio_id
         LEFT JOIN cursos cu ON cu.id = cl.curso_id
         LEFT JOIN materias m ON m.id = cu.materia_id
-        LEFT JOIN usuarios ud ON ud.id = cu.docente_id
+        LEFT JOIN usuarios ud ON ud.id = cl.docente_id
         LEFT JOIN practicas p ON p.id = cl.practica_id
         JOIN usuarios ua ON ua.id = cl.abierta_por
         LEFT JOIN usuarios uc ON uc.id = cl.cerrada_por";
@@ -62,12 +62,12 @@ final class Clases
     /**
      * Quién lleva la clase (la cierra, registra a mano, corrige): el administrador, el
      * laboratorista de ese laboratorio (para liberarlo si el docente se fue sin cerrarla)
-     * y, en una clase regular, el docente del curso.
+     * y, en una clase regular, el docente que la dio: el del curso al abrirla.
      */
     public static function puedeLlevar(Usuario $usuario, array $clase): bool
     {
         return $usuario->atiende($clase['laboratorio_id'])
-            || ($usuario->esDocente() && $clase['tipo'] === 'regular' && $clase['curso_docente_id'] === $usuario->id);
+            || ($usuario->esDocente() && $clase['tipo'] === 'regular' && $clase['docente_id'] === $usuario->id);
     }
 
     /** @param bool $conCodigo el código de la clase solo lo ve quien la lleva */
@@ -86,7 +86,7 @@ final class Clases
                 default => null,
             },
             'docente' => $regular ? $fila['curso_docente'] : $fila['docente_invitado'],
-            'docenteId' => $regular ? $fila['curso_docente_id'] : null,
+            'docenteId' => $fila['docente_id'],
             'grupo' => $regular ? $fila['curso_grupo'] : $fila['grupo_invitado'],
             'departamento' => $fila['departamento'],
             'abierta' => $fila['cerrada_en'] === null,
@@ -145,10 +145,10 @@ final class Clases
             $parametros[] = $hasta;
         }
         if ($q->crudo('docente') === 'yo') {
-            $condiciones[] = 'cu.docente_id = ?';
+            $condiciones[] = 'cl.docente_id = ?';
             $parametros[] = $c->usuarioConSesion()->id;
         } elseif (($docente = $q->entero('docente', 'el docente', 1, null, false)) !== null) {
-            $condiciones[] = 'cu.docente_id = ?';
+            $condiciones[] = 'cl.docente_id = ?';
             $parametros[] = $docente;
         }
         if (($curso = $q->entero('curso', 'el curso', 1, null, false)) !== null) {
@@ -187,9 +187,13 @@ final class Clases
             + ['personas' => array_map(Asistencias::formato(...), $asistencias)];
 
         if ($clase['tipo'] === 'regular') {
+            // Los que estaban inscritos al terminar la clase (o ahora, si sigue abierta):
+            // a quien se inscribió después no se le pone falta, y quien se dio de baja
+            // después sigue en la lista de las clases que le tocaron.
             $inscritos = $c->bd->filas(
-                'SELECT a.id, a.matricula, a.nombre, a.apellido FROM inscripciones i JOIN alumnos a ON a.id = i.alumno_id WHERE i.curso_id = ?',
-                [$clase['curso_id']]
+                'SELECT a.id, a.matricula, a.nombre, a.apellido FROM inscripciones i JOIN alumnos a ON a.id = i.alumno_id
+                 WHERE i.curso_id = ? AND i.inscrito_en <= COALESCE(?, NOW()) AND (i.baja_en IS NULL OR i.baja_en > COALESCE(?, NOW()))',
+                [$clase['curso_id'], $clase['cerrada_en'], $clase['cerrada_en']]
             );
             $asistentes = array_map(static fn (array $f) => [
                 'asistencia_id' => $f['id'], 'alumno_id' => $f['alumno_id'], 'matricula' => $f['matricula'], 'nombre' => $f['nombre'],
@@ -217,6 +221,9 @@ final class Clases
             self::revisarQueSePuedaAbrir($c->bd, $curso);
             $valores = [
                 'curso_id' => $curso['id'],
+                // Se guarda en la clase: si después cambia el docente del curso, las
+                // clases que ya dio siguen siendo suyas.
+                'docente_id' => $curso['docente_id'],
                 'practica_id' => self::practicaDelCurso($c->bd, $curso, $e->entero('practicaId', 'la práctica', 1, null, false)),
             ];
             $descripcion = "{$curso['materia_nombre']} {$curso['grupo']}";
@@ -287,6 +294,43 @@ final class Clases
     }
 
     /**
+     * Cierra las clases que llevan abiertas más horas de las que dura cualquier clase:
+     * alguien se fue sin cerrarla y el navegador no alcanzó a cerrarla solo. Abierta,
+     * ocupa el laboratorio, no deja a sus alumnos registrarse en otra clase y les
+     * cuenta horas que no estuvieron. Se revisa al llegar cada petición, porque en el
+     * hospedaje no hay tareas programadas.
+     *
+     * La clase y las salidas quedan con la hora del límite, no con la de ahora: si
+     * nadie entra al sistema en todo el fin de semana, no son tres días de clase.
+     */
+    public static function cerrarLasVencidas(BaseDeDatos $bd, int $horas): void
+    {
+        if ($horas <= 0) {
+            return;
+        }
+        $vencidas = $bd->filas("SELECT id FROM clases WHERE cerrada_en IS NULL AND abierta_en < NOW() - INTERVAL $horas HOUR");
+        foreach ($vencidas as ['id' => $id]) {
+            $bd->transaccion(static function () use ($bd, $id, $horas) {
+                // Bloquearla y volver a revisar: puede que alguien la esté cerrando ahora.
+                $clase = $bd->fila("SELECT laboratorio_id, abierta_en + INTERVAL $horas HOUR AS limite FROM clases WHERE id = ? AND cerrada_en IS NULL FOR UPDATE", [$id]);
+                if ($clase === null) {
+                    return;
+                }
+                $salidas = $bd->ejecutar('UPDATE asistencias SET hora_salida = GREATEST(hora_entrada, ?) WHERE clase_id = ? AND hora_salida IS NULL', [$clase['limite'], $id]);
+                $bd->ejecutar("UPDATE clases SET cerrada_en = ?, cierre = 'vencida' WHERE id = ?", [$clase['limite'], $id]);
+                $bd->insertar('bitacora', [
+                    'usuario' => 'Sistema',
+                    'accion' => 'cerrar_clase',
+                    'entidad' => 'clases',
+                    'entidad_id' => (string)$id,
+                    'detalles' => "Cierre vencida: llevaba más de $horas horas abierta, $salidas salidas registradas",
+                    'laboratorio_id' => $clase['laboratorio_id'],
+                ]);
+            });
+        }
+    }
+
+    /**
      * Quien lleva la clase registra a mano a alguien: un alumno inscrito (en una clase
      * de invitado, cualquier alumno) o, en una clase de invitado, a alguien de fuera.
      */
@@ -315,7 +359,7 @@ final class Clases
 
     public static function estaInscrito(BaseDeDatos $bd, ?int $cursoId, int $alumnoId): bool
     {
-        return $cursoId !== null && $bd->valor('SELECT 1 FROM inscripciones WHERE curso_id = ? AND alumno_id = ?', [$cursoId, $alumnoId]) !== null;
+        return $cursoId !== null && $bd->valor('SELECT 1 FROM inscripciones WHERE curso_id = ? AND alumno_id = ? AND baja_en IS NULL', [$cursoId, $alumnoId]) !== null;
     }
 
     /**
@@ -329,8 +373,8 @@ final class Clases
         }
         if ($curso['docente_id'] !== null) {
             $otra = $bd->fila(
-                'SELECT l.nombre AS laboratorio FROM clases cl JOIN cursos cu ON cu.id = cl.curso_id JOIN laboratorios l ON l.id = cl.laboratorio_id
-                 WHERE cl.cerrada_en IS NULL AND cu.docente_id = ? AND cu.id <> ?',
+                'SELECT l.nombre AS laboratorio FROM clases cl JOIN laboratorios l ON l.id = cl.laboratorio_id
+                 WHERE cl.cerrada_en IS NULL AND cl.docente_id = ? AND cl.curso_id <> ?',
                 [$curso['docente_id'], $curso['id']]
             );
             if ($otra !== null) {

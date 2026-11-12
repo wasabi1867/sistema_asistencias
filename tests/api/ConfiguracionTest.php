@@ -73,6 +73,13 @@ final class ConfiguracionTest extends TestCase
         $this->assertSame('/ruta/ca.pem', $config->dbAutoridades);
     }
 
+    public function test_las_horas_maximas_de_una_clase_son_seis_si_no_se_dicen_y_nunca_negativas(): void
+    {
+        $this->assertSame(6, $this->conArchivo([])->horasMaximasDeClase);
+        $this->assertSame(0, $this->conArchivo(['horas_maximas_de_clase' => -3])->horasMaximasDeClase);
+        $this->assertSame(10, $this->conArchivo(['horas_maximas_de_clase' => '10'])->horasMaximasDeClase);
+    }
+
     public function test_las_variables_de_entorno_ganan_al_archivo(): void
     {
         putenv('ASISTENCIAS_DB_TLS=1');

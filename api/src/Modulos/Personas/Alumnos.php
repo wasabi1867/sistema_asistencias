@@ -109,7 +109,7 @@ final class Alumnos
              JOIN materias m ON m.id = cu.materia_id
              JOIN periodos p ON p.id = cu.periodo_id
              LEFT JOIN usuarios u ON u.id = cu.docente_id
-             WHERE i.alumno_id = ?
+             WHERE i.alumno_id = ? AND i.baja_en IS NULL
              ORDER BY p.fecha_inicio DESC, m.nombre",
             [$alumno['id']]
         );
