@@ -2,11 +2,11 @@
 
 Qué funciona, qué se verificó y qué falta. Se actualiza con cada cambio.
 
-Última actualización: 12 de noviembre de 2026 (límites por laboratorio y modo estricto; sin publicar todavía).
+Última actualización: 12 de noviembre de 2026 (séptima publicación, con #33, #34 y #35).
 
 ## En resumen
 
-**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #31, es del 6 de noviembre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
+**El sistema está publicado** desde el 22 de octubre de 2026 en https://laboratorios.soycorrecaminos.xyz; la última publicación, con todo lo de `main` hasta el #35, es del 12 de noviembre. La base de Hostinger (MariaDB 11.8.9) recién instalada: tiene los catálogos iniciales y una cuenta de administrador, pero todavía no tiene periodos, alumnos, materias, cursos ni cuentas de docentes y laboratoristas. Antes de usarlo en un laboratorio hay que cargar eso.
 
 **En el instituto se sigue usando la versión anterior**, publicada en Vercel (https://asistencialaboratorios.vercel.app; su última publicación es del 15 de octubre de 2026), que guarda todo en Firebase. Sus datos son reales y siguen creciendo. El plan (decisión D12 de [decisiones.md](decisiones.md)):
 - un piloto del sistema nuevo con un grupo real;
@@ -89,7 +89,7 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 
 ## Qué no se ha verificado
 
-- **Que la sesión dure 4 horas en Hostinger.** La API ya lo pide (D25), pero no se ha dejado una sesión sin usar ese tiempo en el sitio publicado, ni se sabe si el servidor deja crear la carpeta propia de sesiones.
+- **Que la sesión dure 4 horas en Hostinger.** La API ya lo pide (D25) y está publicada, pero no se ha dejado una sesión sin usar ese tiempo en el sitio, ni se sabe si el servidor dejó crear la carpeta propia de sesiones: la cuenta de FTP no la alcanza a ver.
 - **Una clase completa en el sitio publicado:** abrir una clase, registrar a un alumno desde un teléfono y cerrarla. Se hará al cargar los primeros datos reales, para no dejar datos de prueba en la base de producción.
 - **La importación con los datos reales de Firebase.** No se han descargado: falta el acceso de lectura a Firebase. La autorización ya no detiene la importación: el 4 de noviembre de 2026 se tomó de palabra la respuesta del jefe de carrera (D12).
 - **Las reglas de seguridad de Firebase.** Por cómo funciona la aplicación de Vercel (escribe sin iniciar sesión y compara las contraseñas en el navegador), lo más probable es que dejen leer y escribir a cualquiera.
@@ -155,5 +155,6 @@ En la carpeta del subdominio había una página de "Próximamente" y una compila
 | 5 de noviembre de 2026 | #31 | El alumno que no está dado de alta pide su alta desde el registro, y el administrador la aprueba desde el Tablero (D22, pregunta 3). Tercera migración de la base |
 | 6 de noviembre de 2026 | #32 | **Sexta publicación en Hostinger**, con #31: base respaldada (62 renglones) y migrada (003, solicitudes de alta), sitio respaldado (164 archivos) y subido (105); `npm run prueba:produccion` pasa, con el inicio de sesión del administrador |
 | 12 de noviembre de 2026 | #33 | Los límites por red del registro y de la solicitud de alta se cuentan por laboratorio, y la conexión con la base usa el modo estricto aunque el servidor no lo traiga (D23). Sin cambios a la base |
-| 12 de noviembre de 2026 | #34 | El historial ya no se reescribe (D24): la baja de un curso se anota con su fecha, la lista de una clase es de quienes estaban inscritos entonces, cada clase guarda a su docente y cada asistencia los datos del alumno, un curso con clases no cambia de materia ni de periodo, y el sistema cierra la clase que se queda abierta más de 6 horas. Cuarta migración de la base; **falta aplicarla en producción** |
+| 12 de noviembre de 2026 | #34 | El historial ya no se reescribe (D24): la baja de un curso se anota con su fecha, la lista de una clase es de quienes estaban inscritos entonces, cada clase guarda a su docente y cada asistencia los datos del alumno, un curso con clases no cambia de materia ni de periodo, y el sistema cierra la clase que se queda abierta más de 6 horas. Cuarta migración de la base; se aplicó en producción ese mismo día (#36) |
 | 12 de noviembre de 2026 | #35 | La sesión (D25): los intentos fallidos se cuentan por cuenta y ya no dejan fuera a todo el instituto, lo que cambia datos solo se acepta desde el propio sitio, la sesión dura de verdad 4 horas, cambiar la contraseña cierra las demás sesiones y en la bitácora no queda lo que se escribe en "usuario" si no es una cuenta. Sin cambios en la base |
+| 12 de noviembre de 2026 | #36 | **Séptima publicación en Hostinger**, con #33, #34 y #35: base respaldada (67 renglones) y migrada (004, historial que no se reescribe), sitio respaldado (170 archivos) y subido (105); `npm run prueba:produccion` pasa sus 15 pasos, con el inicio de sesión del administrador. En el sitio publicado, un `POST` con el `Origin` del sitio de la carrera recibe 403 y con el del propio sitio pasa |
